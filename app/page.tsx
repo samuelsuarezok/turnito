@@ -1,9 +1,6 @@
 "use client";
 
-// ============================================
-// LANDING ANIMADA — REEMPLAZA: app/page.tsx
-// Requiere: components/motion.tsx y framer-motion
-// ============================================
+
 
 import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
@@ -371,7 +368,7 @@ export default function LandingPage() {
       <footer>
         <div className="foot-in">
           <Link className="logo" href="#" style={{fontSize:16}}><LogoMark size={22} /> turnito</Link>
-          <div className="foot-links"><a href="#">Contacto</a><a href="#">WhatsApp</a><a href="#">Términos</a></div>
+          <div className="foot-links"><a href="#">Contacto</a><a href="#">WhatsApp</a><Link href="/legales">Términos</Link></div>
           <span>© 2026 Turnito · Córdoba, Argentina</span>
         </div>
       </footer>
