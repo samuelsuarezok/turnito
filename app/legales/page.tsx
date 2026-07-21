@@ -178,8 +178,9 @@ export default function LegalesPage() {
             <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2">Contacto</p>
             <p className="text-sm text-[#8A7F6A]">
               Para consultas sobre estos términos o tus datos personales, escribinos a{" "}
-              <span className="text-[#D8F34E]">hola@turnito.app</span>{" "}
-              <span className="text-[#5A5A54]">(reemplazá por tu email real)</span>.
+              <span className="text-[#D8F34E]">turnitodev@gmail.com
+</span>{" "}
+              
             </p>
           </div>
 
