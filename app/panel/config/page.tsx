@@ -1,0 +1,397 @@
+"use client";
+
+// ============================================
+// CONFIGURACIÓN — Guardar como: app/panel/config/page.tsx
+// Editar datos del local, servicios, horarios y días cerrados.
+// ============================================
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
+import { LogoMark } from "@/components/Logo";
+import { motion } from "framer-motion";
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+const DAYS = [
+  { weekday: 1, label: "Lunes" }, { weekday: 2, label: "Martes" },
+  { weekday: 3, label: "Miércoles" }, { weekday: 4, label: "Jueves" },
+  { weekday: 5, label: "Viernes" }, { weekday: 6, label: "Sábado" },
+  { weekday: 0, label: "Domingo" },
+];
+
+const HOUR_OPTS: string[] = [];
+for (let h = 6; h <= 23; h++) {
+  HOUR_OPTS.push(`${String(h).padStart(2, "0")}:00`);
+  HOUR_OPTS.push(`${String(h).padStart(2, "0")}:30`);
+}
+
+type Svc = { id?: string; name: string; duration_min: number; price: number; _deleted?: boolean };
+type DayHours = { open: boolean; opens_at: string; closes_at: string };
+type Closed = { id: string; date: string; reason: string | null };
+
+const inputCls = "w-full rounded-2xl bg-[#181818] border border-[#262626] px-4 py-3 outline-none focus:border-[#D8F34E] transition-colors text-sm";
+const selectCls = "rounded-xl bg-[#181818] border border-[#262626] px-2.5 py-1.5 text-xs outline-none";
+const saveBtn = "rounded-full bg-[#D8F34E] text-[#101010] font-bold text-sm px-6 py-2.5 disabled:opacity-30";
+
+function SectionCard({ title, children, onSave, saving, saved }: {
+  title: string; children: React.ReactNode; onSave: () => void; saving: boolean; saved: boolean;
+}) {
+  return (
+    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}
+      className="rounded-3xl bg-[#141414] border border-[#262626] p-5 mb-4">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-bold">{title}</h2>
+        <motion.button whileTap={{ scale: 0.95 }} onClick={onSave} disabled={saving} className={saveBtn}>
+          {saving ? "…" : saved ? "✓ Guardado" : "Guardar"}
+        </motion.button>
+      </div>
+      {children}
+    </motion.div>
+  );
+}
+
+export default function ConfigPage() {
+  const supabase = createClient();
+  const router = useRouter();
+
+  const [shopId, setShopId] = useState<string | null>(null);
+  const [slug, setSlug] = useState("");
+
+  // datos
+  const [name, setName] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [slotMinutes, setSlotMinutes] = useState(30);
+  const [minNotice, setMinNotice] = useState(60);
+  const [cancelLimit, setCancelLimit] = useState(60);
+
+  // servicios
+  const [services, setServices] = useState<Svc[]>([]);
+
+  // horarios
+  const [hours, setHours] = useState<Record<number, DayHours>>({});
+
+  // días cerrados
+  const [closedList, setClosedList] = useState<Closed[]>([]);
+  const [newClosedDate, setNewClosedDate] = useState("");
+  const [newClosedReason, setNewClosedReason] = useState("");
+
+  const [savingKey, setSavingKey] = useState("");
+  const [savedKey, setSavedKey] = useState("");
+  const [error, setError] = useState("");
+
+  function flash(key: string) {
+    setSavedKey(key);
+    setTimeout(() => setSavedKey(""), 2000);
+  }
+
+  useEffect(() => {
+    async function load() {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return router.push("/login");
+
+      const { data: shop } = await supabase
+        .from("barbershops")
+        .select("id, name, slug, whatsapp, slot_minutes, min_notice_min, cancel_limit_min")
+        .maybeSingle();
+      if (!shop) return router.push("/onboarding");
+
+      setShopId(shop.id);
+      setName(shop.name);
+      setSlug(shop.slug);
+      setWhatsapp(shop.whatsapp);
+      setSlotMinutes(shop.slot_minutes);
+      setMinNotice(shop.min_notice_min ?? 60);
+      setCancelLimit(shop.cancel_limit_min ?? 60);
+
+      const { data: svcs } = await supabase
+        .from("services")
+        .select("id, name, duration_min, price")
+        .eq("barbershop_id", shop.id)
+        .eq("active", true)
+        .order("sort_order");
+      setServices((svcs ?? []) as Svc[]);
+
+      const { data: hrs } = await supabase
+        .from("opening_hours")
+        .select("weekday, opens_at, closes_at")
+        .eq("barbershop_id", shop.id);
+      const map: Record<number, DayHours> = {};
+      for (const d of DAYS) {
+        const row = (hrs ?? []).find((h) => h.weekday === d.weekday);
+        map[d.weekday] = row
+          ? { open: true, opens_at: row.opens_at.slice(0, 5), closes_at: row.closes_at.slice(0, 5) }
+          : { open: false, opens_at: "09:00", closes_at: "19:00" };
+      }
+      setHours(map);
+
+      await loadClosed(shop.id);
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function loadClosed(id: string) {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data } = await supabase
+      .from("closed_dates")
+      .select("id, date, reason")
+      .eq("barbershop_id", id)
+      .gte("date", today)
+      .order("date");
+    setClosedList((data ?? []) as Closed[]);
+  }
+
+  // ── guardar datos ──
+  async function saveShop() {
+    if (!shopId) return;
+    setError(""); setSavingKey("shop");
+    const { error } = await supabase
+      .from("barbershops")
+      .update({
+        name: name.trim(),
+        whatsapp: whatsapp.trim(),
+        slot_minutes: slotMinutes,
+        min_notice_min: minNotice,
+        cancel_limit_min: cancelLimit,
+      })
+      .eq("id", shopId);
+    setSavingKey("");
+    if (error) return setError(error.message);
+    flash("shop");
+  }
+
+  // ── guardar servicios ──
+  async function saveServices() {
+    if (!shopId) return;
+    setError(""); setSavingKey("svc");
+
+    for (let i = 0; i < services.length; i++) {
+      const s = services[i];
+      if (s._deleted && s.id) {
+        await supabase.from("services").update({ active: false }).eq("id", s.id);
+      } else if (!s._deleted && s.id) {
+        await supabase.from("services")
+          .update({ name: s.name.trim(), duration_min: s.duration_min, price: s.price, sort_order: i })
+          .eq("id", s.id);
+      } else if (!s._deleted && !s.id) {
+        await supabase.from("services")
+          .insert({ barbershop_id: shopId, name: s.name.trim(), duration_min: s.duration_min, price: s.price, sort_order: i });
+      }
+    }
+
+    // recargar la lista limpia
+    const { data: svcs } = await supabase
+      .from("services").select("id, name, duration_min, price")
+      .eq("barbershop_id", shopId).eq("active", true).order("sort_order");
+    setServices((svcs ?? []) as Svc[]);
+
+    setSavingKey("");
+    flash("svc");
+  }
+
+  // ── guardar horarios ──
+  async function saveHours() {
+    if (!shopId) return;
+    setError(""); setSavingKey("hrs");
+
+    await supabase.from("opening_hours").delete().eq("barbershop_id", shopId);
+    const rows = DAYS.filter((d) => hours[d.weekday]?.open).map((d) => ({
+      barbershop_id: shopId,
+      weekday: d.weekday,
+      opens_at: hours[d.weekday].opens_at,
+      closes_at: hours[d.weekday].closes_at,
+    }));
+    if (rows.length > 0) {
+      const { error } = await supabase.from("opening_hours").insert(rows);
+      if (error) { setSavingKey(""); return setError(error.message); }
+    }
+    setSavingKey("");
+    flash("hrs");
+  }
+
+  // ── días cerrados ──
+  async function addClosed() {
+    if (!shopId || !newClosedDate) return;
+    setError("");
+    const { error } = await supabase.from("closed_dates").insert({
+      barbershop_id: shopId,
+      date: newClosedDate,
+      reason: newClosedReason.trim() || null,
+    });
+    if (error) {
+      return setError(error.code === "23505" ? "Esa fecha ya está bloqueada." : error.message);
+    }
+    setNewClosedDate(""); setNewClosedReason("");
+    await loadClosed(shopId);
+  }
+
+  async function removeClosed(id: string) {
+    if (!shopId) return;
+    await supabase.from("closed_dates").delete().eq("id", id);
+    await loadClosed(shopId);
+  }
+
+  const visibleServices = services.filter((s) => !s._deleted);
+
+  return (
+    <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] p-5">
+      <div className="max-w-md mx-auto pb-16">
+        {/* header */}
+        <motion.div className="flex items-center justify-between pt-2 mb-6"
+          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
+          <div className="flex items-center gap-2.5">
+            <LogoMark size={22} />
+            <h1 className="text-lg font-bold">Configuración</h1>
+          </div>
+          <Link href="/panel" className="text-[11px] text-[#D8F34E] font-semibold">← Volver al panel</Link>
+        </motion.div>
+
+        {error && (
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-400 mb-4">{error}</motion.p>
+        )}
+
+        {/* DATOS */}
+        <SectionCard title="Datos del local" onSave={saveShop} saving={savingKey === "shop"} saved={savedKey === "shop"}>
+          <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2">Nombre</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputCls} mb-3`} />
+          <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2">WhatsApp</label>
+          <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={`${inputCls} mb-3`} />
+          <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2">Duración de cada turno</label>
+          <div className="flex gap-2 mb-3">
+            {[15, 30, 45, 60].map((m) => (
+              <button key={m} onClick={() => setSlotMinutes(m)}
+                className={`flex-1 rounded-full py-2 text-xs font-bold border transition-colors ${
+                  slotMinutes === m ? "bg-[#D8F34E] text-[#101010] border-[#D8F34E]" : "bg-[#181818] text-[#6E6E68] border-[#262626]"
+                }`}>{m} min</button>
+            ))}
+          </div>
+          <div className="flex gap-3 mb-3">
+            <div className="flex-1">
+              <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2">Anticipación mínima</label>
+              <select value={minNotice} onChange={(e) => setMinNotice(Number(e.target.value))}
+                className="w-full rounded-xl bg-[#181818] border border-[#262626] px-3 py-2.5 text-sm outline-none">
+                <option value={0}>Sin límite</option>
+                <option value={30}>30 min antes</option>
+                <option value={60}>1 hora antes</option>
+                <option value={120}>2 horas antes</option>
+                <option value={240}>4 horas antes</option>
+              </select>
+            </div>
+            <div className="flex-1">
+              <label className="block text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2">Cancelar hasta</label>
+              <select value={cancelLimit} onChange={(e) => setCancelLimit(Number(e.target.value))}
+                className="w-full rounded-xl bg-[#181818] border border-[#262626] px-3 py-2.5 text-sm outline-none">
+                <option value={0}>Sin límite</option>
+                <option value={30}>30 min antes</option>
+                <option value={60}>1 hora antes</option>
+                <option value={120}>2 horas antes</option>
+                <option value={1440}>1 día antes</option>
+              </select>
+            </div>
+          </div>
+          <p className="text-[11px] text-[#5A5A54]">
+            Tu link es <span className="font-mono text-[#6E6E68]">turnito.app/{slug}</span> y no se puede cambiar (para no romper los links que ya compartiste).
+          </p>
+        </SectionCard>
+
+        {/* SERVICIOS */}
+        <SectionCard title="Servicios" onSave={saveServices} saving={savingKey === "svc"} saved={savedKey === "svc"}>
+          {visibleServices.map((svc) => {
+            const realIndex = services.indexOf(svc);
+            return (
+              <div key={svc.id ?? `new-${realIndex}`} className="rounded-2xl bg-[#181818] border border-[#262626] p-3 mb-2">
+                <div className="flex gap-2 mb-2">
+                  <input value={svc.name} placeholder="Nombre"
+                    onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, name: e.target.value } : s)))}
+                    className="flex-1 rounded-xl bg-[#141414] border border-[#262626] px-3 py-2 text-sm outline-none focus:border-[#D8F34E]" />
+                  {visibleServices.length > 1 && (
+                    <button onClick={() => setServices(services.map((s, j) => (j === realIndex ? { ...s, _deleted: true } : s)))}
+                      className="text-red-400 px-2">✕</button>
+                  )}
+                </div>
+                <div className="flex gap-2">
+                  <select value={svc.duration_min}
+                    onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, duration_min: Number(e.target.value) } : s)))}
+                    className={`${selectCls} flex-1 py-2`}>
+                    {[15, 20, 30, 45, 60, 90].map((d) => (<option key={d} value={d}>{d} min</option>))}
+                  </select>
+                  <input type="number" value={svc.price || ""} placeholder="Precio"
+                    onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, price: Number(e.target.value) } : s)))}
+                    className="flex-1 rounded-xl bg-[#141414] border border-[#262626] px-3 py-2 text-sm outline-none focus:border-[#D8F34E]" />
+                </div>
+              </div>
+            );
+          })}
+          <button onClick={() => setServices([...services, { name: "", duration_min: 30, price: 0 }])}
+            className="w-full rounded-2xl border border-dashed border-[#333] py-3 text-sm text-[#D8F34E] font-semibold">
+            + Agregar servicio
+          </button>
+        </SectionCard>
+
+        {/* HORARIOS */}
+        <SectionCard title="Horarios" onSave={saveHours} saving={savingKey === "hrs"} saved={savedKey === "hrs"}>
+          {DAYS.map((d) => {
+            const h = hours[d.weekday];
+            if (!h) return null;
+            return (
+              <div key={d.weekday}
+                className={`flex items-center gap-3 rounded-2xl bg-[#181818] border border-[#262626] px-3 py-2.5 mb-2 ${h.open ? "" : "opacity-40"}`}>
+                <button onClick={() => setHours({ ...hours, [d.weekday]: { ...h, open: !h.open } })}
+                  className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${h.open ? "bg-[#D8F34E]" : "bg-[#2A2A2A]"}`}>
+                  <span className={`absolute top-[3px] w-3.5 h-3.5 rounded-full transition-all ${h.open ? "left-[20px] bg-[#101010]" : "left-[3px] bg-[#5A5A54]"}`} />
+                </button>
+                <span className="text-xs font-semibold w-[70px]">{d.label}</span>
+                {h.open ? (
+                  <div className="flex items-center gap-1 ml-auto">
+                    <select value={h.opens_at} onChange={(e) => setHours({ ...hours, [d.weekday]: { ...h, opens_at: e.target.value } })} className={selectCls}>
+                      {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
+                    </select>
+                    <span className="text-[10px] text-[#5A5A54]">a</span>
+                    <select value={h.closes_at} onChange={(e) => setHours({ ...hours, [d.weekday]: { ...h, closes_at: e.target.value } })} className={selectCls}>
+                      {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
+                    </select>
+                  </div>
+                ) : (
+                  <span className="ml-auto text-[11px] text-[#5A5A54]">Cerrado</span>
+                )}
+              </div>
+            );
+          })}
+        </SectionCard>
+
+        {/* DÍAS CERRADOS */}
+        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}
+          className="rounded-3xl bg-[#141414] border border-[#262626] p-5 mb-4">
+          <h2 className="text-base font-bold mb-1">Días cerrados</h2>
+          <p className="text-[11px] text-[#5A5A54] mb-4">Feriados, vacaciones, turnos médicos. Esos días nadie va a poder reservar.</p>
+
+          <div className="flex gap-2 mb-2">
+            <input type="date" value={newClosedDate} min={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => setNewClosedDate(e.target.value)}
+              className="rounded-xl bg-[#181818] border border-[#262626] px-3 py-2 text-sm outline-none focus:border-[#D8F34E] [color-scheme:dark]" />
+            <input value={newClosedReason} onChange={(e) => setNewClosedReason(e.target.value)} placeholder="Motivo (opcional)"
+              className="flex-1 rounded-xl bg-[#181818] border border-[#262626] px-3 py-2 text-sm outline-none focus:border-[#D8F34E]" />
+          </div>
+          <motion.button whileTap={{ scale: 0.96 }} onClick={addClosed} disabled={!newClosedDate}
+            className="w-full rounded-full bg-[#D8F34E] text-[#101010] font-bold text-sm py-2.5 disabled:opacity-30 mb-4">
+            Bloquear fecha
+          </motion.button>
+
+          {closedList.length === 0 ? (
+            <p className="text-[11px] text-[#5A5A54] text-center py-2">No hay fechas bloqueadas próximas.</p>
+          ) : (
+            closedList.map((c) => (
+              <div key={c.id} className="flex items-center gap-3 rounded-2xl bg-[#181818] border border-[#262626] px-4 py-2.5 mb-2">
+                <span className="font-mono text-sm font-bold text-[#D8F34E]">{c.date}</span>
+                <span className="flex-1 text-xs text-[#6E6E68] truncate">{c.reason ?? "Cerrado"}</span>
+                <button onClick={() => removeClosed(c.id)} className="text-[#5A5A54] hover:text-red-400 text-sm">✕</button>
+              </div>
+            ))
+          )}
+        </motion.div>
+      </div>
+    </main>
+  );
+}

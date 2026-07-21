@@ -1,9 +1,11 @@
 "use client";
 
-// PANEL ANIMADO — REEMPLAZA: app/panel/page.tsx
+// PANEL v3: teléfonos con link a WhatsApp + Config + auto-done
+// REEMPLAZA TODO: app/panel/page.tsx
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
 import { motion, AnimatePresence } from "framer-motion";
@@ -25,6 +27,13 @@ function getNext7Days() {
   return Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
 }
 
+// Convierte "351 234-5678" en link de WhatsApp argentino
+function waLink(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  const full = digits.startsWith("54") ? digits : `549${digits}`;
+  return `https://wa.me/${full}`;
+}
+
 export default function PanelPage() {
   const supabase = createClient();
   const router = useRouter();
@@ -44,6 +53,14 @@ export default function PanelPage() {
       const { data } = await supabase.from("barbershops").select("id, name, slug").maybeSingle();
       if (!data) return router.push("/onboarding");
       setShop(data);
+
+      // Marcar como atendidos los turnos confirmados de días pasados
+      await supabase
+        .from("appointments")
+        .update({ status: "done" })
+        .eq("barbershop_id", data.id)
+        .eq("status", "confirmed")
+        .lt("date", fmtDate(new Date()));
     }
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -81,10 +98,14 @@ export default function PanelPage() {
   return (
     <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] p-5">
       <div className="max-w-md mx-auto pb-16">
+        {/* header */}
         <motion.div className="flex items-center justify-between pt-2 mb-1"
           initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
           <div className="flex items-center gap-2.5"><LogoMark size={22} /><h1 className="text-lg font-bold">{shop.name}</h1></div>
-          <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[11px] text-[#5A5A54] underline">Salir</button>
+          <div className="flex items-center">
+            <Link href="/panel/config" className="text-[11px] text-[#D8F34E] font-semibold mr-3">⚙ Config</Link>
+            <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[11px] text-[#5A5A54] underline">Salir</button>
+          </div>
         </motion.div>
         <button onClick={copyLink} className="text-[11px] font-mono text-[#6E6E68] mb-6">
           turnito.app/{shop.slug} <span className={copied ? "text-[#D8F34E]" : "text-[#5A5A54]"}>{copied ? "✓ copiado" : "· copiar"}</span>
@@ -112,7 +133,7 @@ export default function PanelPage() {
           <span className="text-[11px] text-[#5A5A54]">{done.length} atendidos · {active.length} en cola</span>
         </div>
 
-        {/* SIGUIENTE con AnimatePresence */}
+        {/* SIGUIENTE */}
         <AnimatePresence mode="wait">
           {current ? (
             <motion.div key={current.id}
@@ -124,7 +145,14 @@ export default function PanelPage() {
                 <div className="text-3xl font-bold" style={{ fontFamily: "var(--font-grotesk)" }}>{current.time.slice(0, 5)}</div>
                 <div className="flex-1 min-w-0">
                   <div className="text-lg font-bold truncate">{current.client_name}</div>
-                  <div className="text-xs opacity-70 mt-0.5">{current.services?.name} · {current.services?.duration_min} min · {current.client_phone}</div>
+                  <div className="text-xs opacity-70 mt-0.5">
+                    {current.services?.name} · {current.services?.duration_min} min ·{" "}
+                    {/* Teléfono → abre WhatsApp */}
+                    <a href={waLink(current.client_phone)} target="_blank" rel="noopener noreferrer"
+                      className="underline font-semibold">
+                      💬 {current.client_phone}
+                    </a>
+                  </div>
                 </div>
               </div>
               <div className="flex gap-2 mt-4">
@@ -143,6 +171,7 @@ export default function PanelPage() {
           )}
         </AnimatePresence>
 
+        {/* SIGUEN DESPUÉS */}
         {rest.length > 0 && (
           <>
             <SectionLabel>Después siguen</SectionLabel>
@@ -157,7 +186,13 @@ export default function PanelPage() {
                     <div className="font-mono text-sm font-bold w-11 text-[#D8F34E]">{a.time.slice(0, 5)}</div>
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold truncate">{a.client_name}</div>
-                      <div className="text-[10px] text-[#5A5A54]">{a.services?.name} · {a.client_phone}</div>
+                      <div className="text-[10px] text-[#5A5A54]">
+                        {a.services?.name} ·{" "}
+                        <a href={waLink(a.client_phone)} target="_blank" rel="noopener noreferrer"
+                          className="underline text-[#6E6E68] hover:text-[#D8F34E]">
+                          💬 {a.client_phone}
+                        </a>
+                      </div>
                     </div>
                     <button onClick={() => setStatus(a.id, "cancelled_by_shop")} className="text-[#5A5A54] hover:text-red-400 text-sm px-1">✕</button>
                   </motion.div>
@@ -167,6 +202,7 @@ export default function PanelPage() {
           </>
         )}
 
+        {/* YA ATENDIDOS */}
         {done.length > 0 && (
           <>
             <SectionLabel className="mt-6">Ya atendidos</SectionLabel>

@@ -1,6 +1,7 @@
 "use client";
 
-// RESERVAS ANIMADAS — REEMPLAZA: app/[slug]/page.tsx
+// RESERVAS v3: duración real + anticipación mínima + días cerrados
+// REEMPLAZA TODO: app/[slug]/page.tsx
 
 import { use, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -8,7 +9,11 @@ import { motion, AnimatePresence } from "framer-motion";
 
 type Service = { id: string; name: string; icon: string; duration_min: number; price: number };
 type DayHours = { weekday: number; opens_at: string; closes_at: string };
-type ShopInfo = { name: string; slug: string; slot_minutes: number; services: Service[]; hours: DayHours[] };
+type BusySlot = { time: string; duration_min: number };
+type ShopInfo = {
+  name: string; slug: string; slot_minutes: number; min_notice_min: number;
+  services: Service[]; hours: DayHours[]; closed: string[];
+};
 
 const DAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -19,17 +24,8 @@ function fmtDate(d: Date) {
 function getNext7Days() {
   return Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
 }
-function buildSlots(hours: DayHours | undefined, slotMinutes: number): string[] {
-  if (!hours) return [];
-  const [oh, om] = hours.opens_at.slice(0, 5).split(":").map(Number);
-  const [ch, cm] = hours.closes_at.slice(0, 5).split(":").map(Number);
-  const open = oh * 60 + om, close = ch * 60 + cm;
-  const slots: string[] = [];
-  for (let t = open; t + slotMinutes <= close; t += slotMinutes) {
-    slots.push(`${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`);
-  }
-  return slots;
-}
+const toMin = (t: string) => { const [h, m] = t.slice(0, 5).split(":").map(Number); return h * 60 + m; };
+const toHHMM = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
 
 const labelCls = "text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2";
 const stepVariants = {
@@ -54,7 +50,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [service, setService] = useState<Service | null>(null);
   const [date, setDate] = useState(fmtDate(new Date()));
   const [time, setTime] = useState<string | null>(null);
-  const [busy, setBusy] = useState<Set<string>>(new Set());
+  const [busy, setBusy] = useState<BusySlot[]>([]);
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -76,7 +72,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   useEffect(() => {
     if (!shop) return;
     supabase.rpc("public_busy_slots", { shop_slug: slug, on_date: date }).then(({ data }) => {
-      setBusy(new Set<string>((data ?? []).map((t: string) => t.slice(0, 5))));
+      setBusy((data ?? []) as BusySlot[]);
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shop, date]);
@@ -86,17 +82,48 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     return new Date(y, m - 1, d).getDay();
   }, [date]);
 
-  const slots = useMemo(() => {
-    if (!shop) return [];
+  const dayIsClosed = shop?.closed?.includes(date) ?? false;
+
+  // Intervalos ocupados en minutos: [inicio, fin)
+  const busyIntervals = useMemo(
+    () => busy.map((b) => { const s = toMin(b.time); return [s, s + b.duration_min] as [number, number]; }),
+    [busy]
+  );
+
+  // Grilla + disponibilidad según la DURACIÓN del servicio elegido
+  const { grid, availability } = useMemo(() => {
+    if (!shop || dayIsClosed) return { grid: [] as string[], availability: {} as Record<string, boolean> };
     const dayHours = shop.hours.find((h) => h.weekday === weekday);
-    let all = buildSlots(dayHours, shop.slot_minutes);
+    if (!dayHours) return { grid: [], availability: {} };
+
+    const open = toMin(dayHours.opens_at);
+    const close = toMin(dayHours.closes_at);
+    const dur = service?.duration_min ?? shop.slot_minutes;
+
+    // mínimo desde ahora (solo hoy): ahora + anticipación mínima
+    let minStart = open;
     if (date === today) {
       const now = new Date();
-      const nowMin = now.getHours() * 60 + now.getMinutes();
-      all = all.filter((s) => { const [h, m] = s.split(":").map(Number); return h * 60 + m > nowMin; });
+      minStart = Math.max(open, now.getHours() * 60 + now.getMinutes() + shop.min_notice_min);
     }
-    return all;
-  }, [shop, weekday, date, today]);
+
+    const g: string[] = [];
+    const avail: Record<string, boolean> = {};
+    for (let t = open; t + shop.slot_minutes <= close; t += shop.slot_minutes) {
+      const label = toHHMM(t);
+      g.push(label);
+      const fitsSchedule = t >= minStart && t + dur <= close;
+      const overlaps = busyIntervals.some(([bs, be]) => t < be && t + dur > bs);
+      avail[label] = fitsSchedule && !overlaps;
+    }
+    return { grid: g, availability: avail };
+  }, [shop, weekday, date, today, dayIsClosed, busyIntervals, service]);
+
+  // Si cambia el servicio y el horario elegido ya no entra, deseleccionarlo
+  useEffect(() => {
+    if (time && !availability[time]) setTime(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [service, availability]);
 
   async function book() {
     setError(""); setSaving(true);
@@ -109,7 +136,12 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     setSaving(false);
     if (!res.ok) {
       setError(json.error ?? "No se pudo reservar. Probá de nuevo.");
-      if (json.code === "SLOT_TAKEN") { goTo(1); setTime(null); setBusy(new Set([...busy, time!])); }
+      if (json.code === "SLOT_TAKEN") {
+        goTo(1); setTime(null);
+        // refrescar ocupados
+        const { data } = await supabase.rpc("public_busy_slots", { shop_slug: slug, on_date: date });
+        setBusy((data ?? []) as BusySlot[]);
+      }
       return;
     }
     setToken(json.token);
@@ -180,34 +212,48 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
               <div className={labelCls}>Día</div>
               <motion.div className="flex gap-2 overflow-x-auto pb-2 mb-6" variants={gridStagger} initial="hidden" animate="show">
                 {days.map((d) => {
-                  const ds = fmtDate(d); const on = date === ds;
+                  const ds = fmtDate(d);
+                  const on = date === ds;
+                  const isClosed = shop.closed?.includes(ds);
                   return (
-                    <motion.button key={ds} variants={gridItem} whileTap={{ scale: 0.92 }}
+                    <motion.button key={ds} variants={gridItem}
+                      whileTap={!isClosed ? { scale: 0.92 } : {}}
+                      disabled={isClosed}
                       onClick={() => { setDate(ds); setTime(null); }}
                       className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
-                        on ? "border-[#D8F34E] bg-[#D8F34E]/10" : "border-[#262626] bg-[#181818]"
+                        isClosed ? "border-[#1A1A1A] bg-[#111] opacity-30 cursor-not-allowed"
+                          : on ? "border-[#D8F34E] bg-[#D8F34E]/10" : "border-[#262626] bg-[#181818]"
                       }`}>
-                      <div className={`text-[8px] uppercase ${on ? "text-[#D8F34E]" : "text-[#5A5A54]"}`}>
+                      <div className={`text-[8px] uppercase ${on && !isClosed ? "text-[#D8F34E]" : "text-[#5A5A54]"}`}>
                         {ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
                       </div>
-                      <div className={`text-sm font-bold ${on ? "text-[#D8F34E]" : ""}`}>{d.getDate()}</div>
+                      <div className={`text-sm font-bold ${isClosed ? "line-through" : on ? "text-[#D8F34E]" : ""}`}>
+                        {d.getDate()}
+                      </div>
                     </motion.button>
                   );
                 })}
               </motion.div>
 
-              <div className={labelCls}>Horario</div>
-              {slots.length === 0 ? (
-                <p className="text-sm text-[#5A5A54] mb-6">Cerrado este día. Elegí otro.</p>
+              <div className={labelCls}>
+                Horario{service ? ` · ${service.name} (${service.duration_min} min)` : ""}
+              </div>
+              {!service ? (
+                <p className="text-sm text-[#5A5A54] mb-6">Primero elegí un servicio para ver los horarios disponibles.</p>
+              ) : dayIsClosed || grid.length === 0 ? (
+                <p className="text-sm text-[#5A5A54] mb-6">
+                  {dayIsClosed ? "La barbería está cerrada ese día. Elegí otro." : "Cerrado este día. Elegí otro."}
+                </p>
               ) : (
-                <motion.div key={date} className="grid grid-cols-4 gap-2 mb-8" variants={gridStagger} initial="hidden" animate="show">
-                  {slots.map((s) => {
-                    const taken = busy.has(s); const on = time === s;
+                <motion.div key={`${date}-${service.id}`} className="grid grid-cols-4 gap-2 mb-8" variants={gridStagger} initial="hidden" animate="show">
+                  {grid.map((s) => {
+                    const free = availability[s];
+                    const on = time === s;
                     return (
-                      <motion.button key={s} variants={gridItem} whileTap={!taken ? { scale: 0.92 } : {}}
-                        disabled={taken} onClick={() => setTime(s)}
+                      <motion.button key={s} variants={gridItem} whileTap={free ? { scale: 0.92 } : {}}
+                        disabled={!free} onClick={() => setTime(s)}
                         className={`rounded-xl border-[1.5px] py-2 text-[11px] font-semibold transition-colors ${
-                          taken ? "border-transparent bg-[#141414] text-[#3A3A36] line-through"
+                          !free ? "border-transparent bg-[#141414] text-[#3A3A36] line-through"
                             : on ? "border-[#D8F34E] bg-[#D8F34E] text-[#101010]"
                             : "border-[#262626] bg-[#181818] text-[#C9C9C4]"
                         }`}>{s}</motion.button>

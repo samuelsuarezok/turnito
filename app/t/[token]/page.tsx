@@ -1,6 +1,7 @@
 "use client";
 
-// LINK MÁGICO ANIMADO — REEMPLAZA: app/t/[token]/page.tsx
+// LINK MÁGICO v2: respeta el límite de cancelación
+// REEMPLAZA TODO: app/t/[token]/page.tsx
 
 import { use, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -10,6 +11,7 @@ import { motion, AnimatePresence } from "framer-motion";
 type Appt = {
   shop_name: string; client_name: string; service: string;
   date: string; time: string; status: string;
+  can_cancel: boolean;
 };
 
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -24,6 +26,7 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
   const [notFound, setNotFound] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [cancelError, setCancelError] = useState("");
 
   function load() {
     supabase.rpc("public_appointment_by_token", { t: token }).then(({ data, error }) => {
@@ -36,9 +39,13 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
 
   async function cancel() {
     setCancelling(true);
-    await supabase.rpc("public_cancel_by_token", { t: token });
+    setCancelError("");
+    const { data } = await supabase.rpc("public_cancel_by_token", { t: token });
     setCancelling(false);
     setConfirmCancel(false);
+    if (data && (data as { ok: boolean }).ok === false) {
+      setCancelError("Ya no se puede cancelar online. Comunicate con la barbería.");
+    }
     load();
   }
 
@@ -82,7 +89,13 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
             <Row label="Hora" value={`${appt.time.slice(0, 5)} hs`} strike={cancelled} highlight={!cancelled} />
           </motion.div>
 
-          {!cancelled && !finished && (
+          {cancelError && (
+            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className="text-xs text-amber-400 text-center mt-4">{cancelError}</motion.p>
+          )}
+
+          {/* Cancelable solo si está vigente Y dentro del límite */}
+          {!cancelled && !finished && appt.can_cancel && (
             <div className="mt-6">
               <AnimatePresence mode="wait">
                 {!confirmCancel ? (
@@ -114,6 +127,13 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
                 )}
               </AnimatePresence>
             </div>
+          )}
+
+          {/* Vigente pero fuera del límite de cancelación */}
+          {!cancelled && !finished && !appt.can_cancel && (
+            <p className="text-xs text-[#5A5A54] text-center mt-6">
+              Este turno ya no se puede cancelar online.<br />Si no llegás, avisale a la barbería.
+            </p>
           )}
         </motion.div>
 

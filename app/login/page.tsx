@@ -1,9 +1,10 @@
 "use client";
 
-// LOGIN ANIMADO — REEMPLAZA: app/login/page.tsx
+
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
 import { motion, stagger, fadeUp, scaleIn } from "@/components/motion";
@@ -74,6 +75,15 @@ export default function LoginPage() {
           >
             {loading ? "…" : mode === "register" ? "Crear cuenta →" : "Ingresar →"}
           </motion.button>
+
+          {/* ¿Olvidaste tu contraseña? — solo en modo login */}
+          {mode === "login" && (
+            <motion.p className="text-center mt-4" variants={fadeUp}>
+              <Link href="/recuperar" className="text-xs text-[#5A5A54] underline hover:text-[#D8F34E] transition-colors">
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </motion.p>
+          )}
         </motion.div>
 
         <motion.p className="text-sm text-[#6E6E68] mt-6 text-center" variants={fadeUp}>
