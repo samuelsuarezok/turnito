@@ -90,6 +90,14 @@ export default function LoginPage() {
           {mode === "register" ? "¿Ya tenés cuenta?" : "¿No tenés cuenta?"}{" "}
           <button onClick={() => setMode(mode === "register" ? "login" : "register")} className="text-[#D8F34E] font-semibold">
             {mode === "register" ? "Ingresá" : "Registrate gratis"}
+            {mode === "register" && (
+        <motion.p className="text-[10px] text-[#5A5A54] text-center mt-4 leading-relaxed" variants={fadeUp}>
+              Al crear tu cuenta aceptás los{" "}
+           <Link href="/legales" className="underline hover:text-[#D8F34E] transition-colors">
+              Términos y la Política de Privacidad
+            </Link>
+  </motion.p>
+)}
           </button>
         </motion.p>
       </motion.div>

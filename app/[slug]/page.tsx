@@ -1,7 +1,6 @@
 "use client";
 
-// RESERVAS v3: duración real + anticipación mínima + días cerrados
-// REEMPLAZA TODO: app/[slug]/page.tsx
+
 
 import { use, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
@@ -295,6 +294,13 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 onClick={book} disabled={saving || name.trim().length < 3 || phone.trim().length < 7}
                 className="w-full rounded-full bg-[#D8F34E] text-[#101010] font-bold py-3.5 disabled:opacity-30">
                 {saving ? "Reservando…" : "Confirmar turno →"}
+                <p className="text-[10px] text-[#5A5A54] text-center mt-4 leading-relaxed">
+                     Al reservar aceptás los{" "}
+                  <a href="/legales" target="_blank" className="underline hover:text-[#D8F34E] transition-colors">
+                    Términos y la Política de Privacidad
+                  </a>
+                  {" "}de Turnito
+                  </p>
               </motion.button>
             </motion.div>
           )}

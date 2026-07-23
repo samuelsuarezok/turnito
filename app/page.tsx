@@ -368,7 +368,11 @@ export default function LandingPage() {
       <footer>
         <div className="foot-in">
           <Link className="logo" href="#" style={{fontSize:16}}><LogoMark size={22} /> turnito</Link>
-          <div className="foot-links"><a href="#">Contacto</a><a href="#">WhatsApp</a><Link href="/legales">Términos</Link></div>
+          <div className="foot-links">
+              <a href="#">Contacto</a>
+              <a href="#">WhatsApp</a>
+  <Link href="/legales">Términos y Privacidad</Link>
+</div>
           <span>© 2026 Turnito · Córdoba, Argentina</span>
         </div>
       </footer>

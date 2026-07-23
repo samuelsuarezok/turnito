@@ -1,7 +1,6 @@
 "use client";
 
-// TÉRMINOS Y PRIVACIDAD — Guardar como: app/legales/page.tsx
-// Ruta: /legales
+
 
 import Link from "next/link";
 import Logo from "@/components/Logo";
@@ -178,7 +177,7 @@ export default function LegalesPage() {
             <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2">Contacto</p>
             <p className="text-sm text-[#8A7F6A]">
               Para consultas sobre estos términos o tus datos personales, escribinos a{" "}
-              <span className="text-[#D8F34E]">turnitodev@gmail.com
+              <span className="text-[#D8F34E]">labsbebop@gmail.com
 </span>{" "}
               
             </p>
