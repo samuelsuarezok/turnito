@@ -2,7 +2,7 @@
 
 // ONBOARDING ANIMADO — REEMPLAZA: app/onboarding/page.tsx
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
@@ -53,6 +53,23 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [sessionLost, setSessionLost] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // Borde: si el usuario YA tiene barbería y cae acá (ej: apretó atrás, o entró
+  // por URL), evitamos que el insert reviente contra el unique de owner_id con un
+  // error críptico. Lo mandamos derecho al panel.
+  useEffect(() => {
+    async function guard() {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        const { data: existing } = await supabase.from("barbershops").select("id").maybeSingle();
+        if (existing) { router.replace("/panel"); return; }
+      }
+      setChecking(false);
+    }
+    guard();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function goTo(n: number) {
     setDir(n > step ? 1 : -1);
@@ -122,6 +139,10 @@ export default function OnboardingPage() {
   }
 
   const btnPrimary = "w-full rounded-full bg-[#D8F34E] text-[#101010] font-bold py-3.5 disabled:opacity-30";
+
+  // Mientras verificamos si ya tiene barbería, no mostramos el form (evita parpadeo).
+  if (checking)
+    return <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] flex items-center justify-center"><p className="text-[#5A5A54]">Cargando…</p></main>;
 
   // Sesión perdida al guardar: pantalla clara con salida, en vez de rebote silencioso.
   if (sessionLost)

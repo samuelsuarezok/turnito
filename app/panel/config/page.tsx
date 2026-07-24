@@ -28,8 +28,9 @@ for (let h = 6; h <= 23; h++) {
 }
 
 type Svc = { id?: string; name: string; duration_min: number; price: number; _deleted?: boolean };
-type DayHours = { open: boolean; opens_at: string; closes_at: string };
-type Closed = { id: string; date: string; reason: string | null };
+type HourRange = { opens_at: string; closes_at: string };
+type DayHours = { open: boolean; ranges: HourRange[] };
+type Closed = { id: string; date: string; reason: string | null; from_time?: string | null; to_time?: string | null };
 
 const inputCls = "w-full rounded-2xl bg-[#181818] border border-[#262626] px-4 py-3 outline-none focus:border-[#D8F34E] transition-colors text-sm";
 const selectCls = "rounded-xl bg-[#181818] border border-[#262626] px-2.5 py-1.5 text-xs outline-none";
@@ -76,6 +77,9 @@ export default function ConfigPage() {
   const [closedList, setClosedList] = useState<Closed[]>([]);
   const [newClosedDate, setNewClosedDate] = useState("");
   const [newClosedReason, setNewClosedReason] = useState("");
+  const [closedPartial, setClosedPartial] = useState(false); // false = día completo
+  const [newClosedFrom, setNewClosedFrom] = useState("");
+  const [newClosedTo, setNewClosedTo] = useState("");
 
   const [savingKey, setSavingKey] = useState("");
   const [savedKey, setSavedKey] = useState("");
@@ -119,10 +123,14 @@ export default function ConfigPage() {
         .eq("barbershop_id", shop.id);
       const map: Record<number, DayHours> = {};
       for (const d of DAYS) {
-        const row = (hrs ?? []).find((h) => h.weekday === d.weekday);
-        map[d.weekday] = row
-          ? { open: true, opens_at: row.opens_at.slice(0, 5), closes_at: row.closes_at.slice(0, 5) }
-          : { open: false, opens_at: "09:00", closes_at: "19:00" };
+        // Franjas partidas: agrupamos TODAS las filas del día (puede haber varias).
+        const rows = (hrs ?? [])
+          .filter((h) => h.weekday === d.weekday)
+          .map((h) => ({ opens_at: h.opens_at.slice(0, 5), closes_at: h.closes_at.slice(0, 5) }))
+          .sort((a, b) => a.opens_at.localeCompare(b.opens_at));
+        map[d.weekday] = rows.length
+          ? { open: true, ranges: rows }
+          : { open: false, ranges: [{ opens_at: "09:00", closes_at: "19:00" }] };
       }
       setHours(map);
 
@@ -134,9 +142,10 @@ export default function ConfigPage() {
 
   async function loadClosed(id: string) {
     const today = new Date().toISOString().slice(0, 10);
+    // select("*") para traer from_time/to_time SI existen (retrocompat pre-migración).
     const { data } = await supabase
       .from("closed_dates")
-      .select("id, date, reason")
+      .select("*")
       .eq("barbershop_id", id)
       .gte("date", today)
       .order("date");
@@ -197,12 +206,15 @@ export default function ConfigPage() {
     setError(""); setSavingKey("hrs");
 
     await supabase.from("opening_hours").delete().eq("barbershop_id", shopId);
-    const rows = DAYS.filter((d) => hours[d.weekday]?.open).map((d) => ({
-      barbershop_id: shopId,
-      weekday: d.weekday,
-      opens_at: hours[d.weekday].opens_at,
-      closes_at: hours[d.weekday].closes_at,
-    }));
+    // delete + insert de todo sigue igual; ahora insertamos 1 fila por CADA franja.
+    const rows = DAYS.filter((d) => hours[d.weekday]?.open).flatMap((d) =>
+      hours[d.weekday].ranges.map((r) => ({
+        barbershop_id: shopId,
+        weekday: d.weekday,
+        opens_at: r.opens_at,
+        closes_at: r.closes_at,
+      }))
+    );
     if (rows.length > 0) {
       const { error } = await supabase.from("opening_hours").insert(rows);
       if (error) { setSavingKey(""); return setError(error.message); }
@@ -215,15 +227,22 @@ export default function ConfigPage() {
   async function addClosed() {
     if (!shopId || !newClosedDate) return;
     setError("");
-    const { error } = await supabase.from("closed_dates").insert({
+    const payload: Record<string, unknown> = {
       barbershop_id: shopId,
       date: newClosedDate,
       reason: newClosedReason.trim() || null,
-    });
+    };
+    // Rango horario opcional. Sin rango = día completo (from/to quedan NULL).
+    if (closedPartial && newClosedFrom && newClosedTo) {
+      if (newClosedFrom >= newClosedTo) return setError("El horario 'desde' tiene que ser menor que 'hasta'.");
+      payload.from_time = newClosedFrom;
+      payload.to_time = newClosedTo;
+    }
+    const { error } = await supabase.from("closed_dates").insert(payload);
     if (error) {
       return setError(error.code === "23505" ? "Esa fecha ya está bloqueada." : error.message);
     }
-    setNewClosedDate(""); setNewClosedReason("");
+    setNewClosedDate(""); setNewClosedReason(""); setNewClosedFrom(""); setNewClosedTo(""); setClosedPartial(false);
     await loadClosed(shopId);
   }
 
@@ -335,26 +354,43 @@ export default function ConfigPage() {
           {DAYS.map((d) => {
             const h = hours[d.weekday];
             if (!h) return null;
+            const setDay = (patch: Partial<DayHours>) => setHours({ ...hours, [d.weekday]: { ...h, ...patch } });
+            const setRange = (i: number, patch: Partial<HourRange>) =>
+              setDay({ ranges: h.ranges.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
             return (
               <div key={d.weekday}
-                className={`flex items-center gap-3 rounded-2xl bg-[#181818] border border-[#262626] px-3 py-2.5 mb-2 ${h.open ? "" : "opacity-40"}`}>
-                <button onClick={() => setHours({ ...hours, [d.weekday]: { ...h, open: !h.open } })}
-                  className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${h.open ? "bg-[#D8F34E]" : "bg-[#2A2A2A]"}`}>
-                  <span className={`absolute top-[3px] w-3.5 h-3.5 rounded-full transition-all ${h.open ? "left-[20px] bg-[#101010]" : "left-[3px] bg-[#5A5A54]"}`} />
-                </button>
-                <span className="text-xs font-semibold w-[70px]">{d.label}</span>
-                {h.open ? (
-                  <div className="flex items-center gap-1 ml-auto">
-                    <select value={h.opens_at} onChange={(e) => setHours({ ...hours, [d.weekday]: { ...h, opens_at: e.target.value } })} className={selectCls}>
-                      {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
-                    </select>
-                    <span className="text-[10px] text-[#5A5A54]">a</span>
-                    <select value={h.closes_at} onChange={(e) => setHours({ ...hours, [d.weekday]: { ...h, closes_at: e.target.value } })} className={selectCls}>
-                      {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
-                    </select>
+                className={`rounded-2xl bg-[#181818] border border-[#262626] px-3 py-2.5 mb-2 ${h.open ? "" : "opacity-40"}`}>
+                <div className="flex items-center gap-3">
+                  <button onClick={() => setDay({ open: !h.open })}
+                    className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${h.open ? "bg-[#D8F34E]" : "bg-[#2A2A2A]"}`}>
+                    <span className={`absolute top-[3px] w-3.5 h-3.5 rounded-full transition-all ${h.open ? "left-[20px] bg-[#101010]" : "left-[3px] bg-[#5A5A54]"}`} />
+                  </button>
+                  <span className="text-xs font-semibold">{d.label}</span>
+                  {!h.open && <span className="ml-auto text-[11px] text-[#5A5A54]">Cerrado</span>}
+                </div>
+
+                {h.open && (
+                  <div className="mt-2 pl-12 flex flex-col gap-1.5">
+                    {h.ranges.map((r, i) => (
+                      <div key={i} className="flex items-center gap-1">
+                        <select value={r.opens_at} onChange={(e) => setRange(i, { opens_at: e.target.value })} className={selectCls}>
+                          {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
+                        </select>
+                        <span className="text-[10px] text-[#5A5A54]">a</span>
+                        <select value={r.closes_at} onChange={(e) => setRange(i, { closes_at: e.target.value })} className={selectCls}>
+                          {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
+                        </select>
+                        {h.ranges.length > 1 && (
+                          <button onClick={() => setDay({ ranges: h.ranges.filter((_, j) => j !== i) })}
+                            className="text-[#5A5A54] hover:text-red-400 text-sm px-1" title="Quitar franja">✕</button>
+                        )}
+                      </div>
+                    ))}
+                    <button onClick={() => setDay({ ranges: [...h.ranges, { opens_at: "16:00", closes_at: "20:00" }] })}
+                      className="text-[11px] text-[#D8F34E] font-semibold text-left mt-0.5">
+                      + Agregar franja (ej: tarde)
+                    </button>
                   </div>
-                ) : (
-                  <span className="ml-auto text-[11px] text-[#5A5A54]">Cerrado</span>
                 )}
               </div>
             );
@@ -374,18 +410,50 @@ export default function ConfigPage() {
             <input value={newClosedReason} onChange={(e) => setNewClosedReason(e.target.value)} placeholder="Motivo (opcional)"
               className="flex-1 rounded-xl bg-[#181818] border border-[#262626] px-3 py-2 text-sm outline-none focus:border-[#D8F34E]" />
           </div>
-          <motion.button whileTap={{ scale: 0.96 }} onClick={addClosed} disabled={!newClosedDate}
+
+          {/* Día completo vs rango horario puntual (ej: "médico 15-17") */}
+          <div className="flex items-center gap-2 mb-2">
+            <button onClick={() => setClosedPartial(false)}
+              className={`flex-1 rounded-full py-1.5 text-[11px] font-bold border transition-colors ${!closedPartial ? "bg-[#D8F34E] text-[#101010] border-[#D8F34E]" : "bg-[#181818] text-[#6E6E68] border-[#262626]"}`}>
+              Todo el día
+            </button>
+            <button onClick={() => setClosedPartial(true)}
+              className={`flex-1 rounded-full py-1.5 text-[11px] font-bold border transition-colors ${closedPartial ? "bg-[#D8F34E] text-[#101010] border-[#D8F34E]" : "bg-[#181818] text-[#6E6E68] border-[#262626]"}`}>
+              Solo un rango
+            </button>
+          </div>
+          {closedPartial && (
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-[11px] text-[#5A5A54]">de</span>
+              <select value={newClosedFrom} onChange={(e) => setNewClosedFrom(e.target.value)} className={selectCls}>
+                <option value="">--</option>
+                {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
+              </select>
+              <span className="text-[11px] text-[#5A5A54]">a</span>
+              <select value={newClosedTo} onChange={(e) => setNewClosedTo(e.target.value)} className={selectCls}>
+                <option value="">--</option>
+                {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
+              </select>
+            </div>
+          )}
+          <motion.button whileTap={{ scale: 0.96 }} onClick={addClosed}
+            disabled={!newClosedDate || (closedPartial && (!newClosedFrom || !newClosedTo))}
             className="w-full rounded-full bg-[#D8F34E] text-[#101010] font-bold text-sm py-2.5 disabled:opacity-30 mb-4">
-            Bloquear fecha
+            {closedPartial ? "Bloquear rango" : "Bloquear fecha"}
           </motion.button>
 
           {closedList.length === 0 ? (
             <p className="text-[11px] text-[#5A5A54] text-center py-2">No hay fechas bloqueadas próximas.</p>
           ) : (
             closedList.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 rounded-2xl bg-[#181818] border border-[#262626] px-4 py-2.5 mb-2">
+              <div key={c.id} className="flex items-center gap-2.5 rounded-2xl bg-[#181818] border border-[#262626] px-4 py-2.5 mb-2">
                 <span className="font-mono text-sm font-bold text-[#D8F34E]">{c.date}</span>
-                <span className="flex-1 text-xs text-[#6E6E68] truncate">{c.reason ?? "Cerrado"}</span>
+                {c.from_time && (
+                  <span className="font-mono text-[10px] text-[#D8F34E] bg-[#D8F34E]/10 rounded px-1.5 py-0.5 shrink-0">
+                    {c.from_time.slice(0, 5)}–{c.to_time?.slice(0, 5)}
+                  </span>
+                )}
+                <span className="flex-1 text-xs text-[#6E6E68] truncate">{c.reason ?? (c.from_time ? "Rango bloqueado" : "Cerrado")}</span>
                 <button onClick={() => removeClosed(c.id)} className="text-[#5A5A54] hover:text-red-400 text-sm">✕</button>
               </div>
             ))

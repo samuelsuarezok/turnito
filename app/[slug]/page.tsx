@@ -9,9 +9,13 @@ import { motion, AnimatePresence } from "framer-motion";
 type Service = { id: string; name: string; icon: string; duration_min: number; price: number };
 type DayHours = { weekday: number; opens_at: string; closes_at: string };
 type BusySlot = { time: string; duration_min: number };
+// Bloqueo de fecha: string (día completo, formato viejo) u objeto con rango horario.
+// from_time/to_time null = día completo. Retrocompatible con el RPC actual.
+type ClosedEntry = string | { date: string; from_time: string | null; to_time: string | null };
+type ClosedBlock = { date: string; from_time: string | null; to_time: string | null };
 type ShopInfo = {
   name: string; slug: string; slot_minutes: number; min_notice_min: number;
-  services: Service[]; hours: DayHours[]; closed: string[];
+  services: Service[]; hours: DayHours[]; closed: ClosedEntry[];
 };
 
 const DAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -81,7 +85,19 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     return new Date(y, m - 1, d).getDay();
   }, [date]);
 
-  const dayIsClosed = shop?.closed?.includes(date) ?? false;
+  // Normalizamos los bloqueos: acepta el formato viejo (string = día completo)
+  // y el nuevo (objeto con rango). Así no rompe antes de actualizar el RPC.
+  const closedBlocks = useMemo<ClosedBlock[]>(
+    () => (shop?.closed ?? []).map((c) =>
+      typeof c === "string" ? { date: c, from_time: null, to_time: null } : c),
+    [shop]
+  );
+  // Solo los bloqueos de DÍA COMPLETO (sin rango) deshabilitan el día entero.
+  const fullDayClosed = useMemo(
+    () => new Set(closedBlocks.filter((c) => !c.from_time).map((c) => c.date)),
+    [closedBlocks]
+  );
+  const dayIsClosed = fullDayClosed.has(date);
 
   // Intervalos ocupados en minutos: [inicio, fin)
   const busyIntervals = useMemo(
@@ -92,31 +108,45 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   // Grilla + disponibilidad según la DURACIÓN del servicio elegido
   const { grid, availability } = useMemo(() => {
     if (!shop || dayIsClosed) return { grid: [] as string[], availability: {} as Record<string, boolean> };
-    const dayHours = shop.hours.find((h) => h.weekday === weekday);
-    if (!dayHours) return { grid: [], availability: {} };
 
-    const open = toMin(dayHours.opens_at);
-    const close = toMin(dayHours.closes_at);
+    // Horarios PARTIDOS: puede haber varias franjas por día (ej: 09-13 y 16-20).
+    // Antes se usaba .find() y solo tomaba la primera → se ofrecían turnos en la siesta.
+    const dayRanges = shop.hours
+      .filter((h) => h.weekday === weekday)
+      .map((h) => [toMin(h.opens_at), toMin(h.closes_at)] as [number, number])
+      .sort((a, b) => a[0] - b[0]);
+    if (dayRanges.length === 0) return { grid: [], availability: {} };
+
     const dur = service?.duration_min ?? shop.slot_minutes;
 
     // mínimo desde ahora (solo hoy): ahora + anticipación mínima
-    let minStart = open;
+    let nowMin = -Infinity;
     if (date === today) {
       const now = new Date();
-      minStart = Math.max(open, now.getHours() * 60 + now.getMinutes() + shop.min_notice_min);
+      nowMin = now.getHours() * 60 + now.getMinutes() + shop.min_notice_min;
     }
+
+    // Bloqueos horarios puntuales de ESTE día (ej: "médico 15-17"). Se tratan
+    // como intervalos ocupados. from/to null = día completo (ya cubierto arriba).
+    const blockedIntervals = closedBlocks
+      .filter((c) => c.date === date && c.from_time && c.to_time)
+      .map((c) => [toMin(c.from_time as string), toMin(c.to_time as string)] as [number, number]);
+    const takenIntervals = [...busyIntervals, ...blockedIntervals];
 
     const g: string[] = [];
     const avail: Record<string, boolean> = {};
-    for (let t = open; t + shop.slot_minutes <= close; t += shop.slot_minutes) {
-      const label = toHHMM(t);
-      g.push(label);
-      const fitsSchedule = t >= minStart && t + dur <= close;
-      const overlaps = busyIntervals.some(([bs, be]) => t < be && t + dur > bs);
-      avail[label] = fitsSchedule && !overlaps;
+    // Un turno debe entrar COMPLETO dentro de su franja (no puede pisar la siesta).
+    for (const [open, close] of dayRanges) {
+      for (let t = open; t + shop.slot_minutes <= close; t += shop.slot_minutes) {
+        const label = toHHMM(t);
+        g.push(label);
+        const fitsSchedule = t >= nowMin && t + dur <= close;
+        const overlaps = takenIntervals.some(([bs, be]) => t < be && t + dur > bs);
+        avail[label] = fitsSchedule && !overlaps;
+      }
     }
     return { grid: g, availability: avail };
-  }, [shop, weekday, date, today, dayIsClosed, busyIntervals, service]);
+  }, [shop, weekday, date, today, dayIsClosed, busyIntervals, closedBlocks, service]);
 
   // Si cambia el servicio y el horario elegido ya no entra, deseleccionarlo
   useEffect(() => {
@@ -213,7 +243,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 {days.map((d) => {
                   const ds = fmtDate(d);
                   const on = date === ds;
-                  const isClosed = shop.closed?.includes(ds);
+                  const isClosed = fullDayClosed.has(ds);
                   return (
                     <motion.button key={ds} variants={gridItem}
                       whileTap={!isClosed ? { scale: 0.92 } : {}}
