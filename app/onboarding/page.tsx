@@ -52,6 +52,7 @@ export default function OnboardingPage() {
   const [dir, setDir] = useState(1);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [sessionLost, setSessionLost] = useState(false);
 
   function goTo(n: number) {
     setDir(n > step ? 1 : -1);
@@ -80,35 +81,62 @@ export default function OnboardingPage() {
   async function finish() {
     setError("");
     setSaving(true);
+    try {
+      const { data: userData, error: userErr } = await supabase.auth.getUser();
+      if (userErr || !userData.user) {
+        // Sin sesión activa (ej: se registró pero la sesión no quedó, o expiró).
+        // ANTES: rebotaba a /login EN SILENCIO y el usuario no entendía por qué
+        // perdía todo lo que cargó. Ahora se lo explicamos y no lo pateamos.
+        setSessionLost(true);
+        return;
+      }
 
-    const { data: userData, error: userErr } = await supabase.auth.getUser();
-    if (userErr || !userData.user) { setSaving(false); router.push("/login"); return; }
+      const { data: shop, error: shopErr } = await supabase
+        .from("barbershops")
+        .insert({ owner_id: userData.user.id, name: name.trim(), slug: effectiveSlug, whatsapp: whatsapp.trim(), slot_minutes: slotMinutes })
+        .select("id").single();
+      if (shopErr) {
+        setError(shopErr.code === "23505" ? "Ese link ya está en uso, probá con otro." : shopErr.message);
+        return;
+      }
 
-    const { data: shop, error: shopErr } = await supabase
-      .from("barbershops")
-      .insert({ owner_id: userData.user.id, name: name.trim(), slug: effectiveSlug, whatsapp: whatsapp.trim(), slot_minutes: slotMinutes })
-      .select("id").single();
+      const { error: svcErr } = await supabase.from("services").insert(
+        services.map((s, i) => ({ barbershop_id: shop.id, name: s.name.trim(), duration_min: s.duration_min, price: s.price, sort_order: i }))
+      );
+      if (svcErr) { setError(svcErr.message); return; }
 
-    if (shopErr) {
-      setError(shopErr.code === "23505" ? "Ese link ya está en uso, probá con otro." : shopErr.message);
-      setSaving(false); return;
+      const rows = DAYS.filter((d) => hours[d.weekday].open).map((d) => ({
+        barbershop_id: shop.id, weekday: d.weekday, opens_at: hours[d.weekday].opens_at, closes_at: hours[d.weekday].closes_at,
+      }));
+      const { error: hrsErr } = await supabase.from("opening_hours").insert(rows);
+      if (hrsErr) { setError(hrsErr.message); return; }
+
+      router.push("/panel");
+    } catch {
+      // Red caída / error inesperado: avisamos en vez de dejar "Guardando…" trabado.
+      setError("No pudimos crear tu barbería. Revisá tu conexión e intentá de nuevo.");
+    } finally {
+      // finally = SIEMPRE apaga el spinner, pase lo que pase.
+      setSaving(false);
     }
-
-    const { error: svcErr } = await supabase.from("services").insert(
-      services.map((s, i) => ({ barbershop_id: shop.id, name: s.name.trim(), duration_min: s.duration_min, price: s.price, sort_order: i }))
-    );
-    if (svcErr) { setError(svcErr.message); setSaving(false); return; }
-
-    const rows = DAYS.filter((d) => hours[d.weekday].open).map((d) => ({
-      barbershop_id: shop.id, weekday: d.weekday, opens_at: hours[d.weekday].opens_at, closes_at: hours[d.weekday].closes_at,
-    }));
-    const { error: hrsErr } = await supabase.from("opening_hours").insert(rows);
-    if (hrsErr) { setError(hrsErr.message); setSaving(false); return; }
-
-    router.push("/panel");
   }
 
   const btnPrimary = "w-full rounded-full bg-[#D8F34E] text-[#101010] font-bold py-3.5 disabled:opacity-30";
+
+  // Sesión perdida al guardar: pantalla clara con salida, en vez de rebote silencioso.
+  if (sessionLost)
+    return (
+      <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] flex items-center justify-center p-6">
+        <div className="text-center max-w-xs">
+          <p className="text-sm font-bold">Tu sesión no está activa</p>
+          <p className="text-xs text-[#5A5A54] mt-1 mb-5">Iniciá sesión de nuevo para crear tu barbería. Es un minuto.</p>
+          <button onClick={() => router.push("/login")}
+            className="rounded-full bg-[#D8F34E] text-[#101010] font-bold text-sm px-6 py-3">
+            Ir a iniciar sesión
+          </button>
+        </div>
+      </main>
+    );
 
   return (
     <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] p-6 overflow-x-hidden">

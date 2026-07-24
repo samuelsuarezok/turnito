@@ -29,10 +29,16 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
   const [cancelError, setCancelError] = useState("");
 
   function load() {
-    supabase.rpc("public_appointment_by_token", { t: token }).then(({ data, error }) => {
-      if (error || !data) setNotFound(true);
-      else setAppt(data as Appt);
-    });
+    // .then(onSuccess, onError): el 2do arg captura el rechazo de la promesa.
+    // Antes NO se manejaba el error → una promesa rechazada (ej: sin red)
+    // dejaba la pantalla trabada en "Cargando…" para siempre, sin avisar.
+    supabase.rpc("public_appointment_by_token", { t: token }).then(
+      ({ data, error }) => {
+        if (error || !data) setNotFound(true);
+        else setAppt(data as Appt);
+      },
+      () => setNotFound(true)
+    );
   }
 
   useEffect(() => { load(); /* eslint-disable-next-line */ }, [token]);
@@ -40,13 +46,22 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
   async function cancel() {
     setCancelling(true);
     setCancelError("");
-    const { data } = await supabase.rpc("public_cancel_by_token", { t: token });
-    setCancelling(false);
-    setConfirmCancel(false);
-    if (data && (data as { ok: boolean }).ok === false) {
-      setCancelError("Ya no se puede cancelar online. Comunicate con la barbería.");
+    try {
+      const { data } = await supabase.rpc("public_cancel_by_token", { t: token });
+      if (data && (data as { ok: boolean }).ok === false) {
+        setCancelError("Ya no se puede cancelar online. Comunicate con la barbería.");
+      }
+      load();
+    } catch {
+      // Si la RPC EXPLOTA (no que devuelva ok:false, sino que falle la red),
+      // avisamos en vez de dejar el botón girando infinito.
+      setCancelError("No pudimos procesar la cancelación. Revisá tu conexión e intentá de nuevo.");
+    } finally {
+      // finally = SIEMPRE corre, pase lo que pase. Acá está la clave:
+      // el spinner se apaga aunque haya error.
+      setCancelling(false);
+      setConfirmCancel(false);
     }
-    load();
   }
 
   if (notFound) return <Center><p className="text-[#6E6E68]">Este link no corresponde a ningún turno.</p></Center>;

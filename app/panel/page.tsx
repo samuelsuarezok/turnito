@@ -42,25 +42,33 @@ export default function PanelPage() {
   const [appts, setAppts] = useState<Appt[]>([]);
   const [date, setDate] = useState(fmtDate(new Date()));
   const [copied, setCopied] = useState(false);
+  const [loadErr, setLoadErr] = useState(false);
 
   const days = useMemo(() => getNext7Days(), []);
   const today = fmtDate(new Date());
 
   useEffect(() => {
     async function init() {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return router.push("/login");
-      const { data } = await supabase.from("barbershops").select("id, name, slug").maybeSingle();
-      if (!data) return router.push("/onboarding");
-      setShop(data);
+      try {
+        const { data: userData, error: uErr } = await supabase.auth.getUser();
+        if (uErr) throw uErr;
+        if (!userData.user) return router.push("/login");
+        const { data, error: sErr } = await supabase.from("barbershops").select("id, name, slug").maybeSingle();
+        if (sErr) throw sErr;
+        if (!data) return router.push("/onboarding");
+        setShop(data);
 
-      // Marcar como atendidos los turnos confirmados de días pasados
-      await supabase
-        .from("appointments")
-        .update({ status: "done" })
-        .eq("barbershop_id", data.id)
-        .eq("status", "confirmed")
-        .lt("date", fmtDate(new Date()));
+        // Marcar como atendidos los turnos confirmados de días pasados
+        await supabase
+          .from("appointments")
+          .update({ status: "done" })
+          .eq("barbershop_id", data.id)
+          .eq("status", "confirmed")
+          .lt("date", fmtDate(new Date()));
+      } catch {
+        // Antes: si esto fallaba, quedaba en "Cargando…" eterno sin explicar nada.
+        setLoadErr(true);
+      }
     }
     init();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -75,6 +83,21 @@ export default function PanelPage() {
   }
 
   useEffect(() => { if (shop) loadAppts(shop.id, date); /* eslint-disable-next-line */ }, [shop, date]);
+
+  // ── AUTO-REFRESCO (polling) ──────────────────────────────────────────────
+  // El barbero ve turnos nuevos sin recargar la página. Encapsulado ACÁ a
+  // propósito: el día que Turnito escale y necesite Realtime (WebSocket),
+  // se reemplaza SOLO este bloque, sin tocar el resto del panel.
+  useEffect(() => {
+    if (!shop) return;
+    const tick = () => loadAppts(shop.id, date);
+    const id = setInterval(tick, 15000); // cada 15s: sobra para una barbería
+    // Bonus: al volver a la pestaña, refresca al toque sin esperar los 15s.
+    const onVisible = () => { if (document.visibilityState === "visible") tick(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVisible); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shop, date]);
 
   async function setStatus(id: string, status: string) {
     await supabase.from("appointments").update({ status }).eq("id", id);
@@ -91,6 +114,20 @@ export default function PanelPage() {
   const done = appts.filter((a) => a.status === "done");
   const current = active[0] ?? null;
   const rest = active.slice(1);
+
+  if (loadErr)
+    return (
+      <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] flex items-center justify-center p-6">
+        <div className="text-center max-w-xs">
+          <p className="text-sm font-bold">No pudimos cargar tu panel</p>
+          <p className="text-xs text-[#5A5A54] mt-1 mb-5">Puede ser un problema de conexión. Probá de nuevo.</p>
+          <button onClick={() => window.location.reload()}
+            className="rounded-full bg-[#D8F34E] text-[#101010] font-bold text-sm px-6 py-3">
+            Reintentar
+          </button>
+        </div>
+      </main>
+    );
 
   if (!shop)
     return <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] flex items-center justify-center"><p className="text-[#5A5A54]">Cargando…</p></main>;
