@@ -65,7 +65,20 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
   }
 
   if (notFound) return <Center><p className="text-[#6E6E68]">Este link no corresponde a ningún turno.</p></Center>;
-  if (!appt) return <Center><p className="text-[#5A5A54]">Cargando…</p></Center>;
+  if (!appt)
+    return (
+      <Center>
+        <div className="w-full max-w-sm animate-pulse">
+          <div className="h-7 w-24 rounded bg-[#1a1a1a] mx-auto mb-8" />
+          <div className="rounded-3xl border border-[#262626] bg-[#141414] p-6">
+            <div className="w-12 h-12 rounded-full bg-[#1a1a1a] mx-auto mb-3" />
+            <div className="h-5 w-32 rounded bg-[#1a1a1a] mx-auto mb-2" />
+            <div className="h-3 w-24 rounded bg-[#222] mx-auto mb-6" />
+            {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-9 rounded bg-[#181818] mb-2" />)}
+          </div>
+        </div>
+      </Center>
+    );
 
   const cancelled = appt.status.startsWith("cancelled");
   const finished = appt.status === "done" || appt.status === "no_show";

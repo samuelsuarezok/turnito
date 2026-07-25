@@ -9,6 +9,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
 import { motion, AnimatePresence } from "framer-motion";
+import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
 
 type Shop = { id: string; name: string; slug: string };
 type Appt = {
@@ -16,6 +17,9 @@ type Appt = {
   date: string; time: string; status: string;
   services: { name: string; duration_min: number } | null;
 };
+// Datos de agenda para reprogramar (mismos que usa la reserva pública).
+type SchedInfo = { slot_minutes: number; hours: OpeningRange[]; closed: ClosedEntry[] };
+type MoveBusy = { id: string; time: string; services: { duration_min: number } | null };
 
 const DAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -43,6 +47,15 @@ export default function PanelPage() {
   const [date, setDate] = useState(fmtDate(new Date()));
   const [copied, setCopied] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
+
+  // Reprogramar turno ("mover")
+  const [moving, setMoving] = useState<Appt | null>(null);
+  const [schedInfo, setSchedInfo] = useState<SchedInfo | null>(null);
+  const [moveDate, setMoveDate] = useState("");
+  const [moveTime, setMoveTime] = useState<string | null>(null);
+  const [moveBusy, setMoveBusy] = useState<MoveBusy[]>([]);
+  const [moveSaving, setMoveSaving] = useState(false);
+  const [moveError, setMoveError] = useState("");
 
   const days = useMemo(() => getNext7Days(), []);
   const today = fmtDate(new Date());
@@ -110,6 +123,67 @@ export default function PanelPage() {
     setCopied(true); setTimeout(() => setCopied(false), 2000);
   }
 
+  // ── REPROGRAMAR TURNO ─────────────────────────────────────────────────────
+  async function openMove(appt: Appt) {
+    setMoving(appt); setMoveDate(appt.date); setMoveTime(null); setMoveError("");
+    // Traemos la agenda (horarios/cerrados) igual que la reserva pública, una sola vez.
+    if (!schedInfo && shop) {
+      const { data } = await supabase.rpc("public_shop_info", { shop_slug: shop.slug });
+      if (data) setSchedInfo(data as SchedInfo);
+    }
+  }
+  function closeMove() { setMoving(null); setMoveTime(null); }
+
+  // Turnos ocupados del día destino (para validar solapamiento)
+  useEffect(() => {
+    if (!moving || !shop) return;
+    supabase.from("appointments")
+      .select("id, time, services(duration_min)")
+      .eq("barbershop_id", shop.id).eq("date", moveDate).in("status", ["confirmed", "done"])
+      .then(({ data }) => setMoveBusy((data as unknown as MoveBusy[]) ?? []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [moving, moveDate, shop]);
+
+  const moveFullDayClosed = useMemo(
+    () => fullDayClosedSet(normalizeClosed(schedInfo?.closed)),
+    [schedInfo]
+  );
+
+  // Horarios libres del día destino, con la duración del turno que se mueve.
+  const moveSlots = useMemo(() => {
+    if (!moving || !schedInfo) return { grid: [] as string[], availability: {} as Record<string, boolean> };
+    if (moveFullDayClosed.has(moveDate)) return { grid: [], availability: {} };
+    const [y, m, d] = moveDate.split("-").map(Number);
+    const weekday = new Date(y, m - 1, d).getDay();
+    const dur = moving.services?.duration_min ?? schedInfo.slot_minutes;
+    // Excluimos el propio turno del chequeo (si no, chocaría consigo mismo).
+    const busyIntervals = moveBusy
+      .filter((a) => a.id !== moving.id)
+      .map((a) => { const s = toMin(a.time); return [s, s + (a.services?.duration_min ?? schedInfo.slot_minutes)] as [number, number]; });
+    // El barbero NO tiene anticipación mínima; solo no puede mover al pasado (hoy).
+    let minStartMin: number | undefined;
+    if (moveDate === today) { const now = new Date(); minStartMin = now.getHours() * 60 + now.getMinutes(); }
+    return computeSlots({
+      hours: schedInfo.hours, weekday, date: moveDate,
+      slotMinutes: schedInfo.slot_minutes, durationMin: dur,
+      closedBlocks: normalizeClosed(schedInfo.closed), busyIntervals, minStartMin,
+    });
+  }, [moving, schedInfo, moveDate, moveBusy, moveFullDayClosed, today]);
+
+  async function confirmMove() {
+    if (!moving || !moveTime) return;
+    setMoveSaving(true); setMoveError("");
+    const { error } = await supabase.from("appointments")
+      .update({ date: moveDate, time: moveTime }).eq("id", moving.id);
+    setMoveSaving(false);
+    if (error) {
+      setMoveError(error.code === "23505" ? "Ese horario se acaba de ocupar. Elegí otro." : "No se pudo mover. Probá de nuevo.");
+      return;
+    }
+    setMoving(null); setMoveTime(null);
+    if (shop) loadAppts(shop.id, date);
+  }
+
   const active = appts.filter((a) => a.status === "confirmed");
   const done = appts.filter((a) => a.status === "done");
   const current = active[0] ?? null;
@@ -130,7 +204,22 @@ export default function PanelPage() {
     );
 
   if (!shop)
-    return <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] flex items-center justify-center"><p className="text-[#5A5A54]">Cargando…</p></main>;
+    return (
+      <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] p-5">
+        <div className="max-w-md mx-auto pb-16 animate-pulse">
+          <div className="flex items-center justify-between pt-2 mb-6">
+            <div className="h-6 w-40 rounded-lg bg-[#1a1a1a]" />
+            <div className="h-4 w-16 rounded bg-[#1a1a1a]" />
+          </div>
+          <div className="flex gap-2 mb-6">
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-12 h-14 rounded-2xl bg-[#141414]" />)}
+          </div>
+          <div className="h-40 rounded-3xl bg-[#141414] mb-4" />
+          <div className="h-16 rounded-2xl bg-[#141414] mb-2" />
+          <div className="h-16 rounded-2xl bg-[#141414]" />
+        </div>
+      </main>
+    );
 
   return (
     <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] p-5">
@@ -198,12 +287,31 @@ export default function PanelPage() {
                 <motion.button whileTap={{ scale: 0.96 }} onClick={() => setStatus(current.id, "no_show")}
                   className="rounded-full border-[1.5px] border-[#101010]/30 text-[#101010] text-xs font-bold px-5">No vino</motion.button>
               </div>
+              <button onClick={() => openMove(current)}
+                className="w-full text-center text-[11px] font-bold text-[#101010]/60 mt-2.5 underline underline-offset-2">
+                🕐 Mover a otro horario
+              </button>
             </motion.div>
           ) : (
             <motion.div key="empty" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
               className="rounded-3xl border border-[#262626] bg-[#141414] p-8 text-center mb-4">
-              <p className="text-sm font-bold">Sin turnos en cola</p>
-              <p className="text-xs text-[#5A5A54] mt-1">{appts.length === 0 ? "Todavía no hay reservas para este día" : "¡Día completado!"}</p>
+              {appts.length === 0 ? (
+                <>
+                  <div className="text-3xl mb-3">📅</div>
+                  <p className="text-sm font-bold">Todavía no hay turnos este día</p>
+                  <p className="text-xs text-[#5A5A54] mt-1 mb-5">Compartí tu link para recibir el primero</p>
+                  <motion.button whileTap={{ scale: 0.96 }} onClick={copyLink}
+                    className="rounded-full bg-[#D8F34E] text-[#101010] font-bold text-sm px-6 py-2.5">
+                    {copied ? "✓ Link copiado" : "Copiar mi link"}
+                  </motion.button>
+                </>
+              ) : (
+                <>
+                  <div className="text-3xl mb-3">🎉</div>
+                  <p className="text-sm font-bold">¡Día completado!</p>
+                  <p className="text-xs text-[#5A5A54] mt-1">Atendiste todos los turnos. Bien ahí.</p>
+                </>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
@@ -231,7 +339,8 @@ export default function PanelPage() {
                         </a>
                       </div>
                     </div>
-                    <button onClick={() => setStatus(a.id, "cancelled_by_shop")} className="text-[#5A5A54] hover:text-red-400 text-sm px-1">✕</button>
+                    <button onClick={() => openMove(a)} className="text-[#5A5A54] hover:text-[#D8F34E] text-sm px-1" title="Mover turno">🕐</button>
+                    <button onClick={() => setStatus(a.id, "cancelled_by_shop")} className="text-[#5A5A54] hover:text-red-400 text-sm px-1" title="Cancelar turno">✕</button>
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -254,6 +363,75 @@ export default function PanelPage() {
           </>
         )}
       </div>
+
+      {/* MODAL REPROGRAMAR TURNO */}
+      <AnimatePresence>
+        {moving && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={closeMove}
+            className="fixed inset-0 z-50 bg-black/70 flex items-end justify-center">
+            <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 32 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-[#141414] border-t border-[#262626] rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-base font-bold">Mover turno</h2>
+                <button onClick={closeMove} className="text-[#5A5A54] text-lg leading-none px-1">✕</button>
+              </div>
+              <p className="text-xs text-[#6E6E68] mb-4">
+                {moving.client_name} · {moving.services?.name} ({moving.services?.duration_min} min)
+              </p>
+
+              {!schedInfo ? (
+                <p className="text-sm text-[#5A5A54] py-6 text-center">Cargando horarios…</p>
+              ) : (
+                <>
+                  {/* día destino */}
+                  <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+                    {days.map((d) => {
+                      const ds = fmtDate(d); const on = moveDate === ds; const closed = moveFullDayClosed.has(ds);
+                      return (
+                        <button key={ds} disabled={closed} onClick={() => { setMoveDate(ds); setMoveTime(null); }}
+                          className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
+                            closed ? "border-[#1A1A1A] bg-[#111] opacity-30 cursor-not-allowed"
+                              : on ? "border-[#D8F34E] bg-[#D8F34E]/10" : "border-[#262626] bg-[#181818]"}`}>
+                          <div className={`text-[8px] uppercase ${on && !closed ? "text-[#D8F34E]" : "text-[#5A5A54]"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
+                          <div className={`text-sm font-bold ${on ? "text-[#D8F34E]" : ""}`}>{d.getDate()}</div>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* horarios libres */}
+                  {moveSlots.grid.length === 0 ? (
+                    <p className="text-sm text-[#5A5A54] py-4 text-center">Cerrado ese día. Elegí otro.</p>
+                  ) : (
+                    <div className="grid grid-cols-4 gap-2 mb-4">
+                      {moveSlots.grid.map((s) => {
+                        const free = moveSlots.availability[s]; const on = moveTime === s;
+                        return (
+                          <button key={s} disabled={!free} onClick={() => setMoveTime(s)}
+                            className={`rounded-xl border-[1.5px] py-2 text-[11px] font-semibold transition-colors ${
+                              !free ? "border-transparent bg-[#141414] text-[#3A3A36] line-through"
+                                : on ? "border-[#D8F34E] bg-[#D8F34E] text-[#101010]"
+                                : "border-[#262626] bg-[#181818] text-[#C9C9C4]"}`}>{s}</button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {moveError && <p className="text-sm text-red-400 mb-3 text-center">{moveError}</p>}
+
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={confirmMove} disabled={!moveTime || moveSaving}
+                    className="w-full rounded-full bg-[#D8F34E] text-[#101010] font-bold py-3.5 disabled:opacity-30">
+                    {moveSaving ? "Moviendo…" : moveTime ? `Mover a ${moveDate === today ? "hoy" : moveDate} · ${moveTime}` : "Elegí un horario"}
+                  </motion.button>
+                </>
+              )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }

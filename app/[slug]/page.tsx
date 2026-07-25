@@ -5,17 +5,13 @@
 import { use, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
+import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
 
 type Service = { id: string; name: string; icon: string; duration_min: number; price: number };
-type DayHours = { weekday: number; opens_at: string; closes_at: string };
 type BusySlot = { time: string; duration_min: number };
-// Bloqueo de fecha: string (día completo, formato viejo) u objeto con rango horario.
-// from_time/to_time null = día completo. Retrocompatible con el RPC actual.
-type ClosedEntry = string | { date: string; from_time: string | null; to_time: string | null };
-type ClosedBlock = { date: string; from_time: string | null; to_time: string | null };
 type ShopInfo = {
   name: string; slug: string; slot_minutes: number; min_notice_min: number;
-  services: Service[]; hours: DayHours[]; closed: ClosedEntry[];
+  services: Service[]; hours: OpeningRange[]; closed: ClosedEntry[];
 };
 
 const DAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
@@ -27,9 +23,6 @@ function fmtDate(d: Date) {
 function getNext7Days() {
   return Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
 }
-const toMin = (t: string) => { const [h, m] = t.slice(0, 5).split(":").map(Number); return h * 60 + m; };
-const toHHMM = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
-
 const labelCls = "text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2";
 const stepVariants = {
   enter: (dir: number) => ({ opacity: 0, x: dir * 60 }),
@@ -85,18 +78,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     return new Date(y, m - 1, d).getDay();
   }, [date]);
 
-  // Normalizamos los bloqueos: acepta el formato viejo (string = día completo)
-  // y el nuevo (objeto con rango). Así no rompe antes de actualizar el RPC.
-  const closedBlocks = useMemo<ClosedBlock[]>(
-    () => (shop?.closed ?? []).map((c) =>
-      typeof c === "string" ? { date: c, from_time: null, to_time: null } : c),
-    [shop]
-  );
-  // Solo los bloqueos de DÍA COMPLETO (sin rango) deshabilitan el día entero.
-  const fullDayClosed = useMemo(
-    () => new Set(closedBlocks.filter((c) => !c.from_time).map((c) => c.date)),
-    [closedBlocks]
-  );
+  // Bloqueos normalizados + set de días completos (lógica en lib/slots).
+  const closedBlocks = useMemo(() => normalizeClosed(shop?.closed), [shop]);
+  const fullDayClosed = useMemo(() => fullDayClosedSet(closedBlocks), [closedBlocks]);
   const dayIsClosed = fullDayClosed.has(date);
 
   // Intervalos ocupados en minutos: [inicio, fin)
@@ -105,47 +89,26 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     [busy]
   );
 
-  // Grilla + disponibilidad según la DURACIÓN del servicio elegido
+  // Grilla + disponibilidad según la DURACIÓN del servicio elegido.
+  // Lógica unificada en lib/slots (la misma que usa el panel para reprogramar).
   const { grid, availability } = useMemo(() => {
     if (!shop || dayIsClosed) return { grid: [] as string[], availability: {} as Record<string, boolean> };
-
-    // Horarios PARTIDOS: puede haber varias franjas por día (ej: 09-13 y 16-20).
-    // Antes se usaba .find() y solo tomaba la primera → se ofrecían turnos en la siesta.
-    const dayRanges = shop.hours
-      .filter((h) => h.weekday === weekday)
-      .map((h) => [toMin(h.opens_at), toMin(h.closes_at)] as [number, number])
-      .sort((a, b) => a[0] - b[0]);
-    if (dayRanges.length === 0) return { grid: [], availability: {} };
-
-    const dur = service?.duration_min ?? shop.slot_minutes;
-
-    // mínimo desde ahora (solo hoy): ahora + anticipación mínima
-    let nowMin = -Infinity;
+    // Solo hoy: no ofrecer horarios antes de ahora + anticipación mínima.
+    let minStartMin: number | undefined;
     if (date === today) {
       const now = new Date();
-      nowMin = now.getHours() * 60 + now.getMinutes() + shop.min_notice_min;
+      minStartMin = now.getHours() * 60 + now.getMinutes() + shop.min_notice_min;
     }
-
-    // Bloqueos horarios puntuales de ESTE día (ej: "médico 15-17"). Se tratan
-    // como intervalos ocupados. from/to null = día completo (ya cubierto arriba).
-    const blockedIntervals = closedBlocks
-      .filter((c) => c.date === date && c.from_time && c.to_time)
-      .map((c) => [toMin(c.from_time as string), toMin(c.to_time as string)] as [number, number]);
-    const takenIntervals = [...busyIntervals, ...blockedIntervals];
-
-    const g: string[] = [];
-    const avail: Record<string, boolean> = {};
-    // Un turno debe entrar COMPLETO dentro de su franja (no puede pisar la siesta).
-    for (const [open, close] of dayRanges) {
-      for (let t = open; t + shop.slot_minutes <= close; t += shop.slot_minutes) {
-        const label = toHHMM(t);
-        g.push(label);
-        const fitsSchedule = t >= nowMin && t + dur <= close;
-        const overlaps = takenIntervals.some(([bs, be]) => t < be && t + dur > bs);
-        avail[label] = fitsSchedule && !overlaps;
-      }
-    }
-    return { grid: g, availability: avail };
+    return computeSlots({
+      hours: shop.hours,
+      weekday,
+      date,
+      slotMinutes: shop.slot_minutes,
+      durationMin: service?.duration_min ?? shop.slot_minutes,
+      closedBlocks,
+      busyIntervals,
+      minStartMin,
+    });
   }, [shop, weekday, date, today, dayIsClosed, busyIntervals, closedBlocks, service]);
 
   // Si cambia el servicio y el horario elegido ya no entra, deseleccionarlo
@@ -178,7 +141,26 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   }
 
   if (notFound) return <Center><p className="text-[#6E6E68]">Esta barbería no existe o no está disponible.</p></Center>;
-  if (!shop) return <Center><p className="text-[#5A5A54]">Cargando…</p></Center>;
+  if (!shop)
+    return (
+      <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] p-5">
+        <div className="max-w-md mx-auto pt-4 animate-pulse">
+          <div className="h-6 w-44 rounded-lg bg-[#1a1a1a] mb-2" />
+          <div className="h-3 w-28 rounded bg-[#141414] mb-7" />
+          <div className="h-3 w-16 rounded bg-[#141414] mb-3" />
+          <div className="grid grid-cols-3 gap-2 mb-6">
+            {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 rounded-2xl bg-[#141414]" />)}
+          </div>
+          <div className="h-3 w-12 rounded bg-[#141414] mb-3" />
+          <div className="flex gap-2 mb-6">
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-12 h-14 rounded-2xl bg-[#141414]" />)}
+          </div>
+          <div className="grid grid-cols-4 gap-2">
+            {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-9 rounded-xl bg-[#141414]" />)}
+          </div>
+        </div>
+      </main>
+    );
 
   if (step === 3 && token)
     return (

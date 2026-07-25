@@ -10,7 +10,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -256,6 +256,17 @@ export default function ConfigPage() {
 
   return (
     <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] p-5">
+      {/* Toast de guardado — feedback bien visible arriba */}
+      <AnimatePresence>
+        {savedKey && (
+          <motion.div
+            initial={{ opacity: 0, y: 24, x: "-50%" }} animate={{ opacity: 1, y: 0, x: "-50%" }} exit={{ opacity: 0, y: 24, x: "-50%" }}
+            transition={{ type: "spring", stiffness: 400, damping: 28 }}
+            className="fixed bottom-6 left-1/2 z-50 flex items-center gap-2 rounded-full bg-[#D8F34E] text-[#101010] font-bold text-sm px-5 py-2.5 shadow-lg shadow-black/50">
+            <span className="text-base leading-none">✓</span> Guardado
+          </motion.div>
+        )}
+      </AnimatePresence>
       <div className="max-w-md mx-auto pb-16">
         {/* header */}
         <motion.div className="flex items-center justify-between pt-2 mb-6"
