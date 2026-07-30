@@ -104,7 +104,7 @@ export default function PanelPage() {
   useEffect(() => {
     if (!shop) return;
     const tick = () => loadAppts(shop.id, date);
-    const id = setInterval(tick, 15000); // cada 15s: sobra para una barbería
+    const id = setInterval(tick, 5000); // cada 5s: se siente "vivo" y para una barbería sobra
     // Bonus: al volver a la pestaña, refresca al toque sin esperar los 15s.
     const onVisible = () => { if (document.visibilityState === "visible") tick(); };
     document.addEventListener("visibilitychange", onVisible);
