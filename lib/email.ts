@@ -1,6 +1,24 @@
 // Envío de mails transaccionales. SOLO se usa desde el server (la API key no
 // puede salir al navegador nunca).
 //
+// ⚠️ HOY ESTÁ APAGADO. Se prende con NEXT_PUBLIC_EMAIL_ENABLED=1, y NO alcanza
+// con eso solo. Checklist completo para prenderlo (los 4 pasos, en orden):
+//
+//   1. Correr supabase/migrations/0002_email_confirmacion.sql en Supabase.
+//      Sin esto, cualquier reserva con email escrito FALLA: la columna
+//      client_email no existe y el insert revienta.
+//   2. Verificar el remitente en Brevo y cargar BREVO_API_KEY + EMAIL_FROM
+//      (en Vercel y en .env.local).
+//   3. Volver a poner en app/legales/page.tsx lo que se sacó al postergar esto:
+//      el email en "2.2 Qué datos recopilamos", su finalidad en "2.3 Para qué
+//      los usamos", y Brevo en "2.4 Con quién los compartimos". Es obligatorio
+//      declararlo ANTES de empezar a guardar direcciones.
+//   4. Recién ahí NEXT_PUBLIC_EMAIL_ENABLED=1, que muestra el campo al cliente.
+//
+// Sin dominio propio los mails van a caer en spam casi siempre (Gmail rechaza
+// que un tercero mande como @gmail.com). Con dominio: verificarlo en Brevo y
+// cambiar EMAIL_FROM — el código no se toca.
+//
 // Proveedor: Brevo. Se eligió porque permite verificar UNA dirección suelta
 // (ej: tu Gmail) sin tener dominio propio, y desde ahí mandarle a cualquiera.
 // Resend, que es más lindo de usar, sin dominio sólo deja mandarte mails a vos

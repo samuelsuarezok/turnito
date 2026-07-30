@@ -25,7 +25,11 @@ export async function POST(req: Request) {
   // El email es OPCIONAL. Si lo dejan vacío se reserva igual; si lo escriben
   // mal avisamos, porque si no el cliente se queda esperando un mail que no va
   // a llegar nunca.
-  const rawEmail = typeof client_email === "string" ? client_email.trim() : "";
+  //
+  // Con la feature apagada ignoramos `client_email` aunque lo manden: la
+  // columna todavía no existe en la base y el insert reventaría la reserva.
+  const emailEnabled = process.env.NEXT_PUBLIC_EMAIL_ENABLED === "1";
+  const rawEmail = emailEnabled && typeof client_email === "string" ? client_email.trim() : "";
   if (rawEmail && !isValidEmail(rawEmail)) {
     return NextResponse.json({ error: "Ese email no parece válido. Revisalo o dejalo vacío." }, { status: 400 });
   }

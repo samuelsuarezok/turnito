@@ -20,6 +20,11 @@ type ShopInfo = {
 const DAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+// Confirmación por mail: apagada hasta tener dominio propio. Ver el checklist
+// para prenderla en lib/email.ts. Mientras esté apagada el campo no se muestra
+// y no se manda `client_email` (la columna todavía no existe en la base).
+const EMAIL_ENABLED = process.env.NEXT_PUBLIC_EMAIL_ENABLED === "1";
+
 function fmtDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
@@ -155,7 +160,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       body: JSON.stringify({
         slug, service_id: service!.id, barber_id: barber?.id ?? null,
         date, time, client_name: name.trim(), client_phone: phone.trim(),
-        client_email: email.trim() || null,
+        client_email: EMAIL_ENABLED ? email.trim() || null : null,
       }),
     });
     const json = await res.json();
@@ -371,18 +376,22 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
               <div className={labelCls}>Tu WhatsApp</div>
               <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="351 234-5678" type="tel"
-                className="w-full mb-4 rounded-2xl bg-[#181818] border border-[#262626] px-4 py-3.5 outline-none focus:border-[#D8F34E] transition-colors" />
+                className={`w-full rounded-2xl bg-[#181818] border border-[#262626] px-4 py-3.5 outline-none focus:border-[#D8F34E] transition-colors ${EMAIL_ENABLED ? "mb-4" : "mb-2"}`} />
 
-              <div className={labelCls}>
-                Tu email <span className="text-[#3A3A36] normal-case tracking-normal">— opcional</span>
-              </div>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="juan@gmail.com"
-                type="email" inputMode="email" autoComplete="email"
-                className="w-full mb-2 rounded-2xl bg-[#181818] border border-[#262626] px-4 py-3.5 outline-none focus:border-[#D8F34E] transition-colors" />
-              <p className="text-xs text-[#5A5A54] mb-7">
-                Si lo dejás, te mandamos la confirmación por mail. Podés saltearlo y reservar igual.
-                <br />Solo usamos tus datos para tu turno. No creamos ninguna cuenta.
-              </p>
+              {EMAIL_ENABLED && (
+                <>
+                  <div className={labelCls}>
+                    Tu email <span className="text-[#3A3A36] normal-case tracking-normal">— opcional</span>
+                  </div>
+                  <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="juan@gmail.com"
+                    type="email" inputMode="email" autoComplete="email"
+                    className="w-full mb-2 rounded-2xl bg-[#181818] border border-[#262626] px-4 py-3.5 outline-none focus:border-[#D8F34E] transition-colors" />
+                  <p className="text-xs text-[#5A5A54] mb-1">
+                    Si lo dejás, te mandamos la confirmación por mail. Podés saltearlo y reservar igual.
+                  </p>
+                </>
+              )}
+              <p className="text-xs text-[#5A5A54] mb-7">Solo usamos tus datos para tu turno. No creamos ninguna cuenta.</p>
 
               {error && (
                 <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-sm text-red-400 mb-4">{error}</motion.p>

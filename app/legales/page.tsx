@@ -124,26 +124,22 @@ export default function LegalesPage() {
               <b className="text-[#EDEDEA]">De las Barberías:</b> email, contraseña (encriptada), nombre del
               local, teléfono de contacto, servicios, precios y horarios.<br /><br />
               <b className="text-[#EDEDEA]">De los Clientes:</b> nombre y número de teléfono, que se ingresan
-              al reservar un turno, y —de forma <b className="text-[#EDEDEA]">opcional</b>— una dirección de
-              email. El email solo se solicita para enviarte la confirmación de tu turno: si preferís no
-              dejarlo, podés reservar igual. Los Clientes no crean una cuenta ni establecen contraseña. Estos
-              datos se usan únicamente para gestionar y confirmar el turno con la Barbería elegida.
+              al reservar un turno. Los Clientes no crean una cuenta ni establecen contraseña. Este dato se usa
+              únicamente para gestionar y confirmar el turno con la Barbería elegida.
             </Block>
 
             <Block title="2.3 Para qué los usamos">
               Para operar el servicio: crear y mostrar turnos, confirmar reservas, permitir cancelaciones,
-              enviar notificaciones relativas al turno y administrar la suscripción de la Barbería. Si dejaste
-              tu email, lo usamos <b className="text-[#EDEDEA]">únicamente</b> para mandarte la confirmación y
-              el comprobante de ese turno: no te enviamos publicidad ni newsletters. No usamos los datos para
-              publicidad ni los vendemos a terceros.
+              enviar notificaciones relativas al turno y administrar la suscripción de la Barbería. No usamos
+              los datos para publicidad ni los vendemos a terceros.
             </Block>
 
             <Block title="2.4 Con quién los compartimos">
               Los datos del Cliente se comparten con la Barbería en la que reserva (es quien lo atenderá).
               Utilizamos proveedores de infraestructura y servicios que actúan por cuenta nuestra, como
               alojamiento y base de datos (Supabase), hosting (Vercel), procesamiento de pagos (Mercado Pago)
-              y envío de correo electrónico (Brevo). Estos proveedores solo acceden a los datos necesarios
-              para prestar su función.
+              y envío de mensajes. Estos proveedores solo acceden a los datos necesarios para prestar su
+              función.
             </Block>
 
             <Block title="2.5 Conservación">
