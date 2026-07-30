@@ -8,7 +8,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
 
 type Service = { id: string; name: string; icon: string; duration_min: number; price: number };
-type BusySlot = { time: string; duration_min: number };
+// barber_id null = turno viejo / barbería de un solo sillón → ocupa a todos.
+type BusySlot = { time: string; duration_min: number; barber_id: string | null };
+// `absences`: días (YYYY-MM-DD) en que ese barbero no está.
+type Barber = { id: string; name: string; absences: string[] };
 type ShopInfo = {
   name: string; slug: string; slot_minutes: number; min_notice_min: number;
   services: Service[]; hours: OpeningRange[]; closed: ClosedEntry[];
@@ -44,6 +47,8 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   function goTo(n: number) { setDir(n > step ? 1 : -1); setStepRaw(n); }
 
   const [service, setService] = useState<Service | null>(null);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [barber, setBarber] = useState<Barber | null>(null);
   const [date, setDate] = useState(fmtDate(new Date()));
   const [time, setTime] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusySlot[]>([]);
@@ -62,16 +67,30 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       if (error || !data) setNotFound(true);
       else setShop(data as ShopInfo);
     });
+    // Barberos: si la barbería no cargó ninguno, es de un solo sillón y todo
+    // funciona como siempre (no se muestra el selector).
+    supabase.rpc("public_shop_barbers", { shop_slug: slug }).then(({ data }) => {
+      const list = (data ?? []) as Barber[];
+      setBarbers(list);
+      if (list.length === 1) setBarber(list[0]); // uno solo: no lo hacemos elegir
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
   useEffect(() => {
     if (!shop) return;
-    supabase.rpc("public_busy_slots", { shop_slug: slug, on_date: date }).then(({ data }) => {
-      setBusy((data ?? []) as BusySlot[]);
-    });
+    loadBusy(date);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shop, date]);
+
+  // v2 trae barber_id. Si todavía no existe (migración sin correr), caemos a la
+  // vieja: sin barber_id todo ocupa a todos, que es el comportamiento de siempre.
+  async function loadBusy(onDate: string) {
+    const { data, error } = await supabase.rpc("public_busy_slots_v2", { shop_slug: slug, on_date: onDate });
+    if (!error) return setBusy((data ?? []) as BusySlot[]);
+    const { data: legacy } = await supabase.rpc("public_busy_slots", { shop_slug: slug, on_date: onDate });
+    setBusy(((legacy ?? []) as Omit<BusySlot, "barber_id">[]).map((b) => ({ ...b, barber_id: null })));
+  }
 
   const weekday = useMemo(() => {
     const [y, m, d] = date.split("-").map(Number);
@@ -83,16 +102,25 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const fullDayClosed = useMemo(() => fullDayClosedSet(closedBlocks), [closedBlocks]);
   const dayIsClosed = fullDayClosed.has(date);
 
+  const hasBarbers = barbers.length > 0;
+  // El barbero elegido no está ese día → para el cliente es lo mismo que cerrado.
+  const barberAbsent = !!barber && barber.absences.includes(date);
+
   // Intervalos ocupados en minutos: [inicio, fin)
+  // Con varios barberos, cada uno tiene su agenda: sólo lo ocupan sus propios
+  // turnos (más los de barber_id null, que son de cuando había un solo sillón).
   const busyIntervals = useMemo(
-    () => busy.map((b) => { const s = toMin(b.time); return [s, s + b.duration_min] as [number, number]; }),
-    [busy]
+    () =>
+      busy
+        .filter((b) => !hasBarbers || !barber || b.barber_id === null || b.barber_id === barber.id)
+        .map((b) => { const s = toMin(b.time); return [s, s + b.duration_min] as [number, number]; }),
+    [busy, hasBarbers, barber]
   );
 
   // Grilla + disponibilidad según la DURACIÓN del servicio elegido.
   // Lógica unificada en lib/slots (la misma que usa el panel para reprogramar).
   const { grid, availability } = useMemo(() => {
-    if (!shop || dayIsClosed) return { grid: [] as string[], availability: {} as Record<string, boolean> };
+    if (!shop || dayIsClosed || barberAbsent) return { grid: [] as string[], availability: {} as Record<string, boolean> };
     // Solo hoy: no ofrecer horarios antes de ahora + anticipación mínima.
     let minStartMin: number | undefined;
     if (date === today) {
@@ -109,20 +137,23 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       busyIntervals,
       minStartMin,
     });
-  }, [shop, weekday, date, today, dayIsClosed, busyIntervals, closedBlocks, service]);
+  }, [shop, weekday, date, today, dayIsClosed, barberAbsent, busyIntervals, closedBlocks, service]);
 
-  // Si cambia el servicio y el horario elegido ya no entra, deseleccionarlo
+  // Si cambia el servicio/barbero y el horario elegido ya no entra, deseleccionarlo
   useEffect(() => {
     if (time && !availability[time]) setTime(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service, availability]);
+  }, [service, barber, availability]);
 
   async function book() {
     setError(""); setSaving(true);
     const res = await fetch("/api/book", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug, service_id: service!.id, date, time, client_name: name.trim(), client_phone: phone.trim() }),
+      body: JSON.stringify({
+        slug, service_id: service!.id, barber_id: barber?.id ?? null,
+        date, time, client_name: name.trim(), client_phone: phone.trim(),
+      }),
     });
     const json = await res.json();
     setSaving(false);
@@ -130,9 +161,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
       setError(json.error ?? "No se pudo reservar. Probá de nuevo.");
       if (json.code === "SLOT_TAKEN") {
         goTo(1); setTime(null);
-        // refrescar ocupados
-        const { data } = await supabase.rpc("public_busy_slots", { shop_slug: slug, on_date: date });
-        setBusy((data ?? []) as BusySlot[]);
+        await loadBusy(date); // refrescar ocupados
       }
       return;
     }
@@ -175,7 +204,10 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
             ✓
           </motion.div>
           <h1 className="text-2xl font-bold mb-1">¡Turno confirmado!</h1>
-          <p className="text-sm text-[#6E6E68] mb-6">{date === today ? "Hoy" : date} · {time} hs · {shop.name}</p>
+          <p className="text-sm text-[#6E6E68] mb-6">
+            {date === today ? "Hoy" : date} · {time} hs · {shop.name}
+            {barber ? ` · con ${barber.name}` : ""}
+          </p>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, ease: EASE }}
             className="rounded-3xl bg-[#141414] border border-[#262626] p-5 text-left text-sm mb-4">
             <p className="text-[#6E6E68] mb-2">Guardá este link para ver o cancelar tu turno:</p>
@@ -220,12 +252,34 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 ))}
               </motion.div>
 
+              {/* Barbero: sólo si la barbería cargó barberos */}
+              {hasBarbers && (
+                <>
+                  <div className={labelCls}>Barbero</div>
+                  <motion.div className="grid grid-cols-3 gap-2 mb-6" variants={gridStagger} initial="hidden" animate="show">
+                    {barbers.map((b) => (
+                      <motion.button key={b.id} variants={gridItem} whileTap={{ scale: 0.94 }}
+                        onClick={() => { setBarber(b); setTime(null); }}
+                        className={`rounded-2xl border-[1.5px] p-3 text-center transition-colors ${
+                          barber?.id === b.id ? "border-[#D8F34E] bg-[#D8F34E]/10" : "border-[#262626] bg-[#181818]"
+                        }`}>
+                        <div className="text-xs font-semibold truncate">{b.name}</div>
+                        {b.absences.includes(date) && (
+                          <div className="text-[10px] text-[#5A5A54] mt-0.5">no está ese día</div>
+                        )}
+                      </motion.button>
+                    ))}
+                  </motion.div>
+                </>
+              )}
+
               <div className={labelCls}>Día</div>
               <motion.div className="flex gap-2 overflow-x-auto pb-2 mb-6" variants={gridStagger} initial="hidden" animate="show">
                 {days.map((d) => {
                   const ds = fmtDate(d);
                   const on = date === ds;
-                  const isClosed = fullDayClosed.has(ds);
+                  // Cerrado el local, o el barbero elegido no está: mismo efecto.
+                  const isClosed = fullDayClosed.has(ds) || !!barber?.absences.includes(ds);
                   return (
                     <motion.button key={ds} variants={gridItem}
                       whileTap={!isClosed ? { scale: 0.92 } : {}}
@@ -248,15 +302,20 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
               <div className={labelCls}>
                 Horario{service ? ` · ${service.name} (${service.duration_min} min)` : ""}
+                {barber ? ` · con ${barber.name}` : ""}
               </div>
               {!service ? (
                 <p className="text-sm text-[#5A5A54] mb-6">Primero elegí un servicio para ver los horarios disponibles.</p>
-              ) : dayIsClosed || grid.length === 0 ? (
+              ) : hasBarbers && !barber ? (
+                <p className="text-sm text-[#5A5A54] mb-6">Elegí con qué barbero querés cortarte para ver sus horarios.</p>
+              ) : dayIsClosed || barberAbsent || grid.length === 0 ? (
                 <p className="text-sm text-[#5A5A54] mb-6">
-                  {dayIsClosed ? "La barbería está cerrada ese día. Elegí otro." : "Cerrado este día. Elegí otro."}
+                  {barberAbsent
+                    ? `${barber!.name} no atiende ese día. Elegí otro día u otro barbero.`
+                    : dayIsClosed ? "La barbería está cerrada ese día. Elegí otro." : "Cerrado este día. Elegí otro."}
                 </p>
               ) : (
-                <motion.div key={`${date}-${service.id}`} className="grid grid-cols-4 gap-2 mb-8" variants={gridStagger} initial="hidden" animate="show">
+                <motion.div key={`${date}-${service.id}-${barber?.id ?? "solo"}`} className="grid grid-cols-4 gap-2 mb-8" variants={gridStagger} initial="hidden" animate="show">
                   {grid.map((s) => {
                     const free = availability[s];
                     const on = time === s;
@@ -274,7 +333,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
               )}
 
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={() => goTo(2)} disabled={!service || !time}
+                onClick={() => goTo(2)} disabled={!service || !time || (hasBarbers && !barber)}
                 className="w-full rounded-full bg-[#D8F34E] text-[#101010] font-bold py-3.5 disabled:opacity-30">
                 Continuar →
               </motion.button>
@@ -287,6 +346,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
               <div className="rounded-2xl bg-[#141414] border border-[#262626] px-4 py-3 text-sm text-[#6E6E68] mb-6">
                 <span className="text-[#EDEDEA] font-semibold">{service?.name}</span> · {date === today ? "hoy" : date} ·{" "}
                 <span className="text-[#D8F34E] font-semibold">{time} hs</span>
+                {barber && <> · con <span className="text-[#EDEDEA] font-semibold">{barber.name}</span></>}
               </div>
 
               <div className={labelCls}>Tu nombre</div>

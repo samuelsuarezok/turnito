@@ -12,14 +12,16 @@ import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
 
 type Shop = { id: string; name: string; slug: string };
+type Barber = { id: string; name: string };
 type Appt = {
   id: string; client_name: string; client_phone: string;
   date: string; time: string; status: string;
+  barber_id: string | null;
   services: { name: string; duration_min: number } | null;
 };
 // Datos de agenda para reprogramar (mismos que usa la reserva pública).
 type SchedInfo = { slot_minutes: number; hours: OpeningRange[]; closed: ClosedEntry[] };
-type MoveBusy = { id: string; time: string; services: { duration_min: number } | null };
+type MoveBusy = { id: string; time: string; barber_id: string | null; services: { duration_min: number } | null };
 
 const DAYS_ES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 const EASE = [0.22, 1, 0.36, 1] as const;
@@ -44,6 +46,10 @@ export default function PanelPage() {
 
   const [shop, setShop] = useState<Shop | null>(null);
   const [appts, setAppts] = useState<Appt[]>([]);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  // Días en que cada barbero no está: "barberId|YYYY-MM-DD"
+  const [absences, setAbsences] = useState<Set<string>>(new Set());
+  const [barberFilter, setBarberFilter] = useState<string | null>(null); // null = todos
   const [date, setDate] = useState(fmtDate(new Date()));
   const [copied, setCopied] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
@@ -71,6 +77,21 @@ export default function PanelPage() {
         if (!data) return router.push("/onboarding");
         setShop(data);
 
+        // Barberos del local (vacío = un solo sillón, todo como antes)
+        const { data: brs } = await supabase
+          .from("barbers").select("id, name")
+          .eq("barbershop_id", data.id).eq("active", true).order("sort_order");
+        const list = (brs ?? []) as Barber[];
+        setBarbers(list);
+
+        if (list.length > 0) {
+          const { data: abs } = await supabase
+            .from("barber_absences").select("barber_id, date")
+            .in("barber_id", list.map((b) => b.id))
+            .gte("date", fmtDate(new Date()));
+          setAbsences(new Set((abs ?? []).map((a) => `${a.barber_id}|${a.date}`)));
+        }
+
         // Marcar como atendidos los turnos confirmados de días pasados
         await supabase
           .from("appointments")
@@ -90,7 +111,7 @@ export default function PanelPage() {
   async function loadAppts(shopId: string, onDate: string) {
     const { data } = await supabase
       .from("appointments")
-      .select("id, client_name, client_phone, date, time, status, services(name, duration_min)")
+      .select("id, client_name, client_phone, date, time, status, barber_id, services(name, duration_min)")
       .eq("barbershop_id", shopId).eq("date", onDate).order("time");
     setAppts((data as unknown as Appt[]) ?? []);
   }
@@ -138,7 +159,7 @@ export default function PanelPage() {
   useEffect(() => {
     if (!moving || !shop) return;
     supabase.from("appointments")
-      .select("id, time, services(duration_min)")
+      .select("id, time, barber_id, services(duration_min)")
       .eq("barbershop_id", shop.id).eq("date", moveDate).in("status", ["confirmed", "done"])
       .then(({ data }) => setMoveBusy((data as unknown as MoveBusy[]) ?? []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -149,16 +170,23 @@ export default function PanelPage() {
     [schedInfo]
   );
 
+  // Días en que NO se puede mover este turno: local cerrado o su barbero ausente.
+  const moveDayBlocked = (ds: string) =>
+    moveFullDayClosed.has(ds) || (!!moving?.barber_id && absences.has(`${moving.barber_id}|${ds}`));
+
   // Horarios libres del día destino, con la duración del turno que se mueve.
   const moveSlots = useMemo(() => {
     if (!moving || !schedInfo) return { grid: [] as string[], availability: {} as Record<string, boolean> };
     if (moveFullDayClosed.has(moveDate)) return { grid: [], availability: {} };
+    if (moving.barber_id && absences.has(`${moving.barber_id}|${moveDate}`)) return { grid: [], availability: {} };
     const [y, m, d] = moveDate.split("-").map(Number);
     const weekday = new Date(y, m - 1, d).getDay();
     const dur = moving.services?.duration_min ?? schedInfo.slot_minutes;
-    // Excluimos el propio turno del chequeo (si no, chocaría consigo mismo).
+    // Excluimos el propio turno del chequeo (si no, chocaría consigo mismo) y,
+    // con varios barberos, sólo compiten los turnos del mismo barbero.
     const busyIntervals = moveBusy
       .filter((a) => a.id !== moving.id)
+      .filter((a) => !moving.barber_id || a.barber_id === null || a.barber_id === moving.barber_id)
       .map((a) => { const s = toMin(a.time); return [s, s + (a.services?.duration_min ?? schedInfo.slot_minutes)] as [number, number]; });
     // El barbero NO tiene anticipación mínima; solo no puede mover al pasado (hoy).
     let minStartMin: number | undefined;
@@ -168,7 +196,7 @@ export default function PanelPage() {
       slotMinutes: schedInfo.slot_minutes, durationMin: dur,
       closedBlocks: normalizeClosed(schedInfo.closed), busyIntervals, minStartMin,
     });
-  }, [moving, schedInfo, moveDate, moveBusy, moveFullDayClosed, today]);
+  }, [moving, schedInfo, moveDate, moveBusy, moveFullDayClosed, absences, today]);
 
   async function confirmMove() {
     if (!moving || !moveTime) return;
@@ -184,8 +212,13 @@ export default function PanelPage() {
     if (shop) loadAppts(shop.id, date);
   }
 
-  const active = appts.filter((a) => a.status === "confirmed");
-  const done = appts.filter((a) => a.status === "done");
+  const barberName = (id: string | null) => barbers.find((b) => b.id === id)?.name ?? null;
+  // Filtro por barbero: null = todos. Los turnos viejos (barber_id null) sólo
+  // aparecen en "Todos", que es donde tiene sentido verlos.
+  const shownAppts = barberFilter ? appts.filter((a) => a.barber_id === barberFilter) : appts;
+
+  const active = shownAppts.filter((a) => a.status === "confirmed");
+  const done = shownAppts.filter((a) => a.status === "done");
   const current = active[0] ?? null;
   const rest = active.slice(1);
 
@@ -254,6 +287,27 @@ export default function PanelPage() {
           })}
         </motion.div>
 
+        {/* filtro por barbero (sólo si el local tiene barberos cargados) */}
+        {barbers.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+            <button onClick={() => setBarberFilter(null)}
+              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors ${
+                barberFilter === null ? "bg-[#D8F34E] text-[#101010] border-[#D8F34E]" : "bg-[#181818] text-[#6E6E68] border-[#262626]"}`}>
+              Todos
+            </button>
+            {barbers.map((b) => {
+              const off = absences.has(`${b.id}|${date}`);
+              return (
+                <button key={b.id} onClick={() => setBarberFilter(b.id)}
+                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors ${
+                    barberFilter === b.id ? "bg-[#D8F34E] text-[#101010] border-[#D8F34E]" : "bg-[#181818] text-[#6E6E68] border-[#262626]"}`}>
+                  {b.name}{off ? " · libre" : ""}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         <div className="flex justify-between items-baseline mb-4">
           <span className="text-sm font-bold">{date === today ? "Hoy" : date}</span>
           <span className="text-[11px] text-[#5A5A54]">{done.length} atendidos · {active.length} en cola</span>
@@ -272,7 +326,8 @@ export default function PanelPage() {
                 <div className="flex-1 min-w-0">
                   <div className="text-lg font-bold truncate">{current.client_name}</div>
                   <div className="text-xs opacity-70 mt-0.5">
-                    {current.services?.name} · {current.services?.duration_min} min ·{" "}
+                    {current.services?.name} · {current.services?.duration_min} min
+                    {barberName(current.barber_id) ? ` · con ${barberName(current.barber_id)}` : ""} ·{" "}
                     {/* Teléfono → abre WhatsApp */}
                     <a href={waLink(current.client_phone)} target="_blank" rel="noopener noreferrer"
                       className="underline font-semibold">
@@ -295,7 +350,7 @@ export default function PanelPage() {
           ) : (
             <motion.div key="empty" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
               className="rounded-3xl border border-[#262626] bg-[#141414] p-8 text-center mb-4">
-              {appts.length === 0 ? (
+              {shownAppts.length === 0 ? (
                 <>
                   <div className="text-3xl mb-3">📅</div>
                   <p className="text-sm font-bold">Todavía no hay turnos este día</p>
@@ -332,7 +387,8 @@ export default function PanelPage() {
                     <div className="flex-1 min-w-0">
                       <div className="text-sm font-semibold truncate">{a.client_name}</div>
                       <div className="text-[10px] text-[#5A5A54]">
-                        {a.services?.name} ·{" "}
+                        {a.services?.name}
+                        {barberName(a.barber_id) ? ` · ${barberName(a.barber_id)}` : ""} ·{" "}
                         <a href={waLink(a.client_phone)} target="_blank" rel="noopener noreferrer"
                           className="underline text-[#6E6E68] hover:text-[#D8F34E]">
                           💬 {a.client_phone}
@@ -380,6 +436,7 @@ export default function PanelPage() {
               </div>
               <p className="text-xs text-[#6E6E68] mb-4">
                 {moving.client_name} · {moving.services?.name} ({moving.services?.duration_min} min)
+                {barberName(moving.barber_id) ? ` · con ${barberName(moving.barber_id)}` : ""}
               </p>
 
               {!schedInfo ? (
@@ -389,7 +446,7 @@ export default function PanelPage() {
                   {/* día destino */}
                   <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
                     {days.map((d) => {
-                      const ds = fmtDate(d); const on = moveDate === ds; const closed = moveFullDayClosed.has(ds);
+                      const ds = fmtDate(d); const on = moveDate === ds; const closed = moveDayBlocked(ds);
                       return (
                         <button key={ds} disabled={closed} onClick={() => { setMoveDate(ds); setMoveTime(null); }}
                           className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
@@ -404,7 +461,11 @@ export default function PanelPage() {
 
                   {/* horarios libres */}
                   {moveSlots.grid.length === 0 ? (
-                    <p className="text-sm text-[#5A5A54] py-4 text-center">Cerrado ese día. Elegí otro.</p>
+                    <p className="text-sm text-[#5A5A54] py-4 text-center">
+                      {moving.barber_id && absences.has(`${moving.barber_id}|${moveDate}`)
+                        ? `${barberName(moving.barber_id)} no está ese día. Elegí otro.`
+                        : "Cerrado ese día. Elegí otro."}
+                    </p>
                   ) : (
                     <div className="grid grid-cols-4 gap-2 mb-4">
                       {moveSlots.grid.map((s) => {

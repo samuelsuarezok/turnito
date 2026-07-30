@@ -183,7 +183,7 @@ export default function LandingPage() {
           <div className="glow" />
           <motion.div className="hero-copy" variants={stagger} initial="hidden" animate="show">
             <motion.div className="tag" variants={fadeUp}>Para barberías y más · <b>30 días gratis</b></motion.div>
-            <motion.h1 variants={fadeUp}>Los turnos de tu barbería, <span className="hl">en piloto automático.</span></motion.h1>
+            <motion.h1 variants={fadeUp}>Los turnos de tu negocio, <span className="hl">en piloto automático.</span></motion.h1>
             <motion.p className="sub" variants={fadeUp}>Tus clientes reservan solos desde un link, sin crearse cuentas ni descargar nada. Vos abrís tu panel y sabés exactamente quién sigue.</motion.p>
             <motion.div className="hero-ctas" variants={fadeUp}>
               <motion.div {...hover}><Link className="pill lime" href="/login">Probar 30 días gratis <span>→</span></Link></motion.div>
@@ -314,7 +314,7 @@ export default function LandingPage() {
             <div className="kicker">Precio</div>
             <h2>Un solo plan. Sin letra chica.</h2>
             <p>Nada de versión básica recortada ni &quot;premium&quot; con lo que de verdad necesitás. Un plan con todo, y una prueba gratis para decidir tranquilo.</p>
-            <p style={{fontWeight:600,color:"#101010"}}>Si en 7 días no te sirvió, no ponés un peso.</p>
+            <p style={{fontWeight:600,color:"#101010"}}>Si en 30 días no te sirvió, no ponés un peso.</p>
           </Reveal>
           <Reveal variants={scaleIn}>
             <div className="price-card">
@@ -327,7 +327,7 @@ export default function LandingPage() {
                   <motion.li key={t} variants={slideRight}><span className="check">✓</span>{t}</motion.li>
                 ))}
               </motion.ul>
-              <motion.div {...hover}><Link className="pill lime" href="/login" style={{width:"100%",justifyContent:"center"}}>Empezar mis 7 días gratis <span>→</span></Link></motion.div>
+              <motion.div {...hover}><Link className="pill lime" href="/login" style={{width:"100%",justifyContent:"center"}}>Empezar mis 30 días gratis <span>→</span></Link></motion.div>
               <div className="price-fine">No pedimos tarjeta para probar.</div>
             </div>
           </Reveal>
@@ -357,7 +357,7 @@ export default function LandingPage() {
         <Reveal variants={scaleIn}>
           <div className="final-card">
             <h2>Tu próximo turno se reserva solo.</h2>
-            <p>Configurá tu barbería hoy y probalo 7 días con tus clientes reales.</p>
+            <p>Configurá tu barbería hoy y probalo 30 días con tus clientes reales.</p>
             <motion.div {...hover} style={{display:"inline-block"}}><Link className="pill" href="/login">Crear mi barbería gratis <span>→</span></Link></motion.div>
             <div className="final-fine">Sin tarjeta · Sin permanencia · Configuración en 15 minutos</div>
           </div>

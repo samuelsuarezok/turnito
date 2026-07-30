@@ -10,7 +10,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
 
-  const { slug, service_id, date, time, client_name, client_phone } = body;
+  const { slug, service_id, barber_id, date, time, client_name, client_phone } = body;
 
   if (
     !slug || !service_id || !date || !time ||
@@ -46,6 +46,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Servicio inválido" }, { status: 400 });
   }
 
+  // 2.2 Barbero: si la barbería cargó barberos, hay que elegir uno de los suyos.
+  //     Si no cargó ninguno, es de un solo sillón y barber_id queda NULL.
+  const { data: shopBarbers } = await supabase
+    .from("barbers")
+    .select("id")
+    .eq("barbershop_id", shop.id)
+    .eq("active", true);
+
+  const hasBarbers = (shopBarbers ?? []).length > 0;
+  let barberId: string | null = null;
+
+  if (hasBarbers) {
+    if (!barber_id || !(shopBarbers ?? []).some((b) => b.id === barber_id)) {
+      return NextResponse.json({ error: "Elegí un barbero disponible" }, { status: 400 });
+    }
+    barberId = barber_id as string;
+
+    // 2.3 Ese día el barbero no está
+    const { data: absent } = await supabase
+      .from("barber_absences")
+      .select("id")
+      .eq("barber_id", barberId)
+      .eq("date", date)
+      .maybeSingle();
+
+    if (absent) {
+      return NextResponse.json({ error: "Ese barbero no atiende ese día. Elegí otro día u otro barbero." }, { status: 400 });
+    }
+  }
+
   // 2.5 Día bloqueado por la barbería
   const { data: closedDay } = await supabase
     .from("closed_dates")
@@ -75,10 +105,11 @@ export async function POST(req: Request) {
   }
 
   // 3.5 Solapamiento por duración: el nuevo turno [inicio, fin) no puede
-  //     pisar ningún turno existente del día.
+  //     pisar ningún turno existente del día DEL MISMO BARBERO.
+  //     Los turnos con barber_id NULL (época de un solo sillón) ocupan a todos.
   const { data: existing } = await supabase
     .from("appointments")
-    .select("time, services(duration_min)")
+    .select("time, barber_id, services(duration_min)")
     .eq("barbershop_id", shop.id)
     .eq("date", date)
     .in("status", ["confirmed", "done"]);
@@ -86,7 +117,11 @@ export async function POST(req: Request) {
   const newStart = toMin(String(time));
   const newEnd = newStart + service.duration_min;
 
-  const overlaps = (existing ?? []).some((a) => {
+  const sameChair = (existing ?? []).filter(
+    (a) => !barberId || a.barber_id === null || a.barber_id === barberId
+  );
+
+  const overlaps = sameChair.some((a) => {
     const s = toMin(a.time as string);
     const dur = (a.services as unknown as { duration_min: number } | null)?.duration_min ?? 30;
     return newStart < s + dur && newEnd > s;
@@ -105,6 +140,9 @@ export async function POST(req: Request) {
     .insert({
       barbershop_id: shop.id,
       service_id,
+      // Sólo mandamos barber_id si hay barbero: así la reserva sigue andando
+      // aunque todavía no se haya corrido la migración de barberos.
+      ...(barberId ? { barber_id: barberId } : {}),
       date,
       time,
       client_name: client_name.trim(),

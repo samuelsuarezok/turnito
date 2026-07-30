@@ -28,6 +28,9 @@ type Svc = { id?: string; name: string; duration_min: number; price: number; _de
 type HourRange = { opens_at: string; closes_at: string };
 type DayHours = { open: boolean; ranges: HourRange[] };
 type Closed = { id: string; date: string; reason: string | null; from_time?: string | null; to_time?: string | null };
+type Absence = { id: string; date: string };
+// Barbero del local. `absences` son los días sueltos en que no está.
+type Barber = { id?: string; name: string; absences: Absence[]; _deleted?: boolean };
 
 const inputCls = "w-full rounded-2xl bg-[#181818] border border-[#262626] px-4 py-3 outline-none focus:border-[#D8F34E] transition-colors text-sm";
 const selectCls = "rounded-xl bg-[#181818] border border-[#262626] px-2.5 py-1.5 text-xs outline-none";
@@ -66,6 +69,11 @@ export default function ConfigPage() {
 
   // servicios
   const [services, setServices] = useState<Svc[]>([]);
+
+  // barberos
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [absenceDate, setAbsenceDate] = useState<Record<string, string>>({}); // por barbero
+  const [confirmDelBarber, setConfirmDelBarber] = useState<number | null>(null);
 
   // horarios
   const [hours, setHours] = useState<Record<number, DayHours>>({});
@@ -132,10 +140,43 @@ export default function ConfigPage() {
       setHours(map);
 
       await loadClosed(shop.id);
+      await loadBarbers(shop.id);
     }
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Dos queries en vez de un embed: no dependemos de que PostgREST tenga
+  // la relación barbers→barber_absences en su cache de schema.
+  async function loadBarbers(id: string) {
+    const today = new Date().toISOString().slice(0, 10);
+    const { data: brs } = await supabase
+      .from("barbers")
+      .select("id, name")
+      .eq("barbershop_id", id)
+      .eq("active", true)
+      .order("sort_order");
+
+    const ids = (brs ?? []).map((b) => b.id as string);
+    let abs: { id: string; barber_id: string; date: string }[] = [];
+    if (ids.length > 0) {
+      const { data } = await supabase
+        .from("barber_absences")
+        .select("id, barber_id, date")
+        .in("barber_id", ids)
+        .gte("date", today)
+        .order("date");
+      abs = (data ?? []) as typeof abs;
+    }
+
+    setBarbers(
+      (brs ?? []).map((b) => ({
+        id: b.id as string,
+        name: b.name as string,
+        absences: abs.filter((a) => a.barber_id === b.id).map((a) => ({ id: a.id, date: a.date })),
+      }))
+    );
+  }
 
   async function loadClosed(id: string) {
     const today = new Date().toISOString().slice(0, 10);
@@ -197,6 +238,50 @@ export default function ConfigPage() {
     flash("svc");
   }
 
+  // ── guardar barberos ──
+  // Baja lógica (active=false) igual que servicios: si borráramos la fila,
+  // los turnos históricos perderían con quién fueron.
+  async function saveBarbers() {
+    if (!shopId) return;
+    setError(""); setSavingKey("brb");
+
+    for (let i = 0; i < barbers.length; i++) {
+      const b = barbers[i];
+      if (b._deleted && b.id) {
+        await supabase.from("barbers").update({ active: false }).eq("id", b.id);
+      } else if (!b._deleted && b.id) {
+        await supabase.from("barbers").update({ name: b.name.trim(), sort_order: i }).eq("id", b.id);
+      } else if (!b._deleted && b.name.trim()) {
+        await supabase.from("barbers").insert({ barbershop_id: shopId, name: b.name.trim(), sort_order: i });
+      }
+    }
+
+    await loadBarbers(shopId);
+    setConfirmDelBarber(null);
+    setSavingKey("");
+    flash("brb");
+  }
+
+  // Las ausencias se guardan al toque (no esperan al botón Guardar):
+  // sólo aplican a barberos que ya existen en la base.
+  async function addAbsence(barberId: string) {
+    const date = absenceDate[barberId];
+    if (!shopId || !date) return;
+    setError("");
+    const { error } = await supabase.from("barber_absences").insert({ barber_id: barberId, date });
+    if (error) {
+      return setError(error.code === "23505" ? "Ese día ya estaba marcado para ese barbero." : error.message);
+    }
+    setAbsenceDate({ ...absenceDate, [barberId]: "" });
+    await loadBarbers(shopId);
+  }
+
+  async function removeAbsence(absenceId: string) {
+    if (!shopId) return;
+    await supabase.from("barber_absences").delete().eq("id", absenceId);
+    await loadBarbers(shopId);
+  }
+
   // ── guardar horarios ──
   async function saveHours() {
     if (!shopId) return;
@@ -250,6 +335,7 @@ export default function ConfigPage() {
   }
 
   const visibleServices = services.filter((s) => !s._deleted);
+  const visibleBarbers = barbers.filter((b) => !b._deleted);
 
   return (
     <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] p-5">
@@ -354,6 +440,86 @@ export default function ConfigPage() {
           <button onClick={() => setServices([...services, { name: "", duration_min: 30, price: 0 }])}
             className="w-full rounded-2xl border border-dashed border-[#333] py-3 text-sm text-[#D8F34E] font-semibold">
             + Agregar servicio
+          </button>
+        </SectionCard>
+
+        {/* BARBEROS */}
+        <SectionCard title="Barberos" onSave={saveBarbers} saving={savingKey === "brb"} saved={savedKey === "brb"}>
+          <p className="text-[11px] text-[#5A5A54] mb-4">
+            {visibleBarbers.length === 0
+              ? "Si trabajás solo, dejá esto vacío y todo sigue igual. Si sos más de uno, cargá a cada barbero: el cliente va a poder elegir con quién cortarse."
+              : "Cada barbero tiene su propia agenda. Marcá los días que alguno no está y esos días no va a recibir turnos."}
+          </p>
+
+          {visibleBarbers.map((brb) => {
+            const realIndex = barbers.indexOf(brb);
+            return (
+              <div key={brb.id ?? `new-${realIndex}`} className="rounded-2xl bg-[#181818] border border-[#262626] p-3 mb-2">
+                <div className="flex gap-2">
+                  <input value={brb.name} placeholder="Nombre del barbero"
+                    onChange={(e) => setBarbers(barbers.map((b, j) => (j === realIndex ? { ...b, name: e.target.value } : b)))}
+                    className="flex-1 rounded-xl bg-[#141414] border border-[#262626] px-3 py-2 text-sm outline-none focus:border-[#D8F34E]" />
+                  <button onClick={() => setConfirmDelBarber(confirmDelBarber === realIndex ? null : realIndex)}
+                    className="text-red-400 px-2" title="Eliminar barbero">✕</button>
+                </div>
+
+                {/* Eliminar = ya no trabaja más acá. Pedimos confirmación porque
+                    se lleva puesta su disponibilidad futura. */}
+                {confirmDelBarber === realIndex && (
+                  <div className="mt-2 rounded-xl border border-red-900/50 bg-red-950/20 p-2.5">
+                    <p className="text-[11px] text-[#C9C9C4] mb-2">
+                      ¿Eliminar a {brb.name.trim() || "este barbero"}? Se saca de la lista y deja de recibir turnos.
+                      Los turnos que ya tenía no se borran.
+                    </p>
+                    <div className="flex gap-2">
+                      <button onClick={() => setConfirmDelBarber(null)}
+                        className="flex-1 rounded-full border border-[#333] text-[11px] font-bold py-1.5">No</button>
+                      <button onClick={() => {
+                        setBarbers(barbers.map((b, j) => (j === realIndex ? { ...b, _deleted: true } : b)));
+                        setConfirmDelBarber(null);
+                      }} className="flex-1 rounded-full bg-red-900/40 border border-red-900/50 text-red-300 text-[11px] font-bold py-1.5">
+                        Sí, eliminar
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Ausencias: sólo tienen sentido sobre un barbero ya guardado. */}
+                {brb.id ? (
+                  <div className="mt-2.5">
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-1.5">Días que no está</div>
+                    <div className="flex gap-2 mb-2">
+                      <input type="date" value={absenceDate[brb.id] ?? ""} min={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => setAbsenceDate({ ...absenceDate, [brb.id!]: e.target.value })}
+                        className="flex-1 rounded-xl bg-[#141414] border border-[#262626] px-3 py-2 text-sm outline-none focus:border-[#D8F34E] [color-scheme:dark]" />
+                      <button onClick={() => addAbsence(brb.id!)} disabled={!absenceDate[brb.id]}
+                        className="rounded-full bg-[#D8F34E] text-[#101010] font-bold text-[11px] px-4 disabled:opacity-30">
+                        Marcar
+                      </button>
+                    </div>
+                    {brb.absences.length === 0 ? (
+                      <p className="text-[11px] text-[#5A5A54]">Trabaja todos los días abiertos del local.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1.5">
+                        {brb.absences.map((a) => (
+                          <span key={a.id} className="flex items-center gap-1.5 rounded-full bg-[#141414] border border-[#262626] pl-2.5 pr-1.5 py-1">
+                            <span className="font-mono text-[11px] text-[#D8F34E]">{a.date}</span>
+                            <button onClick={() => removeAbsence(a.id)} className="text-[#5A5A54] hover:text-red-400 text-xs leading-none">✕</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-[#5A5A54] mt-2">Guardá para poder marcarle días libres.</p>
+                )}
+              </div>
+            );
+          })}
+
+          <button onClick={() => setBarbers([...barbers, { name: "", absences: [] }])}
+            className="w-full rounded-2xl border border-dashed border-[#333] py-3 text-sm text-[#D8F34E] font-semibold">
+            + Agregar barbero
           </button>
         </SectionCard>
 
