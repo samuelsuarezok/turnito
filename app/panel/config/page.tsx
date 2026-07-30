@@ -1,9 +1,6 @@
 "use client";
 
-// ============================================
-// CONFIGURACIÓN — Guardar como: app/panel/config/page.tsx
-// Editar datos del local, servicios, horarios y días cerrados.
-// ============================================
+
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";

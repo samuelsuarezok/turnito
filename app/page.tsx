@@ -152,7 +152,7 @@ const css = `
 const hover = { whileHover: { scale: 1.03 }, whileTap: { scale: 0.97 } };
 const cardHover = { whileHover: { y: -6, transition: { duration: 0.2 } } };
 
-export default function LandingPage() {
+export default function LandingPagues() {
   return (
     <div className="ld">
       <style dangerouslySetInnerHTML={{ __html: css }} />
