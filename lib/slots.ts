@@ -7,6 +7,38 @@ export type OpeningRange = { weekday: number; opens_at: string; closes_at: strin
 export type ClosedEntry = string | { date: string; from_time: string | null; to_time: string | null };
 export type ClosedBlock = { date: string; from_time: string | null; to_time: string | null };
 
+// Convierte una fecha+hora "de pared" (la que ve el cliente parado en la
+// barbería) al instante real, según la zona horaria del local.
+//
+// Hace falta porque el server corre en UTC (Vercel): ahí
+// `new Date(2026, 6, 30, 16, 45)` significa 16:45 UTC = 13:45 en Córdoba, y un
+// turno perfectamente válido a las 16:45 se rechazaba por "poca anticipación".
+export function zonedTimeToUtc(date: string, time: string, timeZone: string): Date {
+  const [y, m, d] = date.split("-").map(Number);
+  const [hh, mm] = time.slice(0, 5).split(":").map(Number);
+  if ([y, m, d, hh, mm].some((n) => !Number.isFinite(n))) return new Date(NaN);
+
+  // Arrancamos suponiendo que es UTC y descontamos el offset real del local.
+  // Segunda pasada: en el salto de horario de verano el offset del instante
+  // corregido puede no ser el mismo que el del instante supuesto.
+  const guess = Date.UTC(y, m - 1, d, hh, mm);
+  const ts = guess - tzOffsetMs(guess, timeZone);
+  return new Date(guess - tzOffsetMs(ts, timeZone));
+}
+
+// Cuántos ms está adelantada `timeZone` respecto de UTC en ese instante.
+function tzOffsetMs(ts: number, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone, hour12: false,
+    year: "numeric", month: "2-digit", day: "2-digit",
+    hour: "2-digit", minute: "2-digit", second: "2-digit",
+  }).formatToParts(new Date(ts));
+  const g = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  // hour puede venir "24" a medianoche según el runtime.
+  const asUtc = Date.UTC(g("year"), g("month") - 1, g("day"), g("hour") % 24, g("minute"), g("second"));
+  return asUtc - ts;
+}
+
 export const toMin = (t: string) => {
   const [h, m] = t.slice(0, 5).split(":").map(Number);
   return h * 60 + m;

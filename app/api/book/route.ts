@@ -3,6 +3,7 @@
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { zonedTimeToUtc } from "@/lib/slots";
 
 const toMin = (t: string) => { const [h, m] = t.slice(0, 5).split(":").map(Number); return h * 60 + m; };
 
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
   // 1. Barbería activa (traemos también la anticipación mínima)
   const { data: shop } = await supabase
     .from("barbershops")
-    .select("id, subscription_status, min_notice_min")
+    .select("id, subscription_status, min_notice_min, timezone")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -89,10 +90,11 @@ export async function POST(req: Request) {
   }
 
   // 3. Anticipación mínima (tampoco en el pasado)
+  // El horario elegido se interpreta en la zona del LOCAL, no en la del server
+  // (que en Vercel es UTC): si no, un turno válido a las 16:45 de Córdoba se
+  // leía como 13:45 y se rechazaba por falta de anticipación.
   const now = new Date();
-  const [y, m, d] = String(date).split("-").map(Number);
-  const [hh, mm] = String(time).split(":").map(Number);
-  const slotDate = new Date(y, m - 1, d, hh, mm);
+  const slotDate = zonedTimeToUtc(String(date), String(time), shop.timezone || "America/Argentina/Buenos_Aires");
   if (isNaN(slotDate.getTime())) {
     return NextResponse.json({ error: "Fecha inválida" }, { status: 400 });
   }
