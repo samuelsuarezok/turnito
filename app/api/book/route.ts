@@ -4,6 +4,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { zonedTimeToUtc } from "@/lib/slots";
+import { appointmentEmail, isValidEmail, sendEmail } from "@/lib/email";
 
 const toMin = (t: string) => { const [h, m] = t.slice(0, 5).split(":").map(Number); return h * 60 + m; };
 
@@ -11,7 +12,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
 
-  const { slug, service_id, barber_id, date, time, client_name, client_phone } = body;
+  const { slug, service_id, barber_id, date, time, client_name, client_phone, client_email } = body;
 
   if (
     !slug || !service_id || !date || !time ||
@@ -21,12 +22,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Faltan datos o son inválidos" }, { status: 400 });
   }
 
+  // El email es OPCIONAL. Si lo dejan vacío se reserva igual; si lo escriben
+  // mal avisamos, porque si no el cliente se queda esperando un mail que no va
+  // a llegar nunca.
+  const rawEmail = typeof client_email === "string" ? client_email.trim() : "";
+  if (rawEmail && !isValidEmail(rawEmail)) {
+    return NextResponse.json({ error: "Ese email no parece válido. Revisalo o dejalo vacío." }, { status: 400 });
+  }
+  const email = rawEmail ? rawEmail.toLowerCase() : null;
+
   const supabase = createAdminClient();
 
   // 1. Barbería activa (traemos también la anticipación mínima)
   const { data: shop } = await supabase
     .from("barbershops")
-    .select("id, subscription_status, min_notice_min, timezone")
+    .select("id, name, subscription_status, min_notice_min, timezone")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -37,7 +47,7 @@ export async function POST(req: Request) {
   // 2. El servicio pertenece a esta barbería (traemos la duración)
   const { data: service } = await supabase
     .from("services")
-    .select("id, duration_min")
+    .select("id, name, duration_min")
     .eq("id", service_id)
     .eq("barbershop_id", shop.id)
     .eq("active", true)
@@ -51,7 +61,7 @@ export async function POST(req: Request) {
   //     Si no cargó ninguno, es de un solo sillón y barber_id queda NULL.
   const { data: shopBarbers } = await supabase
     .from("barbers")
-    .select("id")
+    .select("id, name")
     .eq("barbershop_id", shop.id)
     .eq("active", true);
 
@@ -149,6 +159,9 @@ export async function POST(req: Request) {
       time,
       client_name: client_name.trim(),
       client_phone: client_phone.trim(),
+      // Igual que barber_id: si no dejó email, ni mandamos la columna. Así la
+      // reserva sigue andando aunque falte correr la migración 0002.
+      ...(email ? { client_email: email } : {}),
     })
     .select("token")
     .single();
@@ -164,7 +177,27 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Error al reservar" }, { status: 500 });
   }
 
+  // 5. Mail de confirmación (opcional).
+  // OJO: el turno YA está guardado. Si el mail falla, se loguea y seguimos —
+  // sería absurdo perder una reserva porque el proveedor de mail se cayó.
+  let emailSent = false;
+  if (email) {
+    const origin = req.headers.get("origin") || new URL(req.url).origin;
+    const { subject, html, text } = appointmentEmail({
+      shopName: shop.name,
+      clientName: client_name.trim(),
+      serviceName: service.name,
+      barberName: barberId ? (shopBarbers ?? []).find((b) => b.id === barberId)?.name ?? null : null,
+      date: String(date),
+      time: String(time),
+      manageUrl: `${origin}/t/${appt.token}`,
+    });
+    const sent = await sendEmail({ to: email, subject, html, text });
+    emailSent = sent.ok;
+    if (!sent.ok) console.error("No se pudo enviar el mail de confirmación:", sent.error);
+  }
+
   // TODO: WhatsApp de confirmación con el link mágico
 
-  return NextResponse.json({ token: appt.token });
+  return NextResponse.json({ token: appt.token, emailSent });
 }

@@ -247,7 +247,7 @@ export default function LandingPage() {
       {/* STRIP */}
       <div className="strip">
         <RevealGroup className="strip-in" variants={staggerFast}>
-          {["Sin app para el cliente","Confirmación por WhatsApp","Cancelación online","Sin permanencia"].map(t=>(
+          {["Sin app para el cliente","Comprobante con link propio","Cancelación online","Sin permanencia"].map(t=>(
             <Item className="strip-item" key={t} variants={fadeUp}><span className="dot"></span>{t}</Item>
           ))}
         </RevealGroup>
@@ -277,7 +277,7 @@ export default function LandingPage() {
             </motion.div>
           </Item>
           {[["📅","Agenda que se ordena sola","Cada reserva cae en su lugar. Los horarios ocupados se bloquean al instante para todos los demás."],
-            ["💬","Confirmación por WhatsApp","El cliente confirma con su teléfono y recibe su comprobante con un link para cancelar si no llega."],
+            ["🎟️","Comprobante al instante","Apenas reserva, el cliente recibe un link propio con los datos de su turno para verlo o cancelarlo cuando quiera."],
             ["🔓","Cancelaciones que liberan","Si alguien cancela, el horario vuelve a estar disponible al segundo. Nadie tiene que avisarte nada."]].map(([ic,h,p])=>(
             <Item className="card" key={h} variants={scaleIn}>
               <motion.div style={{height:"100%"}} {...cardHover}>
@@ -323,7 +323,7 @@ export default function LandingPage() {
               <div className="price-num">$40.000<small> ARS/mes</small></div>
               <div className="price-note">IVA incluido · con factura · por Mercado Pago</div>
               <motion.ul className="pl" variants={staggerFast} initial="hidden" whileInView="show" viewport={{once:true,amount:0.2}}>
-                {["Reservas online ilimitadas","Tu link propio: turnito.app/tu-barberia","Panel con la agenda del día","Confirmaciones por WhatsApp","Cancelación online para tus clientes","Soporte directo por WhatsApp","Sin contrato, sin permanencia"].map(t=>(
+                {["Reservas online ilimitadas","Tu link propio: turnito.app/tu-barberia","Panel con la agenda del día","Comprobante online para cada turno","Cancelación online para tus clientes","Soporte directo por WhatsApp","Sin contrato, sin permanencia"].map(t=>(
                   <motion.li key={t} variants={slideRight}><span className="check">✓</span>{t}</motion.li>
                 ))}
               </motion.ul>
@@ -340,7 +340,7 @@ export default function LandingPage() {
           <Reveal><div className="kicker">Preguntas</div><h2>Antes de arrancar.</h2></Reveal>
         </div>
         <RevealGroup className="faq">
-          {[["¿Mis clientes tienen que crearse una cuenta?","No. Reservan con su nombre y su WhatsApp, confirman con un código que les llega al teléfono, y reciben un link propio para ver o cancelar su turno. Cero contraseñas."],
+          {[["¿Mis clientes tienen que crearse una cuenta?","No. Reservan con su nombre y su teléfono, y al confirmar reciben un link propio para ver o cancelar su turno. Cero contraseñas."],
             ["¿Qué pasa si un cliente cancela?","El horario se libera automáticamente y vuelve a estar disponible para cualquier otra persona. Vos lo ves reflejado en tu agenda al instante."],
             ["¿Sirve si trabajo solo?","Sí — está pensado primero para eso: una barbería, una agenda. Simple y directo."],
             ["¿Necesito saber de tecnología?","Si sabés usar WhatsApp, sabés usar Turnito. La configuración son tres pantallas guiadas y el uso diario es una sola: la agenda del día."],
