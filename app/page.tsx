@@ -152,7 +152,7 @@ const css = `
 const hover = { whileHover: { scale: 1.03 }, whileTap: { scale: 0.97 } };
 const cardHover = { whileHover: { y: -6, transition: { duration: 0.2 } } };
 
-export default function LandingPagues() {
+export default function LandingPage() {
   return (
     <div className="ld">
       <style dangerouslySetInnerHTML={{ __html: css }} />
@@ -182,11 +182,11 @@ export default function LandingPagues() {
         <div className="hero-card">
           <div className="glow" />
           <motion.div className="hero-copy" variants={stagger} initial="hidden" animate="show">
-            <motion.div className="tag" variants={fadeUp}>Para barberías · <b>7 días gratis</b></motion.div>
+            <motion.div className="tag" variants={fadeUp}>Para barberías y más · <b>30 días gratis</b></motion.div>
             <motion.h1 variants={fadeUp}>Los turnos de tu barbería, <span className="hl">en piloto automático.</span></motion.h1>
             <motion.p className="sub" variants={fadeUp}>Tus clientes reservan solos desde un link, sin crearse cuentas ni descargar nada. Vos abrís tu panel y sabés exactamente quién sigue.</motion.p>
             <motion.div className="hero-ctas" variants={fadeUp}>
-              <motion.div {...hover}><Link className="pill lime" href="/login">Probar 7 días gratis <span>→</span></Link></motion.div>
+              <motion.div {...hover}><Link className="pill lime" href="/login">Probar 30 días gratis <span>→</span></Link></motion.div>
               <a className="ghost" href="#como">Ver cómo funciona ↓</a>
             </motion.div>
             <motion.div className="hero-meta" variants={stagger}>
