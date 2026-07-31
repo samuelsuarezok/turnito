@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
 import { EQUIPO, formatPrecio, formatDuracion } from "@/lib/rubros";
+import ThemeToggle from "@/components/ThemeToggle";
 
 type Service = { id: string; name: string; icon: string; duration_min: number; price: number };
 // staff_id null = turno viejo / negocio de una sola agenda → ocupa a todos.
@@ -31,8 +32,8 @@ function getNext7Days() {
   return Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
 }
 
-const labelCls = "text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-2";
-const inputCls = "w-full rounded-2xl bg-white border border-[#E3E5E9] px-4 py-3.5 outline-none focus:border-[#014CFF] transition-colors";
+const labelCls = "text-[10px] font-bold uppercase tracking-widest text-faint mb-2";
+const inputCls = "w-full rounded-2xl bg-surface border border-line px-4 py-3.5 outline-none focus:border-accent transition-colors";
 
 const stepVariants = {
   enter: (dir: number) => ({ opacity: 0, x: dir * 60 }),
@@ -180,23 +181,23 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     goTo(3);
   }
 
-  if (notFound) return <Center><p className="text-[#5E6470]">Este negocio no existe o no está disponible.</p></Center>;
+  if (notFound) return <Center><p className="text-muted">Este negocio no existe o no está disponible.</p></Center>;
   if (!shop)
     return (
-      <main className="min-h-screen bg-[#F0F1F3] p-5">
+      <main className="min-h-screen bg-canvas p-5">
         <div className="max-w-md mx-auto pt-4 animate-pulse">
-          <div className="h-6 w-44 rounded-lg bg-white mb-2" />
-          <div className="h-3 w-28 rounded bg-[#E3E5E9] mb-7" />
-          <div className="h-3 w-16 rounded bg-[#E3E5E9] mb-3" />
+          <div className="h-6 w-44 rounded-lg bg-surface mb-2" />
+          <div className="h-3 w-28 rounded bg-line mb-7" />
+          <div className="h-3 w-16 rounded bg-line mb-3" />
           <div className="grid grid-cols-3 gap-2 mb-6">
-            {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 rounded-2xl bg-white" />)}
+            {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 rounded-2xl bg-surface" />)}
           </div>
-          <div className="h-3 w-12 rounded bg-[#E3E5E9] mb-3" />
+          <div className="h-3 w-12 rounded bg-line mb-3" />
           <div className="flex gap-2 mb-6">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-12 h-14 rounded-2xl bg-white" />)}
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-12 h-14 rounded-2xl bg-surface" />)}
           </div>
           <div className="grid grid-cols-4 gap-2">
-            {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-9 rounded-xl bg-white" />)}
+            {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-9 rounded-xl bg-surface" />)}
           </div>
         </div>
       </main>
@@ -211,51 +212,54 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
           <motion.div
             initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.15 }}
-            className="w-16 h-16 rounded-full bg-[#B4EC5C] text-black flex items-center justify-center text-2xl font-bold mx-auto mb-5">
+            className="w-16 h-16 rounded-full bg-highlight text-on-highlight flex items-center justify-center text-2xl font-bold mx-auto mb-5">
             ✓
           </motion.div>
-          <h1 className="text-2xl font-extrabold text-black mb-1 tracking-tight">¡Turno confirmado!</h1>
-          <p className="text-sm text-[#5E6470] mb-6">
+          <h1 className="text-2xl font-extrabold text-ink mb-1 tracking-tight">¡Turno confirmado!</h1>
+          <p className="text-sm text-muted mb-6">
             {date === today ? "Hoy" : date} · {time} hs · {shop.name}
             {member ? ` · con ${member.name}` : ""}
           </p>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, ease: EASE }}
-            className="rounded-3xl bg-white border border-[#E3E5E9] p-5 text-left text-sm mb-4">
-            <p className="text-[#5E6470] mb-2">Guardá este link para ver o cancelar tu turno:</p>
-            <a href={`/t/${token}`} className="font-mono text-xs text-[#014CFF] font-semibold underline break-all">
+            className="rounded-3xl bg-surface border border-line p-5 text-left text-sm mb-4">
+            <p className="text-muted mb-2">Guardá este link para ver o cancelar tu turno:</p>
+            <a href={`/t/${token}`} className="font-mono text-xs text-accent-ink font-semibold underline break-all">
               {typeof window !== "undefined" ? window.location.origin : ""}/t/{token}
             </a>
           </motion.div>
           {emailSent ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}
-              className="rounded-2xl border border-[#E3E5E9] bg-white px-4 py-3">
-              <p className="text-xs text-[#1C1F26]">
+              className="rounded-2xl border border-line bg-surface px-4 py-3">
+              <p className="text-xs text-body">
                 📧 Te mandamos la confirmación a <span className="font-bold">{email.trim()}</span>.
               </p>
-              <p className="text-[11px] text-[#9AA0AA] mt-1">
-                Si no la ves en unos minutos, <span className="text-[#014CFF] font-bold">revisá la carpeta de spam</span> o correo no deseado.
+              <p className="text-[11px] text-faint mt-1">
+                Si no la ves en unos minutos, <span className="text-accent-ink font-bold">revisá la carpeta de spam</span> o correo no deseado.
               </p>
             </motion.div>
           ) : (
-            <p className="text-xs text-[#9AA0AA]">Guardá este link: es tu comprobante del turno.</p>
+            <p className="text-xs text-faint">Guardá este link: es tu comprobante del turno.</p>
           )}
         </motion.div>
       </Center>
     );
 
   return (
-    <main className="min-h-screen bg-[#F0F1F3] text-[#1C1F26] p-5 overflow-x-hidden">
+    <main className="min-h-screen bg-canvas text-body p-5 overflow-x-hidden">
       <div className="max-w-md mx-auto pt-4 pb-16">
         <motion.div className="flex items-center justify-between mb-7"
           initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
           <div>
-            <h1 className="text-lg font-extrabold text-black tracking-tight">{shop.name}</h1>
-            <p className="text-[11px] text-[#9AA0AA] font-mono">turnito.app/{shop.slug}</p>
+            <h1 className="text-lg font-extrabold text-ink tracking-tight">{shop.name}</h1>
+            <p className="text-[11px] text-faint font-mono">turnito.app/{shop.slug}</p>
           </div>
-          <motion.span animate={{ opacity: [1, 0.55, 1] }} transition={{ duration: 2, repeat: Infinity }}
-            className="bg-[#B4EC5C] text-black text-[9px] font-extrabold tracking-widest px-3 py-1.5 rounded-full">
+          <div className="flex items-center gap-2.5">
+            <ThemeToggle />
+            <motion.span animate={{ opacity: [1, 0.55, 1] }} transition={{ duration: 2, repeat: Infinity }}
+            className="bg-highlight text-on-highlight text-[9px] font-extrabold tracking-widest px-3 py-1.5 rounded-full">
             ONLINE
           </motion.span>
+          </div>
         </motion.div>
 
         <AnimatePresence mode="wait" custom={dir}>
@@ -266,11 +270,11 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 {shop.services.map((s) => (
                   <motion.button key={s.id} variants={gridItem} whileTap={{ scale: 0.94 }} onClick={() => setService(s)}
                     className={`rounded-2xl border-[1.5px] p-3 text-center transition-colors ${
-                      service?.id === s.id ? "border-[#014CFF] bg-[#E6EDFF]" : "border-[#E3E5E9] bg-white"
+                      service?.id === s.id ? "border-accent bg-accent-soft" : "border-line bg-surface"
                     }`}>
-                    <div className="text-xs font-bold text-black">{s.name}</div>
-                    <div className="text-[11px] text-[#014CFF] font-bold mt-1">{formatPrecio(s.price)}</div>
-                    <div className="text-[10px] text-[#9AA0AA] mt-0.5">{formatDuracion(s.duration_min)}</div>
+                    <div className="text-xs font-bold text-ink">{s.name}</div>
+                    <div className="text-[11px] text-accent-ink font-bold mt-1">{formatPrecio(s.price)}</div>
+                    <div className="text-[10px] text-faint mt-0.5">{formatDuracion(s.duration_min)}</div>
                   </motion.button>
                 ))}
               </motion.div>
@@ -284,11 +288,11 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                       <motion.button key={b.id} variants={gridItem} whileTap={{ scale: 0.94 }}
                         onClick={() => { setMember(b); setTime(null); }}
                         className={`rounded-2xl border-[1.5px] p-3 text-center transition-colors ${
-                          member?.id === b.id ? "border-[#014CFF] bg-[#E6EDFF]" : "border-[#E3E5E9] bg-white"
+                          member?.id === b.id ? "border-accent bg-accent-soft" : "border-line bg-surface"
                         }`}>
-                        <div className="text-xs font-bold truncate text-black">{b.name}</div>
+                        <div className="text-xs font-bold truncate text-ink">{b.name}</div>
                         {b.absences.includes(date) && (
-                          <div className="text-[10px] text-[#9AA0AA] mt-0.5">no está ese día</div>
+                          <div className="text-[10px] text-faint mt-0.5">no está ese día</div>
                         )}
                       </motion.button>
                     ))}
@@ -309,13 +313,13 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                       disabled={isClosed}
                       onClick={() => { setDate(ds); setTime(null); }}
                       className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
-                        isClosed ? "border-[#E3E5E9] bg-[#E9EAEE] opacity-45 cursor-not-allowed"
-                          : on ? "border-[#014CFF] bg-[#E6EDFF]" : "border-[#E3E5E9] bg-white"
+                        isClosed ? "border-line bg-line opacity-45 cursor-not-allowed"
+                          : on ? "border-accent bg-accent-soft" : "border-line bg-surface"
                       }`}>
-                      <div className={`text-[8px] uppercase font-semibold ${on && !isClosed ? "text-[#014CFF]" : "text-[#9AA0AA]"}`}>
+                      <div className={`text-[8px] uppercase font-semibold ${on && !isClosed ? "text-accent-ink" : "text-faint"}`}>
                         {ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
                       </div>
-                      <div className={`text-sm font-bold ${isClosed ? "line-through text-[#9AA0AA]" : on ? "text-[#014CFF]" : "text-black"}`}>
+                      <div className={`text-sm font-bold ${isClosed ? "line-through text-faint" : on ? "text-accent-ink" : "text-ink"}`}>
                         {d.getDate()}
                       </div>
                     </motion.button>
@@ -328,11 +332,11 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 {member ? ` · con ${member.name}` : ""}
               </div>
               {!service ? (
-                <p className="text-sm text-[#9AA0AA] mb-6">Primero elegí un servicio para ver los horarios disponibles.</p>
+                <p className="text-sm text-faint mb-6">Primero elegí un servicio para ver los horarios disponibles.</p>
               ) : hasStaff && !member ? (
-                <p className="text-sm text-[#9AA0AA] mb-6">Elegí con quién querés reservar para ver sus horarios.</p>
+                <p className="text-sm text-faint mb-6">Elegí con quién querés reservar para ver sus horarios.</p>
               ) : dayIsClosed || staffAbsent || grid.length === 0 ? (
-                <p className="text-sm text-[#9AA0AA] mb-6">
+                <p className="text-sm text-faint mb-6">
                   {staffAbsent
                     ? `${member!.name} no atiende ese día. Elegí otro día u otra persona.`
                     : dayIsClosed ? "Está cerrado ese día. Elegí otro." : "Cerrado este día. Elegí otro."}
@@ -346,9 +350,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                       <motion.button key={s} variants={gridItem} whileTap={free ? { scale: 0.92 } : {}}
                         disabled={!free} onClick={() => setTime(s)}
                         className={`rounded-xl border-[1.5px] py-2 text-[11px] font-bold transition-colors ${
-                          !free ? "border-dashed border-[#E3E5E9] bg-transparent text-[#C2C6CE] line-through"
-                            : on ? "border-[#014CFF] bg-[#014CFF] text-white"
-                            : "border-[#E3E5E9] bg-white text-[#1C1F26]"
+                          !free ? "border-dashed border-line bg-transparent text-faint line-through"
+                            : on ? "border-accent bg-accent text-on-accent"
+                            : "border-line bg-surface text-body"
                         }`}>{s}</motion.button>
                     );
                   })}
@@ -357,7 +361,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                 onClick={() => goTo(2)} disabled={!service || !time || (hasStaff && !member)}
-                className="w-full rounded-full bg-[#014CFF] text-white font-bold py-3.5 disabled:opacity-25 transition-opacity">
+                className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
                 Continuar →
               </motion.button>
             </motion.div>
@@ -365,11 +369,11 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
           {step === 2 && (
             <motion.div key="s2" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <button onClick={() => goTo(1)} className="text-sm text-[#5E6470] mb-4 hover:text-[#014CFF] transition-colors">← Atrás</button>
-              <div className="rounded-2xl bg-white border border-[#E3E5E9] px-4 py-3 text-sm text-[#5E6470] mb-6">
-                <span className="text-black font-bold">{service?.name}</span> · {date === today ? "hoy" : date} ·{" "}
-                <span className="text-[#014CFF] font-bold">{time} hs</span>
-                {member && <> · con <span className="text-black font-bold">{member.name}</span></>}
+              <button onClick={() => goTo(1)} className="text-sm text-muted mb-4 hover:text-accent-ink transition-colors">← Atrás</button>
+              <div className="rounded-2xl bg-surface border border-line px-4 py-3 text-sm text-muted mb-6">
+                <span className="text-ink font-bold">{service?.name}</span> · {date === today ? "hoy" : date} ·{" "}
+                <span className="text-accent-ink font-bold">{time} hs</span>
+                {member && <> · con <span className="text-ink font-bold">{member.name}</span></>}
               </div>
 
               <div className={labelCls}>Tu nombre</div>
@@ -383,30 +387,30 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
               {EMAIL_ENABLED && (
                 <>
                   <div className={labelCls}>
-                    Tu email <span className="text-[#C2C6CE] normal-case tracking-normal">— opcional</span>
+                    Tu email <span className="text-faint normal-case tracking-normal">— opcional</span>
                   </div>
                   <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="juan@gmail.com"
                     type="email" inputMode="email" autoComplete="email"
                     className={`${inputCls} mb-2`} />
-                  <p className="text-xs text-[#9AA0AA] mb-1">
+                  <p className="text-xs text-faint mb-1">
                     Si lo dejás, te mandamos la confirmación por mail. Podés saltearlo y reservar igual.
                   </p>
                 </>
               )}
-              <p className="text-xs text-[#9AA0AA] mb-7">Solo usamos tus datos para tu turno. No creamos ninguna cuenta.</p>
+              <p className="text-xs text-faint mb-7">Solo usamos tus datos para tu turno. No creamos ninguna cuenta.</p>
 
               {error && (
-                <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-sm text-red-500 mb-4">{error}</motion.p>
+                <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-sm text-danger mb-4">{error}</motion.p>
               )}
 
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                 onClick={book} disabled={saving || name.trim().length < 3 || phone.trim().length < 7}
-                className="w-full rounded-full bg-[#014CFF] text-white font-bold py-3.5 disabled:opacity-25 transition-opacity">
+                className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
                 {saving ? "Reservando…" : "Confirmar turno →"}
               </motion.button>
-              <p className="text-[10px] text-[#9AA0AA] text-center mt-4 leading-relaxed">
+              <p className="text-[10px] text-faint text-center mt-4 leading-relaxed">
                 Al reservar aceptás los{" "}
-                <a href="/legales" target="_blank" className="underline hover:text-[#014CFF] transition-colors">
+                <a href="/legales" target="_blank" className="underline hover:text-accent-ink transition-colors">
                   Términos y la Política de Privacidad
                 </a>{" "}
                 de Turnito
@@ -421,7 +425,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
 function Center({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-[#F0F1F3] flex items-center justify-center p-6">
+    <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
       {children}
     </main>
   );

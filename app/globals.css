@@ -1,63 +1,177 @@
 @import "tailwindcss";
 
 /* ════════════════════════════════════════════════════════════════════
-   PALETA — tomada del sistema NeoVet.
-   Azul primario, lima secundario, negro para display, gris casi blanco
-   de fondo. Regla dura del lima: NUNCA lleva texto blanco encima
-   (contraste 1.4:1, ilegible). Sobre lima el texto va siempre negro.
+   DOS TEMAS
+
+   Día  — azul + lima sobre claro (la identidad nueva).
+   Noche— negro + lima (la identidad original de Turnito).
+
+   Los componentes NUNCA escriben un hex: usan los tokens semánticos de
+   abajo (bg-canvas, text-muted, bg-accent…). Cambiar de tema es cambiar
+   estas variables, nada más.
+
+   Reglas duras del sistema:
+   · El lima NUNCA lleva texto blanco encima (contraste 1.4:1). Sobre
+     `accent` va `on-accent`, que ya resuelve si toca negro o blanco.
+   · `accent-ink` es el acento como TEXTO sobre el fondo de página. No es
+     lo mismo que `accent`: en modo día el azul funciona para ambas cosas,
+     pero si algún día el acento fuera claro habría que separarlos.
    ════════════════════════════════════════════════════════════════════ */
-@theme {
-  --color-brand: #014cff;
-  --color-brand-soft: #e6edff; /* fondo de estados seleccionados en claro */
-  --color-brand-deep: #0134b3; /* hover/pressed del azul */
 
-  --color-lime: #b4ec5c;
-  --color-lime-soft: #f0fbdd;
+@theme inline {
+  --color-canvas: var(--c-canvas);
+  --color-surface: var(--c-surface);
+  --color-surface-2: var(--c-surface-2);
+  --color-line: var(--c-line);
 
-  --color-ink: #000000; /* titulares */
-  --color-body: #1c1f26; /* texto corrido */
-  --color-muted: #5e6470; /* secundario — 5.9:1 sobre blanco, AA */
-  --color-faint: #9aa0aa; /* terciario, sólo para texto grande */
+  --color-ink: var(--c-ink);
+  --color-body: var(--c-body);
+  --color-muted: var(--c-muted);
+  --color-faint: var(--c-faint);
 
-  --color-canvas: #f0f1f3; /* fondo de página */
-  --color-surface: #ffffff; /* tarjetas */
-  --color-line: #e3e5e9; /* bordes */
+  --color-accent: var(--c-accent);
+  --color-on-accent: var(--c-on-accent);
+  --color-accent-soft: var(--c-accent-soft);
+  --color-accent-ink: var(--c-accent-ink);
+
+  /* Lima en los dos temas: turno siguiente, confirmaciones, badge ONLINE.
+     Siempre con texto negro. */
+  --color-highlight: var(--c-highlight);
+  --color-on-highlight: var(--c-on-highlight);
+
+  --color-danger: var(--c-danger);
+  --color-danger-soft: var(--c-danger-soft);
+
+  --font-sans: var(--font-urbanist);
+  --font-mono: var(--font-geist-mono);
 
   --radius-card: 28px;
   --radius-block: 40px;
 }
 
-@theme inline {
-  --font-sans: var(--font-urbanist);
-  --font-mono: var(--font-geist-mono);
+/* ── DÍA ─────────────────────────────────────────────────────────── */
+:root {
+  --c-canvas: #f0f1f3;
+  --c-surface: #ffffff;
+  --c-surface-2: #f7f8f9;
+  --c-line: #e3e5e9;
+
+  --c-ink: #000000;
+  --c-body: #1c1f26;
+  --c-muted: #5e6470; /* 5.9:1 sobre canvas — AA */
+  --c-faint: #9aa0aa;
+
+  --c-accent: #014cff;
+  --c-on-accent: #ffffff;
+  --c-accent-soft: #e6edff;
+  --c-accent-ink: #014cff;
+
+  --c-highlight: #b4ec5c;
+  --c-on-highlight: #000000;
+
+  --c-danger: #e02424;
+  --c-danger-soft: #fdecec;
+
+  --c-accent-hover: #0134b3;
+  --c-highlight-hover: #a3de47;
+
+  /* Bloques inundados de color de la landing. Van aparte del acento porque
+     en noche NO pueden ser lima: llevan texto encima y el lima con texto
+     blanco da 1.4:1. En noche vuelven a ser bloques oscuros con lima, que
+     es como era el diseño original de Turnito. */
+  --c-block: #014cff;
+  --c-on-block: #ffffff;
+  --c-on-block-soft: rgba(255, 255, 255, 0.74);
+  --c-on-block-faint: rgba(255, 255, 255, 0.55);
+  --c-block-line: rgba(255, 255, 255, 0.14);
+  --c-block-card: #ffffff;
+  --c-block-card-ink: #000000;
+  --c-block-card-muted: #5e6470;
+
+  /* Isotipo: cuadrado + reloj. Van aparte del acento porque en noche el
+     cuadrado no puede ser lima (el reloj también lo es y desaparecería). */
+  --c-logo-bg: #014cff;
+  --c-logo-mark: #b4ec5c;
+
+  color-scheme: light;
 }
 
-/* Sin variante dark: el sistema es claro por diseño. La media query que
-   había acá volvía el body #0a0a0a según el SO y se veía por detrás de
-   las páginas claras. */
+/* ── NOCHE ───────────────────────────────────────────────────────── */
+/* Los negros y el lima son los originales de Turnito. La única excepción
+   es `muted`: el #6E6E68 de antes daba 3.6:1 sobre el negro y se usaba en
+   textos de 11px, por debajo del mínimo legible. Subido a #8A8A82 (5.4:1),
+   que mantiene el mismo aire y sí se lee. */
+:root[data-theme="dark"] {
+  --c-canvas: #0c0c0c;
+  --c-surface: #141414;
+  --c-surface-2: #181818;
+  --c-line: #262626;
+
+  --c-ink: #ffffff;
+  --c-body: #ededea;
+  --c-muted: #8a8a82;
+  --c-faint: #5a5a54;
+
+  --c-accent: #d8f34e;
+  --c-on-accent: #101010;
+  --c-accent-soft: rgba(216, 243, 78, 0.12);
+  --c-accent-ink: #d8f34e;
+
+  --c-highlight: #d8f34e;
+  --c-on-highlight: #101010;
+
+  --c-danger: #f87171;
+  --c-danger-soft: rgba(248, 113, 113, 0.12);
+
+  --c-accent-hover: #c2dd42;
+  --c-highlight-hover: #c2dd42;
+
+  --c-block: #141414;
+  --c-on-block: #ededea;
+  --c-on-block-soft: rgba(237, 237, 234, 0.66);
+  --c-on-block-faint: rgba(237, 237, 234, 0.45);
+  --c-block-line: rgba(255, 255, 255, 0.1);
+  --c-block-card: #1e1e1e;
+  --c-block-card-ink: #ededea;
+  --c-block-card-muted: #8a8a82;
+
+  /* El logo original: cuadrado casi negro con el reloj lima. Levantado de
+     #101010 a #1A1A1A para que el cuadrado se despegue del fondo. */
+  --c-logo-bg: #1a1a1a;
+  --c-logo-mark: #d8f34e;
+
+  color-scheme: dark;
+}
+
 body {
-  background: var(--color-canvas);
-  color: var(--color-body);
+  background: var(--c-canvas);
+  color: var(--c-body);
   font-family: var(--font-urbanist), system-ui, sans-serif;
+  /* Sin transición en el toggle se siente un corte brusco; con una muy
+     larga se siente lento. 180ms es el punto donde parece intencional. */
+  transition: background-color 0.18s ease, color 0.18s ease;
 }
 
-/* Detalle de firma del sistema: el punto de color después del heading.
-   <h2 className="dot">Nuestros servicios</h2> */
+::selection {
+  background: var(--c-highlight);
+  color: var(--c-on-highlight);
+}
+
+/* Detalle de firma del sistema: el punto de color después del heading. */
 .dot::after {
   content: "";
   display: inline-block;
   width: 0.32em;
   height: 0.32em;
   border-radius: 50%;
-  background: var(--color-lime);
+  background: var(--c-highlight);
   margin-left: 0.14em;
   vertical-align: baseline;
 }
 .dot-blue::after {
-  background: var(--color-brand);
+  background: var(--c-accent);
 }
 
-::selection {
-  background: var(--color-lime);
-  color: var(--color-ink);
+@media (prefers-reduced-motion: reduce) {
+  body { transition: none; }
 }

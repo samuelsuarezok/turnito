@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 import { motion } from "framer-motion";
 import { CONTACT_TO } from "@/lib/contacto";
 
@@ -9,30 +10,33 @@ const UPDATED = "31 de julio de 2026";
 
 export default function LegalesPage() {
   return (
-    <main className="min-h-screen bg-[#F0F1F3] text-[#1C1F26] p-6">
+    <main className="min-h-screen bg-canvas text-body p-6">
       <div className="max-w-2xl mx-auto py-8">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between mb-10">
-          <Logo variant="light" size={26} />
-          <Link href="/" className="text-[11px] text-[#014CFF] font-bold">← Inicio</Link>
+          <Logo size={26} />
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link href="/" className="text-[11px] text-accent-ink font-bold">← Inicio</Link>
+          </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl font-extrabold text-black mb-2 tracking-tight">Términos y Privacidad</h1>
-          <p className="text-sm text-[#9AA0AA] mb-10">Última actualización: {UPDATED}</p>
+          <h1 className="text-3xl font-extrabold text-ink mb-2 tracking-tight">Términos y Privacidad</h1>
+          <p className="text-sm text-faint mb-10">Última actualización: {UPDATED}</p>
 
           {/* índice */}
-          <div className="rounded-2xl bg-white border border-[#E3E5E9] p-5 mb-10">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-3">Contenido</p>
+          <div className="rounded-2xl bg-surface border border-line p-5 mb-10">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-faint mb-3">Contenido</p>
             <ul className="space-y-1.5 text-sm">
-              <li><a href="#terminos" className="text-[#014CFF] font-semibold hover:underline">1. Términos y Condiciones de Uso</a></li>
-              <li><a href="#privacidad" className="text-[#014CFF] font-semibold hover:underline">2. Política de Privacidad</a></li>
+              <li><a href="#terminos" className="text-accent-ink font-semibold hover:underline">1. Términos y Condiciones de Uso</a></li>
+              <li><a href="#privacidad" className="text-accent-ink font-semibold hover:underline">2. Política de Privacidad</a></li>
             </ul>
           </div>
 
           {/* ══ TÉRMINOS ══ */}
           <section id="terminos" className="mb-12">
-            <h2 className="text-2xl font-extrabold text-black mb-6">1. Términos y Condiciones de Uso</h2>
+            <h2 className="text-2xl font-extrabold text-ink mb-6">1. Términos y Condiciones de Uso</h2>
 
             <Block title="1.1 Qué es Turnito">
               Turnito es una plataforma de software que permite a negocios que trabajan con turnos —barberías,
@@ -114,7 +118,7 @@ export default function LegalesPage() {
 
           {/* ══ PRIVACIDAD ══ */}
           <section id="privacidad" className="mb-12">
-            <h2 className="text-2xl font-extrabold text-black mb-6">2. Política de Privacidad</h2>
+            <h2 className="text-2xl font-extrabold text-ink mb-6">2. Política de Privacidad</h2>
 
             <Block title="2.1 Responsable">
               El responsable del tratamiento de los datos es Turnito. Para consultas sobre tus datos, escribinos
@@ -123,9 +127,9 @@ export default function LegalesPage() {
             </Block>
 
             <Block title="2.2 Qué datos recopilamos">
-              <b className="text-black">De los Negocios:</b> email, contraseña (encriptada), nombre del
+              <b className="text-ink">De los Negocios:</b> email, contraseña (encriptada), nombre del
               local, rubro, teléfono de contacto, servicios, precios y horarios.<br /><br />
-              <b className="text-black">De los Clientes:</b> nombre y número de teléfono, y opcionalmente un
+              <b className="text-ink">De los Clientes:</b> nombre y número de teléfono, y opcionalmente un
               email, que se ingresan al reservar un turno. Los Clientes no crean una cuenta ni establecen
               contraseña. Estos datos se usan únicamente para gestionar y confirmar el turno con el Negocio
               elegido.
@@ -176,17 +180,17 @@ export default function LegalesPage() {
           </section>
 
           {/* contacto */}
-          <div className="rounded-2xl bg-white border border-[#E3E5E9] p-5">
-            <p className="text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-2">Contacto</p>
-            <p className="text-sm text-[#5E6470]">
+          <div className="rounded-2xl bg-surface border border-line p-5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-faint mb-2">Contacto</p>
+            <p className="text-sm text-muted">
               Para consultas sobre estos términos o tus datos personales, escribinos a{" "}
-              <a href={`mailto:${CONTACT_TO}`} className="text-[#014CFF] font-semibold underline">
+              <a href={`mailto:${CONTACT_TO}`} className="text-accent-ink font-semibold underline">
                 {CONTACT_TO}
               </a>
             </p>
           </div>
 
-          <p className="text-[11px] text-[#9AA0AA] text-center mt-10">
+          <p className="text-[11px] text-faint text-center mt-10">
             © 2026 Turnito · Córdoba, Argentina
           </p>
         </motion.div>
@@ -198,8 +202,8 @@ export default function LegalesPage() {
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-6">
-      <h3 className="text-base font-bold text-black mb-2">{title}</h3>
-      <p className="text-sm text-[#5E6470] leading-relaxed">{children}</p>
+      <h3 className="text-base font-bold text-ink mb-2">{title}</h3>
+      <p className="text-sm text-muted leading-relaxed">{children}</p>
     </div>
   );
 }

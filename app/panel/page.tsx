@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
 import { formatDuracion } from "@/lib/rubros";
@@ -222,12 +223,12 @@ export default function PanelPage() {
 
   if (loadErr)
     return (
-      <main className="min-h-screen bg-[#F0F1F3] flex items-center justify-center p-6">
+      <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
         <div className="text-center max-w-xs">
-          <p className="text-sm font-bold text-black">No pudimos cargar tu panel</p>
-          <p className="text-xs text-[#5E6470] mt-1 mb-5">Puede ser un problema de conexión. Probá de nuevo.</p>
+          <p className="text-sm font-bold text-ink">No pudimos cargar tu panel</p>
+          <p className="text-xs text-muted mt-1 mb-5">Puede ser un problema de conexión. Probá de nuevo.</p>
           <button onClick={() => window.location.reload()}
-            className="rounded-full bg-[#014CFF] text-white font-bold text-sm px-6 py-3">
+            className="rounded-full bg-accent text-on-accent font-bold text-sm px-6 py-3">
             Reintentar
           </button>
         </div>
@@ -236,36 +237,37 @@ export default function PanelPage() {
 
   if (!shop)
     return (
-      <main className="min-h-screen bg-[#F0F1F3] p-5">
+      <main className="min-h-screen bg-canvas p-5">
         <div className="max-w-md mx-auto pb-16 animate-pulse">
           <div className="flex items-center justify-between pt-2 mb-6">
-            <div className="h-6 w-40 rounded-lg bg-white" />
-            <div className="h-4 w-16 rounded bg-[#E3E5E9]" />
+            <div className="h-6 w-40 rounded-lg bg-surface" />
+            <div className="h-4 w-16 rounded bg-line" />
           </div>
           <div className="flex gap-2 mb-6">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-12 h-14 rounded-2xl bg-white" />)}
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-12 h-14 rounded-2xl bg-surface" />)}
           </div>
-          <div className="h-40 rounded-3xl bg-white mb-4" />
-          <div className="h-16 rounded-2xl bg-white mb-2" />
-          <div className="h-16 rounded-2xl bg-white" />
+          <div className="h-40 rounded-3xl bg-surface mb-4" />
+          <div className="h-16 rounded-2xl bg-surface mb-2" />
+          <div className="h-16 rounded-2xl bg-surface" />
         </div>
       </main>
     );
 
   return (
-    <main className="min-h-screen bg-[#F0F1F3] text-[#1C1F26] p-5">
+    <main className="min-h-screen bg-canvas text-body p-5">
       <div className="max-w-md mx-auto pb-16">
         {/* header */}
         <motion.div className="flex items-center justify-between pt-2 mb-1"
           initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
-          <div className="flex items-center gap-2.5"><LogoMark size={22} /><h1 className="text-lg font-extrabold text-black tracking-tight">{shop.name}</h1></div>
+          <div className="flex items-center gap-2.5"><LogoMark size={22} /><h1 className="text-lg font-extrabold text-ink tracking-tight">{shop.name}</h1></div>
           <div className="flex items-center">
-            <Link href="/panel/config" className="text-[11px] text-[#014CFF] font-bold mr-3">⚙ Config</Link>
-            <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[11px] text-[#9AA0AA] underline">Salir</button>
+            <ThemeToggle className="mr-2.5" />
+            <Link href="/panel/config" className="text-[11px] text-accent-ink font-bold mr-3">⚙ Config</Link>
+            <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[11px] text-faint underline">Salir</button>
           </div>
         </motion.div>
-        <button onClick={copyLink} className="text-[11px] font-mono text-[#5E6470] mb-6">
-          turnito.app/{shop.slug} <span className={copied ? "text-[#014CFF] font-bold" : "text-[#9AA0AA]"}>{copied ? "✓ copiado" : "· copiar"}</span>
+        <button onClick={copyLink} className="text-[11px] font-mono text-muted mb-6">
+          turnito.app/{shop.slug} <span className={copied ? "text-accent-ink font-bold" : "text-faint"}>{copied ? "✓ copiado" : "· copiar"}</span>
         </button>
 
         {/* días */}
@@ -277,9 +279,9 @@ export default function PanelPage() {
               <motion.button key={ds} onClick={() => setDate(ds)}
                 variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                 whileTap={{ scale: 0.92 }}
-                className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${on ? "border-[#014CFF] bg-[#E6EDFF]" : "border-[#E3E5E9] bg-white"}`}>
-                <div className={`text-[8px] uppercase font-semibold ${on ? "text-[#014CFF]" : "text-[#9AA0AA]"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
-                <div className={`text-sm font-bold ${on ? "text-[#014CFF]" : "text-black"}`}>{d.getDate()}</div>
+                className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${on ? "border-accent bg-accent-soft" : "border-line bg-surface"}`}>
+                <div className={`text-[8px] uppercase font-semibold ${on ? "text-accent-ink" : "text-faint"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
+                <div className={`text-sm font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
               </motion.button>
             );
           })}
@@ -290,7 +292,7 @@ export default function PanelPage() {
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
             <button onClick={() => setStaffFilter(null)}
               className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors ${
-                staffFilter === null ? "bg-[#014CFF] text-white border-[#014CFF]" : "bg-white text-[#5E6470] border-[#E3E5E9]"}`}>
+                staffFilter === null ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
               Todos
             </button>
             {staff.map((b) => {
@@ -298,7 +300,7 @@ export default function PanelPage() {
               return (
                 <button key={b.id} onClick={() => setStaffFilter(b.id)}
                   className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors ${
-                    staffFilter === b.id ? "bg-[#014CFF] text-white border-[#014CFF]" : "bg-white text-[#5E6470] border-[#E3E5E9]"}`}>
+                    staffFilter === b.id ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
                   {b.name}{off ? " · libre" : ""}
                 </button>
               );
@@ -307,8 +309,8 @@ export default function PanelPage() {
         )}
 
         <div className="flex justify-between items-baseline mb-4">
-          <span className="text-sm font-bold text-black">{date === today ? "Hoy" : date}</span>
-          <span className="text-[11px] text-[#9AA0AA]">{done.length} atendidos · {active.length} en cola</span>
+          <span className="text-sm font-bold text-ink">{date === today ? "Hoy" : date}</span>
+          <span className="text-[11px] text-faint">{done.length} atendidos · {active.length} en cola</span>
         </div>
 
         {/* SIGUIENTE */}
@@ -317,8 +319,8 @@ export default function PanelPage() {
             <motion.div key={current.id}
               initial={{ opacity: 0, scale: 0.94, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: -12 }} transition={{ type: "spring", stiffness: 260, damping: 24 }}
-              className="rounded-3xl bg-[#B4EC5C] text-black p-5 mb-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-black text-[#B4EC5C] text-[8px] font-black tracking-[0.15em] px-3.5 py-1.5 rounded-bl-2xl">SIGUIENTE</div>
+              className="rounded-3xl bg-highlight text-on-highlight p-5 mb-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 bg-black text-highlight text-[8px] font-black tracking-[0.15em] px-3.5 py-1.5 rounded-bl-2xl">SIGUIENTE</div>
               <div className="flex items-center gap-4">
                 <div className="text-3xl font-extrabold tracking-tight">{current.time.slice(0, 5)}</div>
                 <div className="flex-1 min-w-0">
@@ -338,31 +340,31 @@ export default function PanelPage() {
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} onClick={() => setStatus(current.id, "done")}
                   className="flex-1 rounded-full bg-black text-white font-bold text-sm py-3">✓ Listo, siguiente</motion.button>
                 <motion.button whileTap={{ scale: 0.96 }} onClick={() => setStatus(current.id, "no_show")}
-                  className="rounded-full border-[1.5px] border-black/25 text-black text-xs font-bold px-5">No vino</motion.button>
+                  className="rounded-full border-[1.5px] border-black/25 text-on-highlight text-xs font-bold px-5">No vino</motion.button>
               </div>
               <button onClick={() => openMove(current)}
-                className="w-full text-center text-[11px] font-bold text-black/55 mt-2.5 underline underline-offset-2">
+                className="w-full text-center text-[11px] font-bold text-on-highlight/55 mt-2.5 underline underline-offset-2">
                 🕐 Mover a otro horario
               </button>
             </motion.div>
           ) : (
             <motion.div key="empty" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
-              className="rounded-3xl border border-[#E3E5E9] bg-white p-8 text-center mb-4">
+              className="rounded-3xl border border-line bg-surface p-8 text-center mb-4">
               {shownAppts.length === 0 ? (
                 <>
                   <div className="text-3xl mb-3">📅</div>
-                  <p className="text-sm font-bold text-black">Todavía no hay turnos este día</p>
-                  <p className="text-xs text-[#9AA0AA] mt-1 mb-5">Compartí tu link para recibir el primero</p>
+                  <p className="text-sm font-bold text-ink">Todavía no hay turnos este día</p>
+                  <p className="text-xs text-faint mt-1 mb-5">Compartí tu link para recibir el primero</p>
                   <motion.button whileTap={{ scale: 0.96 }} onClick={copyLink}
-                    className="rounded-full bg-[#014CFF] text-white font-bold text-sm px-6 py-2.5">
+                    className="rounded-full bg-accent text-on-accent font-bold text-sm px-6 py-2.5">
                     {copied ? "✓ Link copiado" : "Copiar mi link"}
                   </motion.button>
                 </>
               ) : (
                 <>
                   <div className="text-3xl mb-3">🎉</div>
-                  <p className="text-sm font-bold text-black">¡Día completado!</p>
-                  <p className="text-xs text-[#9AA0AA] mt-1">Atendiste todos los turnos. Bien ahí.</p>
+                  <p className="text-sm font-bold text-ink">¡Día completado!</p>
+                  <p className="text-xs text-faint mt-1">Atendiste todos los turnos. Bien ahí.</p>
                 </>
               )}
             </motion.div>
@@ -379,22 +381,22 @@ export default function PanelPage() {
                   <motion.div key={a.id} layout
                     variants={{ hidden: { opacity: 0, x: 20 }, show: { opacity: 1, x: 0 } }}
                     exit={{ opacity: 0, x: -20 }}
-                    className="flex items-center gap-3 rounded-2xl bg-white border border-[#E3E5E9] px-4 py-3 mb-2">
-                    <div className="w-6 h-6 rounded-full bg-[#F0F1F3] border border-[#E3E5E9] text-[#5E6470] text-[10px] font-bold flex items-center justify-center shrink-0">{i + 2}</div>
-                    <div className="font-mono text-sm font-bold w-11 text-[#014CFF]">{a.time.slice(0, 5)}</div>
+                    className="flex items-center gap-3 rounded-2xl bg-surface border border-line px-4 py-3 mb-2">
+                    <div className="w-6 h-6 rounded-full bg-canvas border border-line text-muted text-[10px] font-bold flex items-center justify-center shrink-0">{i + 2}</div>
+                    <div className="font-mono text-sm font-bold w-11 text-accent-ink">{a.time.slice(0, 5)}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold truncate text-black">{a.client_name}</div>
-                      <div className="text-[10px] text-[#9AA0AA]">
+                      <div className="text-sm font-bold truncate text-ink">{a.client_name}</div>
+                      <div className="text-[10px] text-faint">
                         {a.services?.name}
                         {staffName(a.staff_id) ? ` · ${staffName(a.staff_id)}` : ""} ·{" "}
                         <a href={waLink(a.client_phone)} target="_blank" rel="noopener noreferrer"
-                          className="underline text-[#5E6470] hover:text-[#014CFF]">
+                          className="underline text-muted hover:text-accent-ink">
                           💬 {a.client_phone}
                         </a>
                       </div>
                     </div>
-                    <button onClick={() => openMove(a)} className="text-[#9AA0AA] hover:text-[#014CFF] text-sm px-1" title="Mover turno">🕐</button>
-                    <button onClick={() => setStatus(a.id, "cancelled_by_shop")} className="text-[#9AA0AA] hover:text-red-500 text-sm px-1" title="Cancelar turno">✕</button>
+                    <button onClick={() => openMove(a)} className="text-faint hover:text-accent-ink text-sm px-1" title="Mover turno">🕐</button>
+                    <button onClick={() => setStatus(a.id, "cancelled_by_shop")} className="text-faint hover:text-danger text-sm px-1" title="Cancelar turno">✕</button>
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -409,7 +411,7 @@ export default function PanelPage() {
             {done.map((a) => (
               <motion.div key={a.id} layout initial={{ opacity: 0 }} animate={{ opacity: 0.5 }}
                 className="flex items-center gap-3 px-4 py-2">
-                <span className="text-[#014CFF] text-sm">✓</span>
+                <span className="text-accent-ink text-sm">✓</span>
                 <span className="font-mono text-xs w-11">{a.time.slice(0, 5)}</span>
                 <span className="text-sm line-through">{a.client_name}</span>
               </motion.div>
@@ -427,18 +429,18 @@ export default function PanelPage() {
             <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
               transition={{ type: "spring", stiffness: 320, damping: 32 }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-white rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto">
+              className="w-full max-w-md bg-surface rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="text-base font-extrabold text-black">Mover turno</h2>
-                <button onClick={closeMove} className="text-[#9AA0AA] text-lg leading-none px-1">✕</button>
+                <h2 className="text-base font-extrabold text-ink">Mover turno</h2>
+                <button onClick={closeMove} className="text-faint text-lg leading-none px-1">✕</button>
               </div>
-              <p className="text-xs text-[#5E6470] mb-4">
+              <p className="text-xs text-muted mb-4">
                 {moving.client_name} · {moving.services?.name} ({formatDuracion(moving.services?.duration_min ?? 0)})
                 {staffName(moving.staff_id) ? ` · con ${staffName(moving.staff_id)}` : ""}
               </p>
 
               {!schedInfo ? (
-                <p className="text-sm text-[#9AA0AA] py-6 text-center">Cargando horarios…</p>
+                <p className="text-sm text-faint py-6 text-center">Cargando horarios…</p>
               ) : (
                 <>
                   {/* día destino */}
@@ -448,10 +450,10 @@ export default function PanelPage() {
                       return (
                         <button key={ds} disabled={closed} onClick={() => { setMoveDate(ds); setMoveTime(null); }}
                           className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
-                            closed ? "border-[#E3E5E9] bg-[#E9EAEE] opacity-45 cursor-not-allowed"
-                              : on ? "border-[#014CFF] bg-[#E6EDFF]" : "border-[#E3E5E9] bg-white"}`}>
-                          <div className={`text-[8px] uppercase font-semibold ${on && !closed ? "text-[#014CFF]" : "text-[#9AA0AA]"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
-                          <div className={`text-sm font-bold ${on ? "text-[#014CFF]" : "text-black"}`}>{d.getDate()}</div>
+                            closed ? "border-line bg-line opacity-45 cursor-not-allowed"
+                              : on ? "border-accent bg-accent-soft" : "border-line bg-surface"}`}>
+                          <div className={`text-[8px] uppercase font-semibold ${on && !closed ? "text-accent-ink" : "text-faint"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
+                          <div className={`text-sm font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
                         </button>
                       );
                     })}
@@ -459,7 +461,7 @@ export default function PanelPage() {
 
                   {/* horarios libres */}
                   {moveSlots.grid.length === 0 ? (
-                    <p className="text-sm text-[#9AA0AA] py-4 text-center">
+                    <p className="text-sm text-faint py-4 text-center">
                       {moving.staff_id && absences.has(`${moving.staff_id}|${moveDate}`)
                         ? `${staffName(moving.staff_id)} no está ese día. Elegí otro.`
                         : "Cerrado ese día. Elegí otro."}
@@ -471,18 +473,18 @@ export default function PanelPage() {
                         return (
                           <button key={s} disabled={!free} onClick={() => setMoveTime(s)}
                             className={`rounded-xl border-[1.5px] py-2 text-[11px] font-bold transition-colors ${
-                              !free ? "border-dashed border-[#E3E5E9] bg-transparent text-[#C2C6CE] line-through"
-                                : on ? "border-[#014CFF] bg-[#014CFF] text-white"
-                                : "border-[#E3E5E9] bg-white text-[#1C1F26]"}`}>{s}</button>
+                              !free ? "border-dashed border-line bg-transparent text-faint line-through"
+                                : on ? "border-accent bg-accent text-on-accent"
+                                : "border-line bg-surface text-body"}`}>{s}</button>
                         );
                       })}
                     </div>
                   )}
 
-                  {moveError && <p className="text-sm text-red-500 mb-3 text-center">{moveError}</p>}
+                  {moveError && <p className="text-sm text-danger mb-3 text-center">{moveError}</p>}
 
                   <motion.button whileTap={{ scale: 0.97 }} onClick={confirmMove} disabled={!moveTime || moveSaving}
-                    className="w-full rounded-full bg-[#014CFF] text-white font-bold py-3.5 disabled:opacity-25 transition-opacity">
+                    className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
                     {moveSaving ? "Moviendo…" : moveTime ? `Mover a ${moveDate === today ? "hoy" : moveDate} · ${moveTime}` : "Elegí un horario"}
                   </motion.button>
                 </>
@@ -496,5 +498,5 @@ export default function PanelPage() {
 }
 
 function SectionLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-2 ${className}`}>{children}</div>;
+  return <div className={`text-[10px] font-bold uppercase tracking-widest text-faint mb-2 ${className}`}>{children}</div>;
 }

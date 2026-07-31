@@ -60,17 +60,17 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
     }
   }
 
-  if (notFound) return <Center><p className="text-[#5E6470]">Este link no corresponde a ningún turno.</p></Center>;
+  if (notFound) return <Center><p className="text-muted">Este link no corresponde a ningún turno.</p></Center>;
   if (!appt)
     return (
       <Center>
         <div className="w-full max-w-sm animate-pulse">
-          <div className="h-7 w-24 rounded bg-white mx-auto mb-8" />
-          <div className="rounded-3xl border border-[#E3E5E9] bg-white p-6">
-            <div className="w-12 h-12 rounded-full bg-[#E9EAEE] mx-auto mb-3" />
-            <div className="h-5 w-32 rounded bg-[#E9EAEE] mx-auto mb-2" />
-            <div className="h-3 w-24 rounded bg-[#EFF0F2] mx-auto mb-6" />
-            {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-9 rounded bg-[#F4F5F7] mb-2" />)}
+          <div className="h-7 w-24 rounded bg-surface mx-auto mb-8" />
+          <div className="rounded-3xl border border-line bg-surface p-6">
+            <div className="w-12 h-12 rounded-full bg-line mx-auto mb-3" />
+            <div className="h-5 w-32 rounded bg-line mx-auto mb-2" />
+            <div className="h-3 w-24 rounded bg-surface-2 mx-auto mb-6" />
+            {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-9 rounded bg-surface-2 mb-2" />)}
           </div>
         </div>
       </Center>
@@ -84,26 +84,26 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
       <div className="w-full max-w-sm">
         <motion.div className="flex justify-center mb-8"
           initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
-          <Logo variant="light" size={28} />
+          <Logo size={28} />
         </motion.div>
 
         <motion.div
           initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
           transition={{ type: "spring", stiffness: 220, damping: 22 }}
-          className={`rounded-3xl border p-6 bg-white ${cancelled ? "border-red-200" : "border-[#E3E5E9]"}`}>
+          className={`rounded-3xl border p-6 bg-surface ${cancelled ? "border-danger/40" : "border-line"}`}>
           <div className="text-center mb-6">
             <motion.div
               initial={{ scale: 0 }} animate={{ scale: 1 }}
               transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.1 }}
               className={`w-12 h-12 rounded-full flex items-center justify-center text-xl font-bold mx-auto mb-3 ${
-                cancelled ? "bg-red-50 text-red-500" : "bg-[#B4EC5C] text-black"
+                cancelled ? "bg-danger-soft text-danger" : "bg-highlight text-on-highlight"
               }`}>
               {cancelled ? "✕" : "✓"}
             </motion.div>
-            <h1 className={`text-lg font-extrabold ${cancelled ? "text-red-500" : "text-black"}`}>
+            <h1 className={`text-lg font-extrabold ${cancelled ? "text-danger" : "text-ink"}`}>
               {cancelled ? "Turno cancelado" : finished ? "Turno finalizado" : "Tu turno"}
             </h1>
-            <p className="text-[11px] text-[#9AA0AA] mt-1">{appt.shop_name}</p>
+            <p className="text-[11px] text-faint mt-1">{appt.shop_name}</p>
           </div>
 
           <motion.div variants={rowStagger} initial="hidden" animate="show">
@@ -127,23 +127,23 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                     whileTap={{ scale: 0.97 }}
                     onClick={() => setConfirmCancel(true)}
-                    className="w-full rounded-full border-[1.5px] border-red-200 text-red-500 text-sm font-bold py-3">
+                    className="w-full rounded-full border-[1.5px] border-danger/40 text-danger text-sm font-bold py-3">
                     Cancelar turno
                   </motion.button>
                 ) : (
                   <motion.div key="confirm"
                     initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                     transition={{ ease: EASE }}>
-                    <p className="text-xs text-[#5E6470] text-center mb-3">
+                    <p className="text-xs text-muted text-center mb-3">
                       ¿Seguro? El horario se libera para otra persona.
                     </p>
                     <div className="flex gap-2">
                       <motion.button whileTap={{ scale: 0.96 }} onClick={() => setConfirmCancel(false)}
-                        className="flex-1 rounded-full border-[1.5px] border-[#E3E5E9] text-[#1C1F26] text-sm font-bold py-3">
+                        className="flex-1 rounded-full border-[1.5px] border-line text-body text-sm font-bold py-3">
                         No, lo mantengo
                       </motion.button>
                       <motion.button whileTap={{ scale: 0.96 }} onClick={cancel} disabled={cancelling}
-                        className="flex-1 rounded-full bg-red-500 text-white text-sm font-bold py-3 disabled:opacity-50">
+                        className="flex-1 rounded-full bg-danger text-white text-sm font-bold py-3 disabled:opacity-50">
                         {cancelling ? "…" : "Sí, cancelar"}
                       </motion.button>
                     </div>
@@ -155,14 +155,14 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
 
           {/* Vigente pero fuera del límite de cancelación */}
           {!cancelled && !finished && !appt.can_cancel && (
-            <p className="text-xs text-[#9AA0AA] text-center mt-6">
+            <p className="text-xs text-faint text-center mt-6">
               Este turno ya no se puede cancelar online.<br />Si no llegás, avisale al local.
             </p>
           )}
         </motion.div>
 
         <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          className="text-center text-[11px] text-[#9AA0AA] mt-4">
+          className="text-center text-[11px] text-faint mt-4">
           Guardá este link: es tu comprobante del turno.
         </motion.p>
       </div>
@@ -172,16 +172,16 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
 
 function Row({ label, value, strike, highlight }: { label: string; value: string; strike?: boolean; highlight?: boolean }) {
   return (
-    <motion.div variants={rowItem} className="flex justify-between py-2.5 border-b border-[#E3E5E9] last:border-0 text-sm">
-      <span className="text-[#9AA0AA]">{label}</span>
-      <span className={`font-bold ${strike ? "line-through text-[#9AA0AA]" : highlight ? "text-[#014CFF]" : "text-black"}`}>{value}</span>
+    <motion.div variants={rowItem} className="flex justify-between py-2.5 border-b border-line last:border-0 text-sm">
+      <span className="text-faint">{label}</span>
+      <span className={`font-bold ${strike ? "line-through text-faint" : highlight ? "text-accent-ink" : "text-ink"}`}>{value}</span>
     </motion.div>
   );
 }
 
 function Center({ children }: { children: React.ReactNode }) {
   return (
-    <main className="min-h-screen bg-[#F0F1F3] flex items-center justify-center p-6">
+    <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
       {children}
     </main>
   );

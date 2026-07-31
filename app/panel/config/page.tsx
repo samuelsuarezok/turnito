@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RUBROS_LISTA,
@@ -38,19 +39,19 @@ type Absence = { id: string; date: string };
 // Persona del equipo. `absences` son los días sueltos en que no está.
 type StaffMember = { id?: string; name: string; absences: Absence[]; _deleted?: boolean };
 
-const inputCls = "w-full rounded-2xl bg-white border border-[#E3E5E9] px-4 py-3 outline-none focus:border-[#014CFF] transition-colors text-sm";
-const selectCls = "rounded-xl bg-white border border-[#E3E5E9] px-2.5 py-1.5 text-xs outline-none focus:border-[#014CFF]";
-const saveBtn = "rounded-full bg-[#014CFF] text-white font-bold text-sm px-6 py-2.5 disabled:opacity-25 transition-opacity";
-const miniLabel = "block text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-2";
+const inputCls = "w-full rounded-2xl bg-surface border border-line px-4 py-3 outline-none focus:border-accent transition-colors text-sm";
+const selectCls = "rounded-xl bg-surface border border-line px-2.5 py-1.5 text-xs outline-none focus:border-accent";
+const saveBtn = "rounded-full bg-accent text-on-accent font-bold text-sm px-6 py-2.5 disabled:opacity-25 transition-opacity";
+const miniLabel = "block text-[10px] font-bold uppercase tracking-widest text-faint mb-2";
 
 function SectionCard({ title, children, onSave, saving, saved }: {
   title: string; children: React.ReactNode; onSave: () => void; saving: boolean; saved: boolean;
 }) {
   return (
     <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}
-      className="rounded-3xl bg-white border border-[#E3E5E9] p-5 mb-4">
+      className="rounded-3xl bg-surface border border-line p-5 mb-4">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-base font-extrabold text-black">{title}</h2>
+        <h2 className="text-base font-extrabold text-ink">{title}</h2>
         <motion.button whileTap={{ scale: 0.95 }} onClick={onSave} disabled={saving} className={saveBtn}>
           {saving ? "…" : saved ? "✓ Guardado" : "Guardar"}
         </motion.button>
@@ -350,14 +351,14 @@ export default function ConfigPage() {
   const visibleStaff = staff.filter((b) => !b._deleted);
 
   return (
-    <main className="min-h-screen bg-[#F0F1F3] text-[#1C1F26] p-5">
+    <main className="min-h-screen bg-canvas text-body p-5">
       {/* Toast de guardado — feedback bien visible abajo */}
       <AnimatePresence>
         {savedKey && (
           <motion.div
             initial={{ opacity: 0, y: 24, x: "-50%" }} animate={{ opacity: 1, y: 0, x: "-50%" }} exit={{ opacity: 0, y: 24, x: "-50%" }}
             transition={{ type: "spring", stiffness: 400, damping: 28 }}
-            className="fixed bottom-6 left-1/2 z-50 flex items-center gap-2 rounded-full bg-[#B4EC5C] text-black font-bold text-sm px-5 py-2.5 shadow-lg shadow-black/15">
+            className="fixed bottom-6 left-1/2 z-50 flex items-center gap-2 rounded-full bg-highlight text-on-highlight font-bold text-sm px-5 py-2.5 shadow-lg shadow-black/15">
             <span className="text-base leading-none">✓</span> Guardado
           </motion.div>
         )}
@@ -368,13 +369,16 @@ export default function ConfigPage() {
           initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
           <div className="flex items-center gap-2.5">
             <LogoMark size={22} />
-            <h1 className="text-lg font-extrabold text-black tracking-tight">Configuración</h1>
+            <h1 className="text-lg font-extrabold text-ink tracking-tight">Configuración</h1>
           </div>
-          <Link href="/panel" className="text-[11px] text-[#014CFF] font-bold">← Volver al panel</Link>
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <Link href="/panel" className="text-[11px] text-accent-ink font-bold">← Volver al panel</Link>
+          </div>
         </motion.div>
 
         {error && (
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-red-500 mb-4">{error}</motion.p>
+          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-danger mb-4">{error}</motion.p>
         )}
 
         {/* DATOS */}
@@ -387,7 +391,7 @@ export default function ConfigPage() {
             {RUBROS_LISTA.map((r) => (
               <button key={r.id} onClick={() => setBusinessType(r.id)}
                 className={`rounded-xl border-[1.5px] py-2 px-1 text-[11px] font-bold transition-colors ${
-                  businessType === r.id ? "border-[#014CFF] bg-[#E6EDFF] text-[#014CFF]" : "border-[#E3E5E9] bg-white text-[#5E6470]"
+                  businessType === r.id ? "border-accent bg-accent-soft text-accent-ink" : "border-line bg-surface text-muted"
                 }`}>
                 <span className="block text-base leading-tight mb-0.5">{r.emoji}</span>
                 {r.label}
@@ -403,11 +407,11 @@ export default function ConfigPage() {
             {[15, 30, 45, 60].map((m) => (
               <button key={m} onClick={() => setSlotMinutes(m)}
                 className={`flex-1 rounded-full py-2 text-xs font-bold border transition-colors ${
-                  slotMinutes === m ? "bg-[#014CFF] text-white border-[#014CFF]" : "bg-white text-[#5E6470] border-[#E3E5E9]"
+                  slotMinutes === m ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"
                 }`}>{m} min</button>
             ))}
           </div>
-          <p className="text-[11px] text-[#9AA0AA] mb-3">
+          <p className="text-[11px] text-faint mb-3">
             Es la grilla que ve tu cliente, no la duración del servicio.
           </p>
 
@@ -415,7 +419,7 @@ export default function ConfigPage() {
             <div className="flex-1">
               <label className={miniLabel}>Anticipación mínima</label>
               <select value={minNotice} onChange={(e) => setMinNotice(Number(e.target.value))}
-                className="w-full rounded-xl bg-white border border-[#E3E5E9] px-3 py-2.5 text-sm outline-none focus:border-[#014CFF]">
+                className="w-full rounded-xl bg-surface border border-line px-3 py-2.5 text-sm outline-none focus:border-accent">
                 <option value={0}>Sin límite</option>
                 <option value={30}>30 min antes</option>
                 <option value={60}>1 hora antes</option>
@@ -426,7 +430,7 @@ export default function ConfigPage() {
             <div className="flex-1">
               <label className={miniLabel}>Cancelar hasta</label>
               <select value={cancelLimit} onChange={(e) => setCancelLimit(Number(e.target.value))}
-                className="w-full rounded-xl bg-white border border-[#E3E5E9] px-3 py-2.5 text-sm outline-none focus:border-[#014CFF]">
+                className="w-full rounded-xl bg-surface border border-line px-3 py-2.5 text-sm outline-none focus:border-accent">
                 <option value={0}>Sin límite</option>
                 <option value={30}>30 min antes</option>
                 <option value={60}>1 hora antes</option>
@@ -435,8 +439,8 @@ export default function ConfigPage() {
               </select>
             </div>
           </div>
-          <p className="text-[11px] text-[#9AA0AA]">
-            Tu link es <span className="font-mono text-[#5E6470]">turnito.app/{slug}</span> y no se puede cambiar (para no romper los links que ya compartiste).
+          <p className="text-[11px] text-faint">
+            Tu link es <span className="font-mono text-muted">turnito.app/{slug}</span> y no se puede cambiar (para no romper los links que ya compartiste).
           </p>
         </SectionCard>
 
@@ -446,14 +450,14 @@ export default function ConfigPage() {
             const realIndex = services.indexOf(svc);
             const aConsultar = svc.price === 0;
             return (
-              <div key={svc.id ?? `new-${realIndex}`} className="rounded-2xl bg-[#F7F8F9] border border-[#E3E5E9] p-3 mb-2">
+              <div key={svc.id ?? `new-${realIndex}`} className="rounded-2xl bg-surface-2 border border-line p-3 mb-2">
                 <div className="flex gap-2 mb-2">
                   <input value={svc.name} placeholder="Nombre"
                     onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, name: e.target.value } : s)))}
-                    className="flex-1 rounded-xl bg-white border border-[#E3E5E9] px-3 py-2 text-sm outline-none focus:border-[#014CFF]" />
+                    className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-sm outline-none focus:border-accent" />
                   {visibleServices.length > 1 && (
                     <button onClick={() => setServices(services.map((s, j) => (j === realIndex ? { ...s, _deleted: true } : s)))}
-                      className="text-red-500 px-2">✕</button>
+                      className="text-danger px-2">✕</button>
                   )}
                 </div>
                 <div className="flex gap-2">
@@ -464,56 +468,56 @@ export default function ConfigPage() {
                   </select>
                   <input type="number" value={svc.price || ""} placeholder={aConsultar ? "A consultar" : "Precio"} disabled={aConsultar}
                     onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, price: Number(e.target.value) } : s)))}
-                    className="flex-1 rounded-xl bg-white border border-[#E3E5E9] px-3 py-2 text-sm outline-none focus:border-[#014CFF] disabled:text-[#9AA0AA] disabled:italic" />
+                    className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-sm outline-none focus:border-accent disabled:text-faint disabled:italic" />
                 </div>
-                <label className="flex items-center gap-2 mt-2 text-[11px] text-[#5E6470] cursor-pointer select-none">
+                <label className="flex items-center gap-2 mt-2 text-[11px] text-muted cursor-pointer select-none">
                   <input type="checkbox" checked={aConsultar}
                     onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, price: e.target.checked ? 0 : 1000 } : s)))}
-                    className="accent-[#014CFF] w-3.5 h-3.5" />
+                    className="accent-[var(--c-accent)] w-3.5 h-3.5" />
                   Sin precio fijo — mostrar &quot;a consultar&quot;
                 </label>
               </div>
             );
           })}
           <button onClick={() => setServices([...services, { name: "", duration_min: 30, price: 0 }])}
-            className="w-full rounded-2xl border border-dashed border-[#C6CAD2] py-3 text-sm text-[#014CFF] font-bold hover:border-[#014CFF] transition-colors">
+            className="w-full rounded-2xl border border-dashed border-line py-3 text-sm text-accent-ink font-bold hover:border-accent transition-colors">
             + Agregar servicio
           </button>
         </SectionCard>
 
         {/* EQUIPO */}
         <SectionCard title={EQUIPO.seccion} onSave={saveStaff} saving={savingKey === "brb"} saved={savedKey === "brb"}>
-          <p className="text-[11px] text-[#9AA0AA] mb-4">
+          <p className="text-[11px] text-faint mb-4">
             {visibleStaff.length === 0 ? EQUIPO.vacio : EQUIPO.cargado}
           </p>
 
           {visibleStaff.map((brb) => {
             const realIndex = staff.indexOf(brb);
             return (
-              <div key={brb.id ?? `new-${realIndex}`} className="rounded-2xl bg-[#F7F8F9] border border-[#E3E5E9] p-3 mb-2">
+              <div key={brb.id ?? `new-${realIndex}`} className="rounded-2xl bg-surface-2 border border-line p-3 mb-2">
                 <div className="flex gap-2">
                   <input value={brb.name} placeholder={EQUIPO.placeholderNombre}
                     onChange={(e) => setStaff(staff.map((b, j) => (j === realIndex ? { ...b, name: e.target.value } : b)))}
-                    className="flex-1 rounded-xl bg-white border border-[#E3E5E9] px-3 py-2 text-sm outline-none focus:border-[#014CFF]" />
+                    className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-sm outline-none focus:border-accent" />
                   <button onClick={() => setConfirmDelStaff(confirmDelStaff === realIndex ? null : realIndex)}
-                    className="text-red-500 px-2" title="Quitar del equipo">✕</button>
+                    className="text-danger px-2" title="Quitar del equipo">✕</button>
                 </div>
 
                 {/* Quitar = ya no trabaja más acá. Pedimos confirmación porque
                     se lleva puesta su disponibilidad futura. */}
                 {confirmDelStaff === realIndex && (
-                  <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-2.5">
-                    <p className="text-[11px] text-[#1C1F26] mb-2">
+                  <div className="mt-2 rounded-xl border border-danger/40 bg-danger-soft p-2.5">
+                    <p className="text-[11px] text-body mb-2">
                       ¿Quitar a {brb.name.trim() || "esta persona"} del equipo? Sale de la lista y deja de recibir turnos.
                       Los turnos que ya tenía no se borran.
                     </p>
                     <div className="flex gap-2">
                       <button onClick={() => setConfirmDelStaff(null)}
-                        className="flex-1 rounded-full border border-[#E3E5E9] bg-white text-[11px] font-bold py-1.5">No</button>
+                        className="flex-1 rounded-full border border-line bg-surface text-[11px] font-bold py-1.5">No</button>
                       <button onClick={() => {
                         setStaff(staff.map((b, j) => (j === realIndex ? { ...b, _deleted: true } : b)));
                         setConfirmDelStaff(null);
-                      }} className="flex-1 rounded-full bg-red-500 text-white text-[11px] font-bold py-1.5">
+                      }} className="flex-1 rounded-full bg-danger text-white text-[11px] font-bold py-1.5">
                         Sí, quitar
                       </button>
                     </div>
@@ -523,38 +527,38 @@ export default function ConfigPage() {
                 {/* Ausencias: sólo tienen sentido sobre alguien ya guardado. */}
                 {brb.id ? (
                   <div className="mt-2.5">
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-1.5">Días que no está</div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-faint mb-1.5">Días que no está</div>
                     <div className="flex gap-2 mb-2">
                       <input type="date" value={absenceDate[brb.id] ?? ""} min={new Date().toISOString().slice(0, 10)}
                         onChange={(e) => setAbsenceDate({ ...absenceDate, [brb.id!]: e.target.value })}
-                        className="flex-1 rounded-xl bg-white border border-[#E3E5E9] px-3 py-2 text-sm outline-none focus:border-[#014CFF]" />
+                        className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-sm outline-none focus:border-accent" />
                       <button onClick={() => addAbsence(brb.id!)} disabled={!absenceDate[brb.id]}
-                        className="rounded-full bg-[#014CFF] text-white font-bold text-[11px] px-4 disabled:opacity-25">
+                        className="rounded-full bg-accent text-on-accent font-bold text-[11px] px-4 disabled:opacity-25">
                         Marcar
                       </button>
                     </div>
                     {brb.absences.length === 0 ? (
-                      <p className="text-[11px] text-[#9AA0AA]">Trabaja todos los días abiertos del local.</p>
+                      <p className="text-[11px] text-faint">Trabaja todos los días abiertos del local.</p>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {brb.absences.map((a) => (
-                          <span key={a.id} className="flex items-center gap-1.5 rounded-full bg-white border border-[#E3E5E9] pl-2.5 pr-1.5 py-1">
-                            <span className="font-mono text-[11px] text-[#014CFF] font-semibold">{a.date}</span>
-                            <button onClick={() => removeAbsence(a.id)} className="text-[#9AA0AA] hover:text-red-500 text-xs leading-none">✕</button>
+                          <span key={a.id} className="flex items-center gap-1.5 rounded-full bg-surface border border-line pl-2.5 pr-1.5 py-1">
+                            <span className="font-mono text-[11px] text-accent-ink font-semibold">{a.date}</span>
+                            <button onClick={() => removeAbsence(a.id)} className="text-faint hover:text-danger text-xs leading-none">✕</button>
                           </span>
                         ))}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <p className="text-[11px] text-[#9AA0AA] mt-2">Guardá para poder marcarle días libres.</p>
+                  <p className="text-[11px] text-faint mt-2">Guardá para poder marcarle días libres.</p>
                 )}
               </div>
             );
           })}
 
           <button onClick={() => setStaff([...staff, { name: "", absences: [] }])}
-            className="w-full rounded-2xl border border-dashed border-[#C6CAD2] py-3 text-sm text-[#014CFF] font-bold hover:border-[#014CFF] transition-colors">
+            className="w-full rounded-2xl border border-dashed border-line py-3 text-sm text-accent-ink font-bold hover:border-accent transition-colors">
             {EQUIPO.agregar}
           </button>
         </SectionCard>
@@ -569,14 +573,14 @@ export default function ConfigPage() {
               setDay({ ranges: h.ranges.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
             return (
               <div key={d.weekday}
-                className={`rounded-2xl bg-[#F7F8F9] border border-[#E3E5E9] px-3 py-2.5 mb-2 ${h.open ? "" : "opacity-50"}`}>
+                className={`rounded-2xl bg-surface-2 border border-line px-3 py-2.5 mb-2 ${h.open ? "" : "opacity-50"}`}>
                 <div className="flex items-center gap-3">
                   <button onClick={() => setDay({ open: !h.open })}
-                    className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${h.open ? "bg-[#014CFF]" : "bg-[#D7DAE0]"}`}>
-                    <span className={`absolute top-[3px] w-3.5 h-3.5 rounded-full transition-all bg-white ${h.open ? "left-[20px]" : "left-[3px]"}`} />
+                    className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${h.open ? "bg-accent" : "bg-line"}`}>
+                    <span className={`absolute top-[3px] w-3.5 h-3.5 rounded-full transition-all bg-surface ${h.open ? "left-[20px]" : "left-[3px]"}`} />
                   </button>
-                  <span className="text-xs font-bold text-black">{d.label}</span>
-                  {!h.open && <span className="ml-auto text-[11px] text-[#9AA0AA]">Cerrado</span>}
+                  <span className="text-xs font-bold text-ink">{d.label}</span>
+                  {!h.open && <span className="ml-auto text-[11px] text-faint">Cerrado</span>}
                 </div>
 
                 {h.open && (
@@ -586,18 +590,18 @@ export default function ConfigPage() {
                         <select value={r.opens_at} onChange={(e) => setRange(i, { opens_at: e.target.value })} className={selectCls}>
                           {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
                         </select>
-                        <span className="text-[10px] text-[#9AA0AA]">a</span>
+                        <span className="text-[10px] text-faint">a</span>
                         <select value={r.closes_at} onChange={(e) => setRange(i, { closes_at: e.target.value })} className={selectCls}>
                           {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
                         </select>
                         {h.ranges.length > 1 && (
                           <button onClick={() => setDay({ ranges: h.ranges.filter((_, j) => j !== i) })}
-                            className="text-[#9AA0AA] hover:text-red-500 text-sm px-1" title="Quitar franja">✕</button>
+                            className="text-faint hover:text-danger text-sm px-1" title="Quitar franja">✕</button>
                         )}
                       </div>
                     ))}
                     <button onClick={() => setDay({ ranges: [...h.ranges, { opens_at: "16:00", closes_at: "20:00" }] })}
-                      className="text-[11px] text-[#014CFF] font-bold text-left mt-0.5">
+                      className="text-[11px] text-accent-ink font-bold text-left mt-0.5">
                       + Agregar franja (ej: tarde)
                     </button>
                   </div>
@@ -609,37 +613,37 @@ export default function ConfigPage() {
 
         {/* DÍAS CERRADOS */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}
-          className="rounded-3xl bg-white border border-[#E3E5E9] p-5 mb-4">
-          <h2 className="text-base font-extrabold text-black mb-1">Días cerrados</h2>
-          <p className="text-[11px] text-[#9AA0AA] mb-4">Feriados, vacaciones, turnos médicos. Esos días nadie va a poder reservar.</p>
+          className="rounded-3xl bg-surface border border-line p-5 mb-4">
+          <h2 className="text-base font-extrabold text-ink mb-1">Días cerrados</h2>
+          <p className="text-[11px] text-faint mb-4">Feriados, vacaciones, turnos médicos. Esos días nadie va a poder reservar.</p>
 
           <div className="flex gap-2 mb-2">
             <input type="date" value={newClosedDate} min={new Date().toISOString().slice(0, 10)}
               onChange={(e) => setNewClosedDate(e.target.value)}
-              className="rounded-xl bg-white border border-[#E3E5E9] px-3 py-2 text-sm outline-none focus:border-[#014CFF]" />
+              className="rounded-xl bg-surface border border-line px-3 py-2 text-sm outline-none focus:border-accent" />
             <input value={newClosedReason} onChange={(e) => setNewClosedReason(e.target.value)} placeholder="Motivo (opcional)"
-              className="flex-1 rounded-xl bg-white border border-[#E3E5E9] px-3 py-2 text-sm outline-none focus:border-[#014CFF]" />
+              className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-sm outline-none focus:border-accent" />
           </div>
 
           {/* Día completo vs rango horario puntual (ej: "médico 15-17") */}
           <div className="flex items-center gap-2 mb-2">
             <button onClick={() => setClosedPartial(false)}
-              className={`flex-1 rounded-full py-1.5 text-[11px] font-bold border transition-colors ${!closedPartial ? "bg-[#014CFF] text-white border-[#014CFF]" : "bg-white text-[#5E6470] border-[#E3E5E9]"}`}>
+              className={`flex-1 rounded-full py-1.5 text-[11px] font-bold border transition-colors ${!closedPartial ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
               Todo el día
             </button>
             <button onClick={() => setClosedPartial(true)}
-              className={`flex-1 rounded-full py-1.5 text-[11px] font-bold border transition-colors ${closedPartial ? "bg-[#014CFF] text-white border-[#014CFF]" : "bg-white text-[#5E6470] border-[#E3E5E9]"}`}>
+              className={`flex-1 rounded-full py-1.5 text-[11px] font-bold border transition-colors ${closedPartial ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
               Solo un rango
             </button>
           </div>
           {closedPartial && (
             <div className="flex items-center gap-1.5 mb-2">
-              <span className="text-[11px] text-[#9AA0AA]">de</span>
+              <span className="text-[11px] text-faint">de</span>
               <select value={newClosedFrom} onChange={(e) => setNewClosedFrom(e.target.value)} className={selectCls}>
                 <option value="">--</option>
                 {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
               </select>
-              <span className="text-[11px] text-[#9AA0AA]">a</span>
+              <span className="text-[11px] text-faint">a</span>
               <select value={newClosedTo} onChange={(e) => setNewClosedTo(e.target.value)} className={selectCls}>
                 <option value="">--</option>
                 {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
@@ -648,23 +652,23 @@ export default function ConfigPage() {
           )}
           <motion.button whileTap={{ scale: 0.96 }} onClick={addClosed}
             disabled={!newClosedDate || (closedPartial && (!newClosedFrom || !newClosedTo))}
-            className="w-full rounded-full bg-[#014CFF] text-white font-bold text-sm py-2.5 disabled:opacity-25 mb-4 transition-opacity">
+            className="w-full rounded-full bg-accent text-on-accent font-bold text-sm py-2.5 disabled:opacity-25 mb-4 transition-opacity">
             {closedPartial ? "Bloquear rango" : "Bloquear fecha"}
           </motion.button>
 
           {closedList.length === 0 ? (
-            <p className="text-[11px] text-[#9AA0AA] text-center py-2">No hay fechas bloqueadas próximas.</p>
+            <p className="text-[11px] text-faint text-center py-2">No hay fechas bloqueadas próximas.</p>
           ) : (
             closedList.map((c) => (
-              <div key={c.id} className="flex items-center gap-2.5 rounded-2xl bg-[#F7F8F9] border border-[#E3E5E9] px-4 py-2.5 mb-2">
-                <span className="font-mono text-sm font-bold text-[#014CFF]">{c.date}</span>
+              <div key={c.id} className="flex items-center gap-2.5 rounded-2xl bg-surface-2 border border-line px-4 py-2.5 mb-2">
+                <span className="font-mono text-sm font-bold text-accent-ink">{c.date}</span>
                 {c.from_time && (
-                  <span className="font-mono text-[10px] text-[#014CFF] bg-[#E6EDFF] rounded px-1.5 py-0.5 shrink-0">
+                  <span className="font-mono text-[10px] text-accent-ink bg-accent-soft rounded px-1.5 py-0.5 shrink-0">
                     {c.from_time.slice(0, 5)}–{c.to_time?.slice(0, 5)}
                   </span>
                 )}
-                <span className="flex-1 text-xs text-[#5E6470] truncate">{c.reason ?? (c.from_time ? "Rango bloqueado" : "Cerrado")}</span>
-                <button onClick={() => removeClosed(c.id)} className="text-[#9AA0AA] hover:text-red-500 text-sm">✕</button>
+                <span className="flex-1 text-xs text-muted truncate">{c.reason ?? (c.from_time ? "Rango bloqueado" : "Cerrado")}</span>
+                <button onClick={() => removeClosed(c.id)} className="text-faint hover:text-danger text-sm">✕</button>
               </div>
             ))
           )}

@@ -9,9 +9,9 @@ import { CONTACT_TO, WHATSAPP_URL } from "@/lib/contacto";
 const EASE = [0.22, 1, 0.36, 1] as const;
 
 const inputCls =
-  "w-full rounded-2xl bg-[#F7F8F9] border border-[#E3E5E9] px-4 py-3 text-[15px] text-[#0A0C10] outline-none focus:border-[#014CFF] transition-colors";
+  "w-full rounded-2xl bg-surface-2 border border-line px-4 py-3 text-[15px] text-body outline-none focus:border-accent transition-colors";
 const labelCls =
-  "block text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-1.5";
+  "block text-[10px] font-bold uppercase tracking-widest text-faint mb-1.5";
 
 type Estado = "form" | "enviado" | "sinMail";
 
@@ -32,17 +32,6 @@ export default function ContactModal({
   const [estado, setEstado] = useState<Estado>("form");
 
   const firstField = useRef<HTMLInputElement>(null);
-
-  // El modal se monta con un portal en <body>. NO es un detalle de estilo:
-  // app/template.tsx envuelve cada página en un motion.div que anima `y` y
-  // `filter`, y un ancestro con transform o filter crea un contenedor de
-  // posicionamiento propio — ahí `position: fixed` deja de medirse contra la
-  // ventana y pasa a medirse contra ese div, que es tan alto como la página
-  // entera. El modal terminaba centrado en el medio del documento en vez de
-  // la pantalla. Framer además deja `filter: blur(0px)` puesto al terminar,
-  // así que el efecto no se iba solo.
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
 
   // Escape cierra, y al abrir el foco cae en el primer campo.
   useEffect(() => {
@@ -102,7 +91,19 @@ export default function ContactModal({
     `mailto:${CONTACT_TO}?subject=${encodeURIComponent("Consulta sobre Turnito")}` +
     `&body=${encodeURIComponent(message.trim() || "Hola, quería consultarles sobre Turnito.")}`;
 
-  if (!mounted) return null;
+  // El modal se monta con un portal en <body>. NO es un detalle de estilo:
+  // app/template.tsx envuelve cada página en un motion.div que anima `y` y
+  // `filter`, y un ancestro con transform o filter crea un contenedor de
+  // posicionamiento propio — ahí `position: fixed` deja de medirse contra la
+  // ventana y pasa a medirse contra ese div, que es tan alto como la página
+  // entera. El modal terminaba centrado en el medio del documento en vez de
+  // la pantalla. Framer además deja `filter: blur(0px)` puesto al terminar,
+  // así que el efecto no se iba solo.
+  //
+  // En el server no hay document. Como el modal arranca cerrado, tanto el
+  // server como el primer render del cliente devuelven null: no hay
+  // diferencia de hidratación que arreglar.
+  if (typeof document === "undefined") return null;
 
   return createPortal(
     <AnimatePresence>
@@ -119,17 +120,17 @@ export default function ContactModal({
             exit={{ y: 30, opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.28, ease: EASE }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-white rounded-t-[28px] sm:rounded-[28px] max-h-[92vh] overflow-y-auto"
+            className="w-full max-w-lg bg-surface rounded-t-[28px] sm:rounded-[28px] max-h-[92vh] overflow-y-auto"
           >
             <div className="p-6 sm:p-8">
               <div className="flex items-start justify-between gap-4 mb-1">
-                <h2 className="text-[26px] font-extrabold text-black tracking-tight leading-tight">
+                <h2 className="text-[26px] font-extrabold text-ink tracking-tight leading-tight">
                   {estado === "enviado" ? "¡Listo, nos llegó!"
                     : estado === "sinMail" ? "Escribinos directo"
                     : "Contanos qué necesitás"}
                 </h2>
                 <button onClick={onClose} aria-label="Cerrar"
-                  className="shrink-0 w-9 h-9 rounded-full bg-[#F0F1F3] text-[#5E6470] text-lg leading-none hover:bg-[#E3E5E9] transition-colors">
+                  className="shrink-0 w-9 h-9 rounded-full bg-canvas text-muted text-lg leading-none hover:bg-line transition-colors">
                   ✕
                 </button>
               </div>
@@ -137,12 +138,12 @@ export default function ContactModal({
               {/* ── enviado ── */}
               {estado === "enviado" && (
                 <div className="mt-2">
-                  <p className="text-[15px] text-[#5E6470]">
-                    Te respondemos a <span className="font-bold text-black">{email.trim()}</span>,
+                  <p className="text-[15px] text-muted">
+                    Te respondemos a <span className="font-bold text-ink">{email.trim()}</span>,
                     normalmente dentro de las 24 horas.
                   </p>
                   <button onClick={() => { reset(); onClose(); }}
-                    className="mt-6 w-full rounded-full bg-[#014CFF] text-white font-bold py-3.5">
+                    className="mt-6 w-full rounded-full bg-accent text-on-accent font-bold py-3.5">
                     Cerrar
                   </button>
                 </div>
@@ -151,22 +152,22 @@ export default function ContactModal({
               {/* ── el mail no salió: salidas reales ── */}
               {estado === "sinMail" && (
                 <div className="mt-2">
-                  <p className="text-[15px] text-[#5E6470]">
+                  <p className="text-[15px] text-muted">
                     No pudimos enviar el formulario desde acá. Estas dos vías sí funcionan
                     y las miramos igual de seguido:
                   </p>
                   <div className="flex flex-col gap-2.5 mt-5">
                     <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer"
-                      className="w-full rounded-full bg-[#B4EC5C] text-black font-bold py-3.5 text-center">
+                      className="w-full rounded-full bg-highlight text-on-highlight font-bold py-3.5 text-center">
                       Escribirnos por WhatsApp
                     </a>
                     <a href={mailtoHref}
-                      className="w-full rounded-full border border-[#E3E5E9] text-black font-bold py-3.5 text-center">
+                      className="w-full rounded-full border border-line text-ink font-bold py-3.5 text-center">
                       Abrir mi mail
                     </a>
                   </div>
-                  <p className="text-xs text-[#9AA0AA] mt-4 text-center">
-                    O copiá la dirección: <span className="font-mono text-[#014CFF]">{CONTACT_TO}</span>
+                  <p className="text-xs text-faint mt-4 text-center">
+                    O copiá la dirección: <span className="font-mono text-accent-ink">{CONTACT_TO}</span>
                   </p>
                 </div>
               )}
@@ -174,7 +175,7 @@ export default function ContactModal({
               {/* ── formulario ── */}
               {estado === "form" && (
                 <>
-                  <p className="text-[15px] text-[#5E6470] mb-6">
+                  <p className="text-[15px] text-muted mb-6">
                     Dudas, precios, si te sirve para tu rubro. Te contestamos por mail.
                   </p>
 
@@ -195,7 +196,7 @@ export default function ContactModal({
 
                     <div>
                       <label className={labelCls} htmlFor="c-rubro">
-                        Tu rubro <span className="text-[#C2C6CE] normal-case tracking-normal">— opcional</span>
+                        Tu rubro <span className="text-faint normal-case tracking-normal">— opcional</span>
                       </label>
                       <select id="c-rubro" value={rubro} onChange={(e) => setRubro(e.target.value)}
                         className={inputCls}>
@@ -220,18 +221,18 @@ export default function ContactModal({
                       onChange={(e) => setWebsite(e.target.value)}
                       className="absolute w-px h-px opacity-0 -z-10 pointer-events-none" />
 
-                    {error && <p className="text-sm text-red-500">{error}</p>}
+                    {error && <p className="text-sm text-danger">{error}</p>}
 
                     <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
                       onClick={send} disabled={!puedeEnviar || sending}
-                      className="w-full rounded-full bg-[#014CFF] text-white font-bold py-3.5 disabled:opacity-25 transition-opacity">
+                      className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
                       {sending ? "Enviando…" : "Enviar consulta →"}
                     </motion.button>
 
-                    <p className="text-xs text-[#9AA0AA] text-center">
+                    <p className="text-xs text-faint text-center">
                       ¿Preferís WhatsApp?{" "}
                       <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer"
-                        className="text-[#014CFF] font-bold underline">
+                        className="text-accent-ink font-bold underline">
                         Escribinos por acá
                       </a>
                     </p>
