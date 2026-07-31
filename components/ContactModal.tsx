@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { RUBROS_LISTA } from "@/lib/rubros";
 import { CONTACT_TO, WHATSAPP_URL } from "@/lib/contacto";
@@ -31,6 +32,17 @@ export default function ContactModal({
   const [estado, setEstado] = useState<Estado>("form");
 
   const firstField = useRef<HTMLInputElement>(null);
+
+  // El modal se monta con un portal en <body>. NO es un detalle de estilo:
+  // app/template.tsx envuelve cada página en un motion.div que anima `y` y
+  // `filter`, y un ancestro con transform o filter crea un contenedor de
+  // posicionamiento propio — ahí `position: fixed` deja de medirse contra la
+  // ventana y pasa a medirse contra ese div, que es tan alto como la página
+  // entera. El modal terminaba centrado en el medio del documento en vez de
+  // la pantalla. Framer además deja `filter: blur(0px)` puesto al terminar,
+  // así que el efecto no se iba solo.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
 
   // Escape cierra, y al abrir el foco cae en el primer campo.
   useEffect(() => {
@@ -90,7 +102,9 @@ export default function ContactModal({
     `mailto:${CONTACT_TO}?subject=${encodeURIComponent("Consulta sobre Turnito")}` +
     `&body=${encodeURIComponent(message.trim() || "Hola, quería consultarles sobre Turnito.")}`;
 
-  return (
+  if (!mounted) return null;
+
+  return createPortal(
     <AnimatePresence>
       {open && (
         <motion.div
@@ -228,6 +242,7 @@ export default function ContactModal({
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
