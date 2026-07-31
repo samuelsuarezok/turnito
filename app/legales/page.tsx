@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import { motion } from "framer-motion";
+import { CONTACT_TO } from "@/lib/contacto";
 
 const UPDATED = "31 de julio de 2026";
 
@@ -179,8 +180,8 @@ export default function LegalesPage() {
             <p className="text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-2">Contacto</p>
             <p className="text-sm text-[#5E6470]">
               Para consultas sobre estos términos o tus datos personales, escribinos a{" "}
-              <a href="mailto:labsbebop@gmail.com" className="text-[#014CFF] font-semibold underline">
-                labsbebop@gmail.com
+              <a href={`mailto:${CONTACT_TO}`} className="text-[#014CFF] font-semibold underline">
+                {CONTACT_TO}
               </a>
             </p>
           </div>

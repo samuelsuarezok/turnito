@@ -1,0 +1,233 @@
+"use client";
+
+import { useEffect, useRef, useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { RUBROS_LISTA } from "@/lib/rubros";
+import { CONTACT_TO, WHATSAPP_URL } from "@/lib/contacto";
+
+const EASE = [0.22, 1, 0.36, 1] as const;
+
+const inputCls =
+  "w-full rounded-2xl bg-[#F7F8F9] border border-[#E3E5E9] px-4 py-3 text-[15px] text-[#0A0C10] outline-none focus:border-[#014CFF] transition-colors";
+const labelCls =
+  "block text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-1.5";
+
+type Estado = "form" | "enviado" | "sinMail";
+
+export default function ContactModal({
+  open,
+  onClose,
+}: {
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [rubro, setRubro] = useState("");
+  const [message, setMessage] = useState("");
+  const [website, setWebsite] = useState(""); // honeypot
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState("");
+  const [estado, setEstado] = useState<Estado>("form");
+
+  const firstField = useRef<HTMLInputElement>(null);
+
+  // Escape cierra, y al abrir el foco cae en el primer campo.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    const t = setTimeout(() => firstField.current?.focus(), 120);
+    // Con el modal abierto el fondo no scrollea.
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      clearTimeout(t);
+      document.body.style.overflow = prev;
+    };
+  }, [open, onClose]);
+
+  async function send() {
+    setError("");
+    setSending(true);
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, rubro, message, website }),
+      });
+      const json = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        // El mail todavía no está configurado: no fingimos que salió. Le damos
+        // al visitante las dos salidas que sí funcionan hoy.
+        if (json.code === "EMAIL_NOT_CONFIGURED" || json.code === "SEND_FAILED") {
+          setEstado("sinMail");
+          return;
+        }
+        setError(json.error ?? "No pudimos enviar tu consulta. Probá de nuevo.");
+        return;
+      }
+      setEstado("enviado");
+    } catch {
+      setEstado("sinMail");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function reset() {
+    setName(""); setEmail(""); setRubro(""); setMessage("");
+    setError(""); setEstado("form");
+  }
+
+  const puedeEnviar =
+    name.trim().length >= 2 && email.includes("@") && message.trim().length >= 10;
+
+  // El asunto ya escrito, para la salida por mail directo.
+  const mailtoHref =
+    `mailto:${CONTACT_TO}?subject=${encodeURIComponent("Consulta sobre Turnito")}` +
+    `&body=${encodeURIComponent(message.trim() || "Hola, quería consultarles sobre Turnito.")}`;
+
+  return (
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          onClick={onClose}
+          role="dialog" aria-modal="true" aria-label="Contacto"
+          className="fixed inset-0 z-[200] bg-black/45 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-6"
+        >
+          <motion.div
+            initial={{ y: 40, opacity: 0, scale: 0.98 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 30, opacity: 0, scale: 0.98 }}
+            transition={{ duration: 0.28, ease: EASE }}
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg bg-white rounded-t-[28px] sm:rounded-[28px] max-h-[92vh] overflow-y-auto"
+          >
+            <div className="p-6 sm:p-8">
+              <div className="flex items-start justify-between gap-4 mb-1">
+                <h2 className="text-[26px] font-extrabold text-black tracking-tight leading-tight">
+                  {estado === "enviado" ? "¡Listo, nos llegó!"
+                    : estado === "sinMail" ? "Escribinos directo"
+                    : "Contanos qué necesitás"}
+                </h2>
+                <button onClick={onClose} aria-label="Cerrar"
+                  className="shrink-0 w-9 h-9 rounded-full bg-[#F0F1F3] text-[#5E6470] text-lg leading-none hover:bg-[#E3E5E9] transition-colors">
+                  ✕
+                </button>
+              </div>
+
+              {/* ── enviado ── */}
+              {estado === "enviado" && (
+                <div className="mt-2">
+                  <p className="text-[15px] text-[#5E6470]">
+                    Te respondemos a <span className="font-bold text-black">{email.trim()}</span>,
+                    normalmente dentro de las 24 horas.
+                  </p>
+                  <button onClick={() => { reset(); onClose(); }}
+                    className="mt-6 w-full rounded-full bg-[#014CFF] text-white font-bold py-3.5">
+                    Cerrar
+                  </button>
+                </div>
+              )}
+
+              {/* ── el mail no salió: salidas reales ── */}
+              {estado === "sinMail" && (
+                <div className="mt-2">
+                  <p className="text-[15px] text-[#5E6470]">
+                    No pudimos enviar el formulario desde acá. Estas dos vías sí funcionan
+                    y las miramos igual de seguido:
+                  </p>
+                  <div className="flex flex-col gap-2.5 mt-5">
+                    <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer"
+                      className="w-full rounded-full bg-[#B4EC5C] text-black font-bold py-3.5 text-center">
+                      Escribirnos por WhatsApp
+                    </a>
+                    <a href={mailtoHref}
+                      className="w-full rounded-full border border-[#E3E5E9] text-black font-bold py-3.5 text-center">
+                      Abrir mi mail
+                    </a>
+                  </div>
+                  <p className="text-xs text-[#9AA0AA] mt-4 text-center">
+                    O copiá la dirección: <span className="font-mono text-[#014CFF]">{CONTACT_TO}</span>
+                  </p>
+                </div>
+              )}
+
+              {/* ── formulario ── */}
+              {estado === "form" && (
+                <>
+                  <p className="text-[15px] text-[#5E6470] mb-6">
+                    Dudas, precios, si te sirve para tu rubro. Te contestamos por mail.
+                  </p>
+
+                  <div className="flex flex-col gap-4">
+                    <div>
+                      <label className={labelCls} htmlFor="c-nombre">Tu nombre</label>
+                      <input id="c-nombre" ref={firstField} value={name}
+                        onChange={(e) => setName(e.target.value)}
+                        placeholder="Sofía Ramírez" className={inputCls} />
+                    </div>
+
+                    <div>
+                      <label className={labelCls} htmlFor="c-email">Tu email</label>
+                      <input id="c-email" type="email" inputMode="email" autoComplete="email"
+                        value={email} onChange={(e) => setEmail(e.target.value)}
+                        placeholder="sofia@gmail.com" className={inputCls} />
+                    </div>
+
+                    <div>
+                      <label className={labelCls} htmlFor="c-rubro">
+                        Tu rubro <span className="text-[#C2C6CE] normal-case tracking-normal">— opcional</span>
+                      </label>
+                      <select id="c-rubro" value={rubro} onChange={(e) => setRubro(e.target.value)}
+                        className={inputCls}>
+                        <option value="">Elegí uno</option>
+                        {RUBROS_LISTA.map((r) => (
+                          <option key={r.id} value={r.label}>{r.label}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className={labelCls} htmlFor="c-msg">Tu consulta</label>
+                      <textarea id="c-msg" value={message} rows={4}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="Hola, tengo un estudio de uñas y quería saber si…"
+                        className={`${inputCls} resize-y min-h-[110px]`} />
+                    </div>
+
+                    {/* Honeypot: invisible para personas, tentador para bots. */}
+                    <input type="text" name="website" value={website} tabIndex={-1}
+                      autoComplete="off" aria-hidden="true"
+                      onChange={(e) => setWebsite(e.target.value)}
+                      className="absolute w-px h-px opacity-0 -z-10 pointer-events-none" />
+
+                    {error && <p className="text-sm text-red-500">{error}</p>}
+
+                    <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
+                      onClick={send} disabled={!puedeEnviar || sending}
+                      className="w-full rounded-full bg-[#014CFF] text-white font-bold py-3.5 disabled:opacity-25 transition-opacity">
+                      {sending ? "Enviando…" : "Enviar consulta →"}
+                    </motion.button>
+
+                    <p className="text-xs text-[#9AA0AA] text-center">
+                      ¿Preferís WhatsApp?{" "}
+                      <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer"
+                        className="text-[#014CFF] font-bold underline">
+                        Escribinos por acá
+                      </a>
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

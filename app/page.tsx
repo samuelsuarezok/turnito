@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
+import ContactModal from "@/components/ContactModal";
+import { WHATSAPP_URL } from "@/lib/contacto";
 import { AnimatePresence } from "framer-motion";
 import {
   motion,
@@ -170,9 +172,13 @@ const css = `
 /* footer */
 .ld footer{padding:26px 20px 34px}
 .ld .foot-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
-.ld .foot-links{display:flex;gap:26px}
-.ld .foot-in span,.ld .foot-links a{font-size:13.5px;color:#5E6470}
-.ld .foot-links a:hover{color:#014CFF}
+.ld .foot-links{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+.ld .foot-in span,.ld .foot-links a,.ld .foot-links button{font-size:13.5px;color:#5E6470}
+/* "Contacto" abre un modal, así que es un button y no un link: hay que sacarle
+   el fondo y el borde que le pone el navegador para que se vea igual que los otros. */
+.ld .foot-links button{background:none;border:none;font-family:inherit;font-weight:400;cursor:pointer;line-height:inherit}
+.ld .foot-links a:hover,.ld .foot-links button:hover{color:#014CFF}
+.ld .foot-links a:focus-visible,.ld .foot-links button:focus-visible{outline:2px solid #014CFF;outline-offset:3px;border-radius:3px}
 
 @media(max-width:1000px){
   .ld .stage{grid-template-columns:1fr;padding:40px 26px 0;gap:24px}
@@ -252,6 +258,7 @@ const RUBROS_PILLS = [
 
 export default function LandingPage() {
   const [mock, setMock] = useState(0);
+  const [contactOpen, setContactOpen] = useState(false);
 
   useEffect(() => {
     const id = setInterval(() => setMock((m) => (m + 1) % MOCKS.length), 3400);
@@ -261,6 +268,7 @@ export default function LandingPage() {
   const m = MOCKS[mock];
 
   return (
+    <>
     <div className="ld">
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
@@ -574,13 +582,18 @@ export default function LandingPage() {
         <div className="foot-in">
           <Link className="logo" href="#" style={{ fontSize: 16 }}><LogoMark size={22} /> turnito</Link>
           <div className="foot-links">
-            <a href="#">Contacto</a>
-            <a href="#">WhatsApp</a>
+            <button type="button" onClick={() => setContactOpen(true)}>Contacto</button>
+            <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">WhatsApp</a>
             <Link href="/legales">Términos y Privacidad</Link>
           </div>
           <span>© 2026 Turnito · Córdoba, Argentina</span>
         </div>
       </footer>
     </div>
+
+    {/* Fuera del .ld: ese scope tiene un `* { margin:0; padding:0 }` que le
+        gana por especificidad a las utilidades de Tailwind del modal. */}
+    <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
+    </>
   );
 }

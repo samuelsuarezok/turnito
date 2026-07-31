@@ -1,18 +1,19 @@
 -- ════════════════════════════════════════════════════════════════════
 -- FOTO DEL SCHEMA — generada por scripts/introspect.mjs
--- 2026-07-31T16:34:40.409Z
+-- 2026-07-31T17:01:58.901Z
 --
 -- NO se corre. Es documentación: el schema base de Turnito vive en
 -- Supabase y no estaba versionado. Regenerá con:
 --     node scripts/introspect.mjs
 -- ════════════════════════════════════════════════════════════════════
 
--- ══════════════════ FUNCIONES (7) ══════════════════
+-- ══════════════════ FUNCIONES (9) ══════════════════
 
 CREATE OR REPLACE FUNCTION public.public_appointment_by_token(t text)
  RETURNS json
  LANGUAGE sql
  STABLE SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
   select json_build_object(
     'shop_name', b.name,
@@ -27,7 +28,7 @@ AS $function$
     )
   )
   from appointments a
-  join barbershops b on b.id = a.barbershop_id
+  join businesses b on b.id = a.business_id
   join services s on s.id = a.service_id
   where a.token = t;
 $function$
@@ -37,12 +38,13 @@ CREATE OR REPLACE FUNCTION public.public_busy_slots(shop_slug text, on_date date
  RETURNS json
  LANGUAGE sql
  STABLE SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
   select coalesce(json_agg(json_build_object(
     'time', a.time, 'duration_min', s.duration_min
   )), '[]')
   from appointments a
-  join barbershops b on b.id = a.barbershop_id
+  join businesses b on b.id = a.business_id
   join services s on s.id = a.service_id
   where b.slug = shop_slug
     and a.date = on_date
@@ -56,11 +58,22 @@ CREATE OR REPLACE FUNCTION public.public_busy_slots_v2(shop_slug text, on_date d
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
+  select v."time", v.duration_min, v.staff_id
+  from public.public_busy_slots_v3(shop_slug, on_date) v;
+$function$
+
+
+CREATE OR REPLACE FUNCTION public.public_busy_slots_v3(shop_slug text, on_date date)
+ RETURNS TABLE("time" time without time zone, duration_min integer, staff_id uuid)
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
   select a."time",
          coalesce(s.duration_min, b.slot_minutes) as duration_min,
-         a.barber_id
+         a.staff_id
   from public.appointments a
-  join public.barbershops b on b.id = a.barbershop_id
+  join public.businesses b on b.id = a.business_id
   left join public.services s on s.id = a.service_id
   where b.slug = shop_slug
     and a.date = on_date
@@ -72,15 +85,16 @@ CREATE OR REPLACE FUNCTION public.public_cancel_by_token(t text)
  RETURNS json
  LANGUAGE plpgsql
  SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
 declare ok boolean;
 begin
   update appointments a
   set status = 'cancelled_by_client', cancelled_at = now()
-  from barbershops b
+  from businesses b
   where a.token = t
     and a.status = 'confirmed'
-    and b.id = a.barbershop_id
+    and b.id = a.business_id
     and (a.date + a.time) > (now() at time zone b.timezone) + make_interval(mins => b.cancel_limit_min);
   ok := found;
   return json_build_object('ok', ok);
@@ -93,26 +107,7 @@ CREATE OR REPLACE FUNCTION public.public_shop_barbers(shop_slug text)
  STABLE SECURITY DEFINER
  SET search_path TO 'public'
 AS $function$
-  select coalesce(
-    json_agg(
-      json_build_object(
-        'id', br.id,
-        'name', br.name,
-        'absences', coalesce((
-          select json_agg(a.date order by a.date)
-          from public.barber_absences a
-          where a.barber_id = br.id and a.date >= current_date
-        ), '[]'::json)
-      )
-      order by br.sort_order, br.name
-    ),
-    '[]'::json
-  )
-  from public.barbers br
-  join public.barbershops b on b.id = br.barbershop_id
-  where b.slug = shop_slug
-    and b.subscription_status in ('trial', 'active')
-    and br.active;
+  select public.public_shop_staff(shop_slug);
 $function$
 
 
@@ -120,34 +115,65 @@ CREATE OR REPLACE FUNCTION public.public_shop_info(shop_slug text)
  RETURNS json
  LANGUAGE sql
  STABLE SECURITY DEFINER
+ SET search_path TO 'public'
 AS $function$
   select json_build_object(
     'name', b.name,
     'slug', b.slug,
     'slot_minutes', b.slot_minutes,
     'min_notice_min', b.min_notice_min,
+    'business_type', b.business_type,
     'services', (
       select coalesce(json_agg(json_build_object(
         'id', s.id, 'name', s.name, 'icon', s.icon,
         'duration_min', s.duration_min, 'price', s.price
       ) order by s.sort_order), '[]')
-      from services s where s.barbershop_id = b.id and s.active
+      from services s where s.business_id = b.id and s.active
     ),
     'hours', (
       select coalesce(json_agg(json_build_object(
         'weekday', h.weekday, 'opens_at', h.opens_at, 'closes_at', h.closes_at
       )), '[]')
-      from opening_hours h where h.barbershop_id = b.id
+      from opening_hours h where h.business_id = b.id
     ),
     'closed', (
       select coalesce(json_agg(json_build_object(
         'date', c.date, 'from_time', c.from_time, 'to_time', c.to_time
       )), '[]')
-      from closed_dates c where c.barbershop_id = b.id and c.date >= current_date
+      from closed_dates c where c.business_id = b.id and c.date >= current_date
     )
   )
-  from barbershops b
+  from businesses b
   where b.slug = shop_slug and b.subscription_status in ('trial','active');
+$function$
+
+
+CREATE OR REPLACE FUNCTION public.public_shop_staff(shop_slug text)
+ RETURNS json
+ LANGUAGE sql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+  select coalesce(
+    json_agg(
+      json_build_object(
+        'id', st.id,
+        'name', st.name,
+        'absences', coalesce((
+          select json_agg(a.date order by a.date)
+          from public.staff_absences a
+          where a.staff_id = st.id and a.date >= current_date
+        ), '[]'::json)
+      )
+      order by st.sort_order, st.name
+    ),
+    '[]'::json
+  )
+  from public.staff st
+  join public.businesses b on b.id = st.business_id
+  where b.slug = shop_slug
+    and b.subscription_status in ('trial', 'active')
+    and st.active;
 $function$
 
 
@@ -185,45 +211,35 @@ $function$
 
 -- ══════════════════ CONSTRAINTS (26) ══════════════════
 
-alter table appointments add constraint appointments_barber_id_fkey FOREIGN KEY (barber_id) REFERENCES barbers(id) ON DELETE SET NULL;
-
-alter table appointments add constraint appointments_barbershop_id_fkey FOREIGN KEY (barbershop_id) REFERENCES barbershops(id) ON DELETE CASCADE;
+alter table appointments add constraint appointments_business_id_fkey FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
 
 alter table appointments add constraint appointments_pkey PRIMARY KEY (id);
 
 alter table appointments add constraint appointments_service_id_fkey FOREIGN KEY (service_id) REFERENCES services(id);
 
+alter table appointments add constraint appointments_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE SET NULL;
+
 alter table appointments add constraint appointments_token_key UNIQUE (token);
 
 alter table appointments add constraint valid_status CHECK ((status = ANY (ARRAY['confirmed'::text, 'done'::text, 'no_show'::text, 'cancelled_by_client'::text, 'cancelled_by_shop'::text])));
 
-alter table barber_absences add constraint barber_absences_barber_id_date_key UNIQUE (barber_id, date);
+alter table businesses add constraint businesses_business_type_check CHECK ((business_type = ANY (ARRAY['barberia'::text, 'unas'::text, 'pestanas'::text, 'tatuajes'::text, 'peluqueria'::text, 'otro'::text])));
 
-alter table barber_absences add constraint barber_absences_barber_id_fkey FOREIGN KEY (barber_id) REFERENCES barbers(id) ON DELETE CASCADE;
+alter table businesses add constraint businesses_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE;
 
-alter table barber_absences add constraint barber_absences_pkey PRIMARY KEY (id);
+alter table businesses add constraint businesses_pkey PRIMARY KEY (id);
 
-alter table barbers add constraint barbers_barbershop_id_fkey FOREIGN KEY (barbershop_id) REFERENCES barbershops(id) ON DELETE CASCADE;
+alter table businesses add constraint businesses_slug_key UNIQUE (slug);
 
-alter table barbers add constraint barbers_pkey PRIMARY KEY (id);
+alter table businesses add constraint slug_format CHECK ((slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text));
 
-alter table barbershops add constraint barbershops_business_type_check CHECK ((business_type = ANY (ARRAY['barberia'::text, 'unas'::text, 'pestanas'::text, 'tatuajes'::text, 'peluqueria'::text, 'otro'::text])));
+alter table closed_dates add constraint closed_dates_business_id_date_key UNIQUE (business_id, date);
 
-alter table barbershops add constraint barbershops_owner_id_fkey FOREIGN KEY (owner_id) REFERENCES auth.users(id) ON DELETE CASCADE;
-
-alter table barbershops add constraint barbershops_pkey PRIMARY KEY (id);
-
-alter table barbershops add constraint barbershops_slug_key UNIQUE (slug);
-
-alter table barbershops add constraint slug_format CHECK ((slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$'::text));
-
-alter table closed_dates add constraint closed_dates_barbershop_id_date_key UNIQUE (barbershop_id, date);
-
-alter table closed_dates add constraint closed_dates_barbershop_id_fkey FOREIGN KEY (barbershop_id) REFERENCES barbershops(id) ON DELETE CASCADE;
+alter table closed_dates add constraint closed_dates_business_id_fkey FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
 
 alter table closed_dates add constraint closed_dates_pkey PRIMARY KEY (id);
 
-alter table opening_hours add constraint opening_hours_barbershop_id_fkey FOREIGN KEY (barbershop_id) REFERENCES barbershops(id) ON DELETE CASCADE;
+alter table opening_hours add constraint opening_hours_business_id_fkey FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
 
 alter table opening_hours add constraint opening_hours_pkey PRIMARY KEY (id);
 
@@ -233,42 +249,42 @@ alter table opening_hours add constraint valid_weekday CHECK (((weekday >= 0) AN
 
 alter table phone_verifications add constraint phone_verifications_pkey PRIMARY KEY (id);
 
-alter table services add constraint services_barbershop_id_fkey FOREIGN KEY (barbershop_id) REFERENCES barbershops(id) ON DELETE CASCADE;
+alter table services add constraint services_business_id_fkey FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
 
 alter table services add constraint services_pkey PRIMARY KEY (id);
+
+alter table staff add constraint staff_business_id_fkey FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE;
+
+alter table staff add constraint staff_pkey PRIMARY KEY (id);
+
+alter table staff_absences add constraint staff_absences_pkey PRIMARY KEY (id);
+
+alter table staff_absences add constraint staff_absences_staff_id_date_key UNIQUE (staff_id, date);
+
+alter table staff_absences add constraint staff_absences_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES staff(id) ON DELETE CASCADE;
 
 
 -- ══════════════════ INDICES (21) ══════════════════
 
-CREATE INDEX appointments_barber_date_idx ON public.appointments USING btree (barber_id, date);
-
-CREATE INDEX appointments_by_day ON public.appointments USING btree (barbershop_id, date);
+CREATE INDEX appointments_by_day ON public.appointments USING btree (business_id, date);
 
 CREATE INDEX appointments_by_phone ON public.appointments USING btree (client_phone);
 
 CREATE UNIQUE INDEX appointments_pkey ON public.appointments USING btree (id);
 
-CREATE UNIQUE INDEX appointments_slot_unique ON public.appointments USING btree (barbershop_id, COALESCE(barber_id, '00000000-0000-0000-0000-000000000000'::uuid), date, "time") WHERE (status = ANY (ARRAY['confirmed'::text, 'done'::text]));
+CREATE UNIQUE INDEX appointments_slot_unique ON public.appointments USING btree (business_id, COALESCE(staff_id, '00000000-0000-0000-0000-000000000000'::uuid), date, "time") WHERE (status = ANY (ARRAY['confirmed'::text, 'done'::text]));
+
+CREATE INDEX appointments_staff_date_idx ON public.appointments USING btree (staff_id, date);
 
 CREATE UNIQUE INDEX appointments_token_key ON public.appointments USING btree (token);
 
-CREATE UNIQUE INDEX barber_absences_barber_id_date_key ON public.barber_absences USING btree (barber_id, date);
+CREATE UNIQUE INDEX businesses_owner ON public.businesses USING btree (owner_id);
 
-CREATE INDEX barber_absences_date_idx ON public.barber_absences USING btree (barber_id, date);
+CREATE UNIQUE INDEX businesses_pkey ON public.businesses USING btree (id);
 
-CREATE UNIQUE INDEX barber_absences_pkey ON public.barber_absences USING btree (id);
+CREATE UNIQUE INDEX businesses_slug_key ON public.businesses USING btree (slug);
 
-CREATE UNIQUE INDEX barbers_pkey ON public.barbers USING btree (id);
-
-CREATE INDEX barbers_shop_idx ON public.barbers USING btree (barbershop_id) WHERE active;
-
-CREATE UNIQUE INDEX barbershops_owner ON public.barbershops USING btree (owner_id);
-
-CREATE UNIQUE INDEX barbershops_pkey ON public.barbershops USING btree (id);
-
-CREATE UNIQUE INDEX barbershops_slug_key ON public.barbershops USING btree (slug);
-
-CREATE UNIQUE INDEX closed_dates_barbershop_id_date_key ON public.closed_dates USING btree (barbershop_id, date);
+CREATE UNIQUE INDEX closed_dates_business_id_date_key ON public.closed_dates USING btree (business_id, date);
 
 CREATE UNIQUE INDEX closed_dates_pkey ON public.closed_dates USING btree (id);
 
@@ -278,53 +294,63 @@ CREATE UNIQUE INDEX phone_verifications_pkey ON public.phone_verifications USING
 
 CREATE INDEX verifications_by_phone ON public.phone_verifications USING btree (phone, created_at DESC);
 
-CREATE INDEX services_by_shop ON public.services USING btree (barbershop_id) WHERE active;
+CREATE INDEX services_by_shop ON public.services USING btree (business_id) WHERE active;
 
 CREATE UNIQUE INDEX services_pkey ON public.services USING btree (id);
+
+CREATE INDEX staff_business_idx ON public.staff USING btree (business_id) WHERE active;
+
+CREATE UNIQUE INDEX staff_pkey ON public.staff USING btree (id);
+
+CREATE INDEX staff_absences_date_idx ON public.staff_absences USING btree (staff_id, date);
+
+CREATE UNIQUE INDEX staff_absences_pkey ON public.staff_absences USING btree (id);
+
+CREATE UNIQUE INDEX staff_absences_staff_id_date_key ON public.staff_absences USING btree (staff_id, date);
 
 
 -- ══════════════════ RLS POLICIES (7) ══════════════════
 
 -- public.appointments (ALL, roles: public)
-  USING (barbershop_id IN ( SELECT barbershops.id
-   FROM barbershops
-  WHERE (barbershops.owner_id = auth.uid())))
+  USING (business_id IN ( SELECT businesses.id
+   FROM businesses
+  WHERE (businesses.owner_id = auth.uid())))
 
--- public.barber_absences (ALL, roles: authenticated)
-  USING (EXISTS ( SELECT 1
-   FROM (barbers br
-     JOIN barbershops b ON ((b.id = br.barbershop_id)))
-  WHERE ((br.id = barber_absences.barber_id) AND (b.owner_id = auth.uid()))))
-  WITH CHECK (EXISTS ( SELECT 1
-   FROM (barbers br
-     JOIN barbershops b ON ((b.id = br.barbershop_id)))
-  WHERE ((br.id = barber_absences.barber_id) AND (b.owner_id = auth.uid()))))
-
--- public.barbers (ALL, roles: authenticated)
-  USING (EXISTS ( SELECT 1
-   FROM barbershops b
-  WHERE ((b.id = barbers.barbershop_id) AND (b.owner_id = auth.uid()))))
-  WITH CHECK (EXISTS ( SELECT 1
-   FROM barbershops b
-  WHERE ((b.id = barbers.barbershop_id) AND (b.owner_id = auth.uid()))))
-
--- public.barbershops (ALL, roles: public)
+-- public.businesses (ALL, roles: public)
   USING (owner_id = auth.uid())
 
 -- public.closed_dates (ALL, roles: public)
-  USING (barbershop_id IN ( SELECT barbershops.id
-   FROM barbershops
-  WHERE (barbershops.owner_id = auth.uid())))
+  USING (business_id IN ( SELECT businesses.id
+   FROM businesses
+  WHERE (businesses.owner_id = auth.uid())))
 
 -- public.opening_hours (ALL, roles: public)
-  USING (barbershop_id IN ( SELECT barbershops.id
-   FROM barbershops
-  WHERE (barbershops.owner_id = auth.uid())))
+  USING (business_id IN ( SELECT businesses.id
+   FROM businesses
+  WHERE (businesses.owner_id = auth.uid())))
 
 -- public.services (ALL, roles: public)
-  USING (barbershop_id IN ( SELECT barbershops.id
-   FROM barbershops
-  WHERE (barbershops.owner_id = auth.uid())))
+  USING (business_id IN ( SELECT businesses.id
+   FROM businesses
+  WHERE (businesses.owner_id = auth.uid())))
+
+-- public.staff (ALL, roles: authenticated)
+  USING (EXISTS ( SELECT 1
+   FROM businesses b
+  WHERE ((b.id = staff.business_id) AND (b.owner_id = auth.uid()))))
+  WITH CHECK (EXISTS ( SELECT 1
+   FROM businesses b
+  WHERE ((b.id = staff.business_id) AND (b.owner_id = auth.uid()))))
+
+-- public.staff_absences (ALL, roles: authenticated)
+  USING (EXISTS ( SELECT 1
+   FROM (staff br
+     JOIN businesses b ON ((b.id = br.business_id)))
+  WHERE ((br.id = staff_absences.staff_id) AND (b.owner_id = auth.uid()))))
+  WITH CHECK (EXISTS ( SELECT 1
+   FROM (staff br
+     JOIN businesses b ON ((b.id = br.business_id)))
+  WHERE ((br.id = staff_absences.staff_id) AND (b.owner_id = auth.uid()))))
 
 
 -- ══════════════════ TRIGGERS (0) ══════════════════
@@ -351,7 +377,7 @@ CREATE UNIQUE INDEX services_pkey ON public.services USING btree (id);
 
 -- appointments.id uuid NOT NULL DEFAULT gen_random_uuid()
 
--- appointments.barbershop_id uuid NOT NULL
+-- appointments.business_id uuid NOT NULL
 
 -- appointments.service_id uuid NOT NULL
 
@@ -371,63 +397,41 @@ CREATE UNIQUE INDEX services_pkey ON public.services USING btree (id);
 
 -- appointments.cancelled_at timestamp with time zone
 
--- appointments.barber_id uuid
+-- appointments.staff_id uuid
 
 -- appointments.client_email text
 
--- barber_absences.id uuid NOT NULL DEFAULT gen_random_uuid()
+-- businesses.id uuid NOT NULL DEFAULT gen_random_uuid()
 
--- barber_absences.barber_id uuid NOT NULL
+-- businesses.owner_id uuid NOT NULL
 
--- barber_absences.date date NOT NULL
+-- businesses.name text NOT NULL
 
--- barber_absences.reason text
+-- businesses.slug text NOT NULL
 
--- barber_absences.created_at timestamp with time zone NOT NULL DEFAULT now()
+-- businesses.whatsapp text NOT NULL
 
--- barbers.id uuid NOT NULL DEFAULT gen_random_uuid()
+-- businesses.slot_minutes integer NOT NULL DEFAULT 30
 
--- barbers.barbershop_id uuid NOT NULL
+-- businesses.timezone text NOT NULL DEFAULT 'America/Argentina/Cordoba'::text
 
--- barbers.name text NOT NULL
+-- businesses.trial_ends_at timestamp with time zone NOT NULL DEFAULT (now() + '30 days'::interval)
 
--- barbers.active boolean NOT NULL DEFAULT true
+-- businesses.subscription_status text NOT NULL DEFAULT 'trial'::text
 
--- barbers.sort_order integer NOT NULL DEFAULT 0
+-- businesses.mp_subscription_id text
 
--- barbers.created_at timestamp with time zone NOT NULL DEFAULT now()
+-- businesses.created_at timestamp with time zone NOT NULL DEFAULT now()
 
--- barbershops.id uuid NOT NULL DEFAULT gen_random_uuid()
+-- businesses.min_notice_min integer NOT NULL DEFAULT 60
 
--- barbershops.owner_id uuid NOT NULL
+-- businesses.cancel_limit_min integer NOT NULL DEFAULT 60
 
--- barbershops.name text NOT NULL
-
--- barbershops.slug text NOT NULL
-
--- barbershops.whatsapp text NOT NULL
-
--- barbershops.slot_minutes integer NOT NULL DEFAULT 30
-
--- barbershops.timezone text NOT NULL DEFAULT 'America/Argentina/Cordoba'::text
-
--- barbershops.trial_ends_at timestamp with time zone NOT NULL DEFAULT (now() + '30 days'::interval)
-
--- barbershops.subscription_status text NOT NULL DEFAULT 'trial'::text
-
--- barbershops.mp_subscription_id text
-
--- barbershops.created_at timestamp with time zone NOT NULL DEFAULT now()
-
--- barbershops.min_notice_min integer NOT NULL DEFAULT 60
-
--- barbershops.cancel_limit_min integer NOT NULL DEFAULT 60
-
--- barbershops.business_type text DEFAULT 'otro'::text
+-- businesses.business_type text DEFAULT 'otro'::text
 
 -- closed_dates.id uuid NOT NULL DEFAULT gen_random_uuid()
 
--- closed_dates.barbershop_id uuid NOT NULL
+-- closed_dates.business_id uuid NOT NULL
 
 -- closed_dates.date date NOT NULL
 
@@ -439,7 +443,7 @@ CREATE UNIQUE INDEX services_pkey ON public.services USING btree (id);
 
 -- opening_hours.id uuid NOT NULL DEFAULT gen_random_uuid()
 
--- opening_hours.barbershop_id uuid NOT NULL
+-- opening_hours.business_id uuid NOT NULL
 
 -- opening_hours.weekday integer NOT NULL
 
@@ -463,7 +467,7 @@ CREATE UNIQUE INDEX services_pkey ON public.services USING btree (id);
 
 -- services.id uuid NOT NULL DEFAULT gen_random_uuid()
 
--- services.barbershop_id uuid NOT NULL
+-- services.business_id uuid NOT NULL
 
 -- services.name text NOT NULL
 
@@ -478,3 +482,25 @@ CREATE UNIQUE INDEX services_pkey ON public.services USING btree (id);
 -- services.sort_order integer NOT NULL DEFAULT 0
 
 -- services.created_at timestamp with time zone NOT NULL DEFAULT now()
+
+-- staff.id uuid NOT NULL DEFAULT gen_random_uuid()
+
+-- staff.business_id uuid NOT NULL
+
+-- staff.name text NOT NULL
+
+-- staff.active boolean NOT NULL DEFAULT true
+
+-- staff.sort_order integer NOT NULL DEFAULT 0
+
+-- staff.created_at timestamp with time zone NOT NULL DEFAULT now()
+
+-- staff_absences.id uuid NOT NULL DEFAULT gen_random_uuid()
+
+-- staff_absences.staff_id uuid NOT NULL
+
+-- staff_absences.date date NOT NULL
+
+-- staff_absences.reason text
+
+-- staff_absences.created_at timestamp with time zone NOT NULL DEFAULT now()

@@ -49,6 +49,8 @@ export async function sendEmail(opts: {
   subject: string;
   html: string;
   text: string;
+  /** Para que "Responder" le conteste a quien escribió, no a la casilla del sistema. */
+  replyTo?: { email: string; name?: string };
 }): Promise<SendResult> {
   const apiKey = process.env.BREVO_API_KEY;
   const from = process.env.EMAIL_FROM;
@@ -70,6 +72,7 @@ export async function sendEmail(opts: {
         subject: opts.subject,
         htmlContent: opts.html,
         textContent: opts.text,
+        ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
       }),
     });
 
@@ -164,6 +167,68 @@ export function appointmentEmail(a: {
   <p style="max-width:480px;margin:14px auto 0;font-size:11px;color:#9A9A92;text-align:center;line-height:1.5;">
     Recibís este mail porque dejaste tu dirección al reservar un turno en ${esc(a.shopName)}.
   </p>
+</body></html>`;
+
+  return { subject, html, text };
+}
+
+// La dirección vive en lib/contacto.ts (que también lee el cliente). Se
+// re-exporta acá para que la API route la traiga junto con contactEmail.
+export { CONTACT_TO } from "./contacto";
+
+/** Arma el mail de una consulta enviada desde el formulario público. */
+export function contactEmail(c: {
+  name: string;
+  email: string;
+  rubro: string | null;
+  message: string;
+}) {
+  const subject = `Consulta de ${c.name}${c.rubro ? ` (${c.rubro})` : ""}`;
+
+  const text = [
+    `Nueva consulta desde turnito.app`,
+    ``,
+    `Nombre: ${c.name}`,
+    `Email: ${c.email}`,
+    ...(c.rubro ? [`Rubro: ${c.rubro}`] : []),
+    ``,
+    c.message,
+    ``,
+    `— Respondé este mail y le llega directo a ${c.email}.`,
+  ].join("\n");
+
+  const row = (k: string, v: string) => `
+    <tr>
+      <td style="padding:10px 0;border-bottom:1px solid #E1E4EA;color:#5E6470;font-size:14px;white-space:nowrap;">${esc(k)}</td>
+      <td style="padding:10px 0;border-bottom:1px solid #E1E4EA;color:#000;font-size:14px;font-weight:600;text-align:right;">${esc(v)}</td>
+    </tr>`;
+
+  // El mensaje va escapado y con los saltos de línea convertidos a <br>, para
+  // que no rompa el HTML ni se aplaste en un solo párrafo.
+  const cuerpo = esc(c.message).replace(/\r?\n/g, "<br>");
+
+  const html = `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:24px 12px;background:#F0F1F3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:0 auto;background:#FFFFFF;border-radius:16px;overflow:hidden;border:1px solid #E1E4EA;">
+    <tr><td style="background:#014CFF;padding:20px 24px;">
+      <span style="color:#FFFFFF;font-size:18px;font-weight:700;letter-spacing:-0.02em;">Turnito</span>
+    </td></tr>
+    <tr><td style="padding:26px 24px 8px;">
+      <div style="display:inline-block;background:#B4EC5C;color:#000;font-size:11px;font-weight:700;letter-spacing:0.08em;padding:6px 12px;border-radius:999px;">NUEVA CONSULTA</div>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:18px;">
+        ${row("Nombre", c.name)}
+        ${row("Email", c.email)}
+        ${c.rubro ? row("Rubro", c.rubro) : ""}
+      </table>
+      <p style="margin:20px 0 0;font-size:15px;color:#0A0C10;line-height:1.6;">${cuerpo}</p>
+    </td></tr>
+    <tr><td style="padding:20px 24px 26px;">
+      <p style="margin:0;font-size:12px;color:#5E6470;line-height:1.5;">
+        Respondé este mail y le llega directo a ${esc(c.email)}.
+      </p>
+    </td></tr>
+  </table>
 </body></html>`;
 
   return { subject, html, text };
