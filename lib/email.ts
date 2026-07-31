@@ -106,22 +106,22 @@ export function appointmentEmail(a: {
   shopName: string;
   clientName: string;
   serviceName: string;
-  barberName: string | null;
+  staffName: string | null;
   date: string;
   time: string;
   manageUrl: string;
 }) {
   const fecha = fmtFechaLarga(a.date);
   const hora = a.time.slice(0, 5);
-  const conBarbero = a.barberName ? ` con ${a.barberName}` : "";
+  const conPersona = a.staffName ? ` con ${a.staffName}` : "";
 
   const subject = `Turno confirmado — ${a.shopName}, ${fecha} ${hora} hs`;
 
   const text = [
     `¡Hola ${a.clientName}! Tu turno quedó confirmado.`,
     ``,
-    `Barbería: ${a.shopName}`,
-    `Servicio: ${a.serviceName}${conBarbero}`,
+    `Negocio: ${a.shopName}`,
+    `Servicio: ${a.serviceName}${conPersona}`,
     `Día: ${fecha}`,
     `Hora: ${hora} hs`,
     ``,
@@ -143,21 +143,21 @@ export function appointmentEmail(a: {
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
 <body style="margin:0;padding:24px 12px;background:#F5F5F2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
   <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;border-radius:16px;overflow:hidden;border:1px solid #E4E4DE;">
-    <tr><td style="background:#101010;padding:20px 24px;">
-      <span style="color:#D8F34E;font-size:18px;font-weight:700;letter-spacing:-0.02em;">Turnito</span>
+    <tr><td style="background:#014CFF;padding:20px 24px;">
+      <span style="color:#FFFFFF;font-size:18px;font-weight:700;letter-spacing:-0.02em;">Turnito</span>
     </td></tr>
     <tr><td style="padding:28px 24px 8px;">
-      <div style="display:inline-block;background:#D8F34E;color:#101010;font-size:11px;font-weight:700;letter-spacing:0.08em;padding:6px 12px;border-radius:999px;">TURNO CONFIRMADO</div>
-      <h1 style="margin:16px 0 4px;font-size:22px;color:#101010;font-weight:700;">¡Hola ${esc(a.clientName)}!</h1>
-      <p style="margin:0 0 20px;font-size:14px;color:#6E6E68;line-height:1.5;">Tu turno en <strong style="color:#101010;">${esc(a.shopName)}</strong> quedó reservado. Te esperamos.</p>
+      <div style="display:inline-block;background:#B4EC5C;color:#000000;font-size:11px;font-weight:700;letter-spacing:0.08em;padding:6px 12px;border-radius:999px;">TURNO CONFIRMADO</div>
+      <h1 style="margin:16px 0 4px;font-size:22px;color:#000000;font-weight:700;">¡Hola ${esc(a.clientName)}!</h1>
+      <p style="margin:0 0 20px;font-size:14px;color:#5E6470;line-height:1.5;">Tu turno en <strong style="color:#000000;">${esc(a.shopName)}</strong> quedó reservado. Te esperamos.</p>
       <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-        ${row("Servicio", a.serviceName + conBarbero)}
+        ${row("Servicio", a.serviceName + conPersona)}
         ${row("Día", fecha)}
         ${row("Hora", `${hora} hs`)}
       </table>
     </td></tr>
     <tr><td style="padding:8px 24px 28px;">
-      <a href="${esc(a.manageUrl)}" style="display:block;background:#D8F34E;color:#101010;text-decoration:none;text-align:center;font-weight:700;font-size:15px;padding:14px;border-radius:999px;">Ver o cancelar mi turno</a>
+      <a href="${esc(a.manageUrl)}" style="display:block;background:#014CFF;color:#FFFFFF;text-decoration:none;text-align:center;font-weight:700;font-size:15px;padding:14px;border-radius:999px;">Ver o cancelar mi turno</a>
       <p style="margin:14px 0 0;font-size:12px;color:#8A8A82;line-height:1.5;text-align:center;">Guardá este mail: el link de arriba es tu comprobante.</p>
     </td></tr>
   </table>

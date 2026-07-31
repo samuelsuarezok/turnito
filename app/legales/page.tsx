@@ -1,45 +1,44 @@
 "use client";
 
-
-
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import { motion } from "framer-motion";
 
-const UPDATED = "20 de julio de 2026";
+const UPDATED = "31 de julio de 2026";
 
 export default function LegalesPage() {
   return (
-    <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] p-6">
+    <main className="min-h-screen bg-[#F0F1F3] text-[#1C1F26] p-6">
       <div className="max-w-2xl mx-auto py-8">
         <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between mb-10">
-          <Logo variant="dark" size={26} />
-          <Link href="/" className="text-[11px] text-[#D8F34E] font-semibold">← Inicio</Link>
+          <Logo variant="light" size={26} />
+          <Link href="/" className="text-[11px] text-[#014CFF] font-bold">← Inicio</Link>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl font-bold mb-2">Términos y Privacidad</h1>
-          <p className="text-sm text-[#5A5A54] mb-10">Última actualización: {UPDATED}</p>
+          <h1 className="text-3xl font-extrabold text-black mb-2 tracking-tight">Términos y Privacidad</h1>
+          <p className="text-sm text-[#9AA0AA] mb-10">Última actualización: {UPDATED}</p>
 
           {/* índice */}
-          <div className="rounded-2xl bg-[#141414] border border-[#262626] p-5 mb-10">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-3">Contenido</p>
+          <div className="rounded-2xl bg-white border border-[#E3E5E9] p-5 mb-10">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-3">Contenido</p>
             <ul className="space-y-1.5 text-sm">
-              <li><a href="#terminos" className="text-[#D8F34E] hover:underline">1. Términos y Condiciones de Uso</a></li>
-              <li><a href="#privacidad" className="text-[#D8F34E] hover:underline">2. Política de Privacidad</a></li>
+              <li><a href="#terminos" className="text-[#014CFF] font-semibold hover:underline">1. Términos y Condiciones de Uso</a></li>
+              <li><a href="#privacidad" className="text-[#014CFF] font-semibold hover:underline">2. Política de Privacidad</a></li>
             </ul>
           </div>
 
           {/* ══ TÉRMINOS ══ */}
           <section id="terminos" className="mb-12">
-            <h2 className="text-2xl font-bold mb-6">1. Términos y Condiciones de Uso</h2>
+            <h2 className="text-2xl font-extrabold text-black mb-6">1. Términos y Condiciones de Uso</h2>
 
             <Block title="1.1 Qué es Turnito">
-              Turnito es una plataforma de software que permite a barberías y peluquerías (las &quot;Barberías&quot;)
-              gestionar turnos online, y a sus clientes (los &quot;Clientes&quot;) reservar turnos a través de un
-              enlace propio. Turnito provee la herramienta; no presta servicios de barbería ni interviene en
-              la relación entre la Barbería y sus Clientes.
+              Turnito es una plataforma de software que permite a negocios que trabajan con turnos —barberías,
+              peluquerías, estudios de uñas, pestañas y cejas, estudios de tatuajes y rubros similares (los
+              &quot;Negocios&quot;)— gestionar turnos online, y a sus clientes (los &quot;Clientes&quot;) reservar
+              turnos a través de un enlace propio. Turnito provee la herramienta; no presta los servicios
+              ofrecidos por el Negocio ni interviene en la relación entre el Negocio y sus Clientes.
             </Block>
 
             <Block title="1.2 Aceptación">
@@ -47,14 +46,14 @@ export default function LegalesPage() {
               utilices el servicio. Debés ser mayor de 18 años y tener capacidad legal para contratar.
             </Block>
 
-            <Block title="1.3 Cuenta de la Barbería">
-              La Barbería es responsable de la veracidad de los datos que carga (nombre, servicios, precios,
+            <Block title="1.3 Cuenta del Negocio">
+              El Negocio es responsable de la veracidad de los datos que carga (nombre, servicios, precios,
               horarios) y de mantener la confidencialidad de su contraseña. Cualquier actividad realizada
-              desde su cuenta es su responsabilidad. Una cuenta corresponde a una Barbería.
+              desde su cuenta es su responsabilidad. Una cuenta corresponde a un Negocio.
             </Block>
 
             <Block title="1.4 Prueba gratuita y suscripción">
-              Turnito ofrece un período de prueba gratuito de 7 días. Finalizado ese plazo, para seguir
+              Turnito ofrece un período de prueba gratuito de 30 días. Finalizado ese plazo, para seguir
               utilizando el servicio se requiere una suscripción mensual al precio vigente publicado. La
               suscripción se renueva mes a mes y puede cancelarse en cualquier momento; no hay permanencia
               mínima. Si la suscripción no se abona, el acceso se suspende y el enlace público de reservas
@@ -74,10 +73,12 @@ export default function LegalesPage() {
               terceros. Turnito puede suspender cuentas que incumplan estas condiciones.
             </Block>
 
-            <Block title="1.7 Reservas y responsabilidad de la Barbería">
-              La gestión de los turnos, la atención, la política de cancelaciones y el cumplimiento de los
-              horarios son responsabilidad exclusiva de cada Barbería. Turnito no garantiza la asistencia de
-              los Clientes ni la prestación efectiva del servicio.
+            <Block title="1.7 Reservas y responsabilidad del Negocio">
+              La gestión de los turnos, la atención, los precios informados, la política de cancelaciones y el
+              cumplimiento de los horarios son responsabilidad exclusiva de cada Negocio. Cuando un servicio se
+              publica como &quot;a consultar&quot;, el precio se acuerda directamente entre el Negocio y el
+              Cliente, fuera de la plataforma. Turnito no garantiza la asistencia de los Clientes ni la
+              prestación efectiva del servicio.
             </Block>
 
             <Block title="1.8 Disponibilidad del servicio">
@@ -112,7 +113,7 @@ export default function LegalesPage() {
 
           {/* ══ PRIVACIDAD ══ */}
           <section id="privacidad" className="mb-12">
-            <h2 className="text-2xl font-bold mb-6">2. Política de Privacidad</h2>
+            <h2 className="text-2xl font-extrabold text-black mb-6">2. Política de Privacidad</h2>
 
             <Block title="2.1 Responsable">
               El responsable del tratamiento de los datos es Turnito. Para consultas sobre tus datos, escribinos
@@ -121,21 +122,22 @@ export default function LegalesPage() {
             </Block>
 
             <Block title="2.2 Qué datos recopilamos">
-              <b className="text-[#EDEDEA]">De las Barberías:</b> email, contraseña (encriptada), nombre del
-              local, teléfono de contacto, servicios, precios y horarios.<br /><br />
-              <b className="text-[#EDEDEA]">De los Clientes:</b> nombre y número de teléfono, que se ingresan
-              al reservar un turno. Los Clientes no crean una cuenta ni establecen contraseña. Este dato se usa
-              únicamente para gestionar y confirmar el turno con la Barbería elegida.
+              <b className="text-black">De los Negocios:</b> email, contraseña (encriptada), nombre del
+              local, rubro, teléfono de contacto, servicios, precios y horarios.<br /><br />
+              <b className="text-black">De los Clientes:</b> nombre y número de teléfono, y opcionalmente un
+              email, que se ingresan al reservar un turno. Los Clientes no crean una cuenta ni establecen
+              contraseña. Estos datos se usan únicamente para gestionar y confirmar el turno con el Negocio
+              elegido.
             </Block>
 
             <Block title="2.3 Para qué los usamos">
               Para operar el servicio: crear y mostrar turnos, confirmar reservas, permitir cancelaciones,
-              enviar notificaciones relativas al turno y administrar la suscripción de la Barbería. No usamos
+              enviar notificaciones relativas al turno y administrar la suscripción del Negocio. No usamos
               los datos para publicidad ni los vendemos a terceros.
             </Block>
 
             <Block title="2.4 Con quién los compartimos">
-              Los datos del Cliente se comparten con la Barbería en la que reserva (es quien lo atenderá).
+              Los datos del Cliente se comparten con el Negocio en el que reserva (es quien lo atenderá).
               Utilizamos proveedores de infraestructura y servicios que actúan por cuenta nuestra, como
               alojamiento y base de datos (Supabase), hosting (Vercel), procesamiento de pagos (Mercado Pago)
               y envío de mensajes. Estos proveedores solo acceden a los datos necesarios para prestar su
@@ -161,8 +163,8 @@ export default function LegalesPage() {
               por incumplimientos.
             </Block>
 
-            <Block title="2.8 Datos de terceros cargados por la Barbería">
-              Si una Barbería carga o gestiona datos de sus Clientes a través de Turnito, declara contar con
+            <Block title="2.8 Datos de terceros cargados por el Negocio">
+              Si un Negocio carga o gestiona datos de sus Clientes a través de Turnito, declara contar con
               base legal para hacerlo y es corresponsable de tratar esos datos conforme a la ley.
             </Block>
 
@@ -173,17 +175,17 @@ export default function LegalesPage() {
           </section>
 
           {/* contacto */}
-          <div className="rounded-2xl bg-[#141414] border border-[#262626] p-5">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2">Contacto</p>
-            <p className="text-sm text-[#8A7F6A]">
+          <div className="rounded-2xl bg-white border border-[#E3E5E9] p-5">
+            <p className="text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-2">Contacto</p>
+            <p className="text-sm text-[#5E6470]">
               Para consultas sobre estos términos o tus datos personales, escribinos a{" "}
-              <span className="text-[#D8F34E]">labsbebop@gmail.com
-</span>{" "}
-              
+              <a href="mailto:labsbebop@gmail.com" className="text-[#014CFF] font-semibold underline">
+                labsbebop@gmail.com
+              </a>
             </p>
           </div>
 
-          <p className="text-[11px] text-[#5A5A54] text-center mt-10">
+          <p className="text-[11px] text-[#9AA0AA] text-center mt-10">
             © 2026 Turnito · Córdoba, Argentina
           </p>
         </motion.div>
@@ -195,8 +197,8 @@ export default function LegalesPage() {
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-6">
-      <h3 className="text-base font-bold mb-2">{title}</h3>
-      <p className="text-sm text-[#8A7F6A] leading-relaxed">{children}</p>
+      <h3 className="text-base font-bold text-black mb-2">{title}</h3>
+      <p className="text-sm text-[#5E6470] leading-relaxed">{children}</p>
     </div>
   );
 }

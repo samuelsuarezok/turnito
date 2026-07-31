@@ -1,18 +1,32 @@
 "use client";
 
-// ONBOARDING ANIMADO — REEMPLAZA: app/onboarding/page.tsx
-
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
 import { motion, AnimatePresence } from "framer-motion";
+import {
+  RUBROS_LISTA,
+  RUBROS,
+  DURACION_OPTS,
+  formatDuracion,
+  type RubroId,
+} from "@/lib/rubros";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
+// La base valida el slug con  check (slug ~ '^[a-z0-9]+(-[a-z0-9]+)*$')  \u2014
+// sin guiones dobles, sin gui\u00f3n al principio ni al final. Colapsar y recortar
+// los guiones DESPU\u00c9S del slice() es lo que evita que truncar a 30 caracteres
+// justo sobre un gui\u00f3n genere un slug inv\u00e1lido y el insert reviente con un
+// 23514 crudo en la cara del usuario.
 const slugify = (s: string) =>
   s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 30);
+    .replace(/[^a-z0-9\s-]/g, "")
+    .trim()
+    .replace(/[\s-]+/g, "-")
+    .slice(0, 30)
+    .replace(/^-+|-+$/g, "");
 
 const DAYS = [
   { weekday: 1, label: "Lunes" }, { weekday: 2, label: "Martes" },
@@ -30,11 +44,10 @@ for (let h = 6; h <= 23; h++) {
 type Service = { name: string; duration_min: number; price: number };
 type DayHours = { open: boolean; opens_at: string; closes_at: string };
 
-const inputCls = "w-full rounded-2xl bg-[#181818] border border-[#262626] px-4 py-3.5 outline-none focus:border-[#D8F34E] transition-colors";
-const labelCls = "block text-[10px] font-semibold uppercase tracking-widest text-[#5A5A54] mb-2";
-const selectCls = "rounded-xl bg-[#181818] border border-[#262626] px-2.5 py-1.5 text-xs outline-none";
+const inputCls = "w-full rounded-2xl bg-white border border-[#E3E5E9] px-4 py-3.5 outline-none focus:border-[#014CFF] transition-colors";
+const labelCls = "block text-[10px] font-bold uppercase tracking-widest text-[#9AA0AA] mb-2";
+const selectCls = "rounded-xl bg-white border border-[#E3E5E9] px-2.5 py-1.5 text-xs outline-none focus:border-[#014CFF]";
 
-// variants del slide entre pasos (dir: 1 adelante, -1 atrás)
 const stepVariants = {
   enter: (dir: number) => ({ opacity: 0, x: dir * 60 }),
   center: { opacity: 1, x: 0, transition: { duration: 0.35, ease: EASE } },
@@ -43,6 +56,8 @@ const stepVariants = {
 
 const listStagger = { show: { transition: { staggerChildren: 0.05 } } };
 const listItem = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
+
+const TOTAL_STEPS = 4;
 
 export default function OnboardingPage() {
   const router = useRouter();
@@ -55,14 +70,14 @@ export default function OnboardingPage() {
   const [sessionLost, setSessionLost] = useState(false);
   const [checking, setChecking] = useState(true);
 
-  // Borde: si el usuario YA tiene barbería y cae acá (ej: apretó atrás, o entró
+  // Borde: si el usuario YA tiene negocio y cae acá (ej: apretó atrás, o entró
   // por URL), evitamos que el insert reviente contra el unique de owner_id con un
   // error críptico. Lo mandamos derecho al panel.
   useEffect(() => {
     async function guard() {
       const { data: userData } = await supabase.auth.getUser();
       if (userData.user) {
-        const { data: existing } = await supabase.from("barbershops").select("id").maybeSingle();
+        const { data: existing } = await supabase.from("businesses").select("id").maybeSingle();
         if (existing) { router.replace("/panel"); return; }
       }
       setChecking(false);
@@ -76,13 +91,32 @@ export default function OnboardingPage() {
     setStepRaw(n);
   }
 
+  // ── paso 1: rubro ──
+  const [rubroId, setRubroId] = useState<RubroId | null>(null);
+  const rubro = rubroId ? RUBROS[rubroId] : null;
+
   const [name, setName] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [slug, setSlug] = useState("");
   const [slugEdited, setSlugEdited] = useState(false);
   const effectiveSlug = slugEdited ? slug : slugify(name);
 
-  const [services, setServices] = useState<Service[]>([{ name: "Corte", duration_min: 30, price: 0 }]);
+  const [services, setServices] = useState<Service[]>([]);
+  const [slotMinutes, setSlotMinutes] = useState(30);
+
+  // Elegir rubro precarga los servicios típicos y la grilla de horarios.
+  // Precio en 0 = "a consultar": no inventamos números, los pone el dueño.
+  function pickRubro(id: RubroId) {
+    setRubroId(id);
+    const r = RUBROS[id];
+    setServices(
+      r.servicios.length > 0
+        ? r.servicios.map((s) => ({ name: s.name, duration_min: s.duration_min, price: 0 }))
+        : [{ name: "", duration_min: 30, price: 0 }]
+    );
+    setSlotMinutes(r.slotMinutes);
+    goTo(2);
+  }
 
   const [hours, setHours] = useState<Record<number, DayHours>>({
     1: { open: true, opens_at: "09:00", closes_at: "19:00" },
@@ -93,7 +127,6 @@ export default function OnboardingPage() {
     6: { open: true, opens_at: "09:00", closes_at: "14:00" },
     0: { open: false, opens_at: "09:00", closes_at: "13:00" },
   });
-  const [slotMinutes, setSlotMinutes] = useState(30);
 
   async function finish() {
     setError("");
@@ -102,28 +135,40 @@ export default function OnboardingPage() {
       const { data: userData, error: userErr } = await supabase.auth.getUser();
       if (userErr || !userData.user) {
         // Sin sesión activa (ej: se registró pero la sesión no quedó, o expiró).
-        // ANTES: rebotaba a /login EN SILENCIO y el usuario no entendía por qué
-        // perdía todo lo que cargó. Ahora se lo explicamos y no lo pateamos.
+        // Se lo explicamos en vez de patearlo a /login en silencio.
         setSessionLost(true);
         return;
       }
 
       const { data: shop, error: shopErr } = await supabase
-        .from("barbershops")
-        .insert({ owner_id: userData.user.id, name: name.trim(), slug: effectiveSlug, whatsapp: whatsapp.trim(), slot_minutes: slotMinutes })
+        .from("businesses")
+        .insert({
+          owner_id: userData.user.id,
+          name: name.trim(),
+          slug: effectiveSlug,
+          whatsapp: whatsapp.trim(),
+          slot_minutes: slotMinutes,
+          business_type: rubroId ?? "otro",
+        })
         .select("id").single();
       if (shopErr) {
-        setError(shopErr.code === "23505" ? "Ese link ya está en uso, probá con otro." : shopErr.message);
+        // 23505 = unique violation (slug repetido).
+        // 23514 = check violation; el único que puede saltar acá es slug_format.
+        setError(
+          shopErr.code === "23505" ? "Ese link ya está en uso, probá con otro."
+            : shopErr.code === "23514" ? "Ese link tiene caracteres que no podemos usar. Probá con letras y números."
+            : shopErr.message
+        );
         return;
       }
 
       const { error: svcErr } = await supabase.from("services").insert(
-        services.map((s, i) => ({ barbershop_id: shop.id, name: s.name.trim(), duration_min: s.duration_min, price: s.price, sort_order: i }))
+        services.map((s, i) => ({ business_id: shop.id, name: s.name.trim(), duration_min: s.duration_min, price: s.price, sort_order: i }))
       );
       if (svcErr) { setError(svcErr.message); return; }
 
       const rows = DAYS.filter((d) => hours[d.weekday].open).map((d) => ({
-        barbershop_id: shop.id, weekday: d.weekday, opens_at: hours[d.weekday].opens_at, closes_at: hours[d.weekday].closes_at,
+        business_id: shop.id, weekday: d.weekday, opens_at: hours[d.weekday].opens_at, closes_at: hours[d.weekday].closes_at,
       }));
       const { error: hrsErr } = await supabase.from("opening_hours").insert(rows);
       if (hrsErr) { setError(hrsErr.message); return; }
@@ -131,28 +176,25 @@ export default function OnboardingPage() {
       router.push("/panel");
     } catch {
       // Red caída / error inesperado: avisamos en vez de dejar "Guardando…" trabado.
-      setError("No pudimos crear tu barbería. Revisá tu conexión e intentá de nuevo.");
+      setError("No pudimos crear tu negocio. Revisá tu conexión e intentá de nuevo.");
     } finally {
-      // finally = SIEMPRE apaga el spinner, pase lo que pase.
       setSaving(false);
     }
   }
 
-  const btnPrimary = "w-full rounded-full bg-[#D8F34E] text-[#101010] font-bold py-3.5 disabled:opacity-30";
+  const btnPrimary = "w-full rounded-full bg-[#014CFF] text-white font-bold py-3.5 disabled:opacity-25 transition-opacity";
 
-  // Mientras verificamos si ya tiene barbería, no mostramos el form (evita parpadeo).
   if (checking)
-    return <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] flex items-center justify-center"><p className="text-[#5A5A54]">Cargando…</p></main>;
+    return <main className="min-h-screen bg-[#F0F1F3] flex items-center justify-center"><p className="text-[#9AA0AA]">Cargando…</p></main>;
 
-  // Sesión perdida al guardar: pantalla clara con salida, en vez de rebote silencioso.
   if (sessionLost)
     return (
-      <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] flex items-center justify-center p-6">
+      <main className="min-h-screen bg-[#F0F1F3] flex items-center justify-center p-6">
         <div className="text-center max-w-xs">
-          <p className="text-sm font-bold">Tu sesión no está activa</p>
-          <p className="text-xs text-[#5A5A54] mt-1 mb-5">Iniciá sesión de nuevo para crear tu barbería. Es un minuto.</p>
+          <p className="text-sm font-bold text-black">Tu sesión no está activa</p>
+          <p className="text-xs text-[#5E6470] mt-1 mb-5">Iniciá sesión de nuevo para crear tu negocio. Es un minuto.</p>
           <button onClick={() => router.push("/login")}
-            className="rounded-full bg-[#D8F34E] text-[#101010] font-bold text-sm px-6 py-3">
+            className="rounded-full bg-[#014CFF] text-white font-bold text-sm px-6 py-3">
             Ir a iniciar sesión
           </button>
         </div>
@@ -160,30 +202,30 @@ export default function OnboardingPage() {
     );
 
   return (
-    <main className="min-h-screen bg-[#0C0C0C] text-[#EDEDEA] p-6 overflow-x-hidden">
+    <main className="min-h-screen bg-[#F0F1F3] text-[#1C1F26] p-6 overflow-x-hidden">
       <div className="max-w-md mx-auto pt-6 pb-16">
         <motion.div className="flex justify-center mb-8" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
-          <Logo variant="dark" size={28} />
+          <Logo variant="light" size={28} />
         </motion.div>
 
-        {/* progreso animado */}
+        {/* progreso */}
         <div className="flex items-center gap-2 mb-10">
-          {[1, 2, 3].map((n) => (
+          {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((n) => (
             <div key={n} className="flex items-center gap-2 flex-1 last:flex-none">
               <motion.div
                 animate={{
-                  backgroundColor: n <= step ? "#D8F34E" : "#181818",
-                  color: n <= step ? "#101010" : "#5A5A54",
+                  backgroundColor: n <= step ? "#014CFF" : "#FFFFFF",
+                  color: n <= step ? "#FFFFFF" : "#9AA0AA",
                   scale: n === step ? 1.12 : 1,
                 }}
                 transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 border border-[#262626]"
+                className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0 border border-[#E3E5E9]"
               >
                 {n < step ? "✓" : n}
               </motion.div>
-              {n < 3 && (
-                <div className="h-px flex-1 bg-[#262626] relative overflow-hidden rounded">
-                  <motion.div className="absolute inset-y-0 left-0 bg-[#D8F34E]"
+              {n < TOTAL_STEPS && (
+                <div className="h-px flex-1 bg-[#E3E5E9] relative overflow-hidden rounded">
+                  <motion.div className="absolute inset-y-0 left-0 bg-[#014CFF]"
                     animate={{ width: n < step ? "100%" : "0%" }} transition={{ duration: 0.4, ease: EASE }} />
                 </div>
               )}
@@ -192,146 +234,179 @@ export default function OnboardingPage() {
         </div>
 
         {step > 1 && (
-          <button onClick={() => goTo(step - 1)} className="text-sm text-[#5A5A54] mb-4">← Atrás</button>
+          <button onClick={() => goTo(step - 1)} className="text-sm text-[#5E6470] mb-4 hover:text-[#014CFF] transition-colors">← Atrás</button>
         )}
 
         <AnimatePresence mode="wait" custom={dir}>
-          {/* PASO 1 */}
+          {/* PASO 1 — RUBRO */}
           {step === 1 && (
             <motion.div key="s1" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <h1 className="text-2xl font-bold mb-1">Tu barbería</h1>
-              <p className="text-sm text-[#6E6E68] mb-8">Los datos básicos del local</p>
+              <h1 className="text-2xl font-extrabold text-black mb-1 tracking-tight">¿A qué te dedicás?</h1>
+              <p className="text-sm text-[#5E6470] mb-8">Para dejarte los servicios típicos ya cargados</p>
+
+              <motion.div variants={listStagger} initial="hidden" animate="show" className="grid grid-cols-2 gap-2.5">
+                {RUBROS_LISTA.map((r) => (
+                  <motion.button key={r.id} variants={listItem} whileTap={{ scale: 0.96 }}
+                    onClick={() => pickRubro(r.id)}
+                    className="rounded-3xl bg-white border-[1.5px] border-[#E3E5E9] hover:border-[#014CFF] p-5 text-left transition-colors">
+                    <div className="text-2xl mb-2">{r.emoji}</div>
+                    <div className="text-sm font-bold text-black">{r.label}</div>
+                  </motion.button>
+                ))}
+              </motion.div>
+            </motion.div>
+          )}
+
+          {/* PASO 2 — NEGOCIO */}
+          {step === 2 && rubro && (
+            <motion.div key="s2" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
+              <h1 className="text-2xl font-extrabold text-black mb-1 tracking-tight">Tu {rubro.negocio}</h1>
+              <p className="text-sm text-[#5E6470] mb-8">Los datos básicos del local</p>
 
               <label className={labelCls}>Nombre</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Barbería El Toro" className={`${inputCls} mb-4`} />
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={rubro.ejemploNombre} className={`${inputCls} mb-4`} />
 
               <label className={labelCls}>WhatsApp del local</label>
               <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="351 234-5678" className={`${inputCls} mb-4`} />
 
               <label className={labelCls}>Tu link</label>
-              <div className="flex items-center rounded-2xl bg-[#181818] border border-[#262626] mb-8 focus-within:border-[#D8F34E] transition-colors">
-                <span className="pl-4 text-sm text-[#5A5A54] font-mono">turnito.app/</span>
+              <div className="flex items-center rounded-2xl bg-white border border-[#E3E5E9] mb-8 focus-within:border-[#014CFF] transition-colors">
+                <span className="pl-4 text-sm text-[#9AA0AA] font-mono">turnito.app/</span>
                 <input value={effectiveSlug} onChange={(e) => { setSlugEdited(true); setSlug(slugify(e.target.value)); }}
-                  placeholder="tu-barberia" className="flex-1 bg-transparent px-1 py-3.5 outline-none font-mono text-sm text-[#D8F34E]" />
+                  placeholder={rubro.ejemploSlug} className="flex-1 bg-transparent px-1 py-3.5 outline-none font-mono text-sm text-[#014CFF] font-semibold" />
               </div>
 
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={() => goTo(2)}
+                onClick={() => goTo(3)}
                 disabled={name.trim().length < 3 || whatsapp.trim().length < 7 || !effectiveSlug}
                 className={btnPrimary}>Continuar →</motion.button>
             </motion.div>
           )}
 
-          {/* PASO 2 */}
-          {step === 2 && (
-            <motion.div key="s2" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <h1 className="text-2xl font-bold mb-1">Tus servicios</h1>
-              <p className="text-sm text-[#6E6E68] mb-8">Con precio y duración</p>
+          {/* PASO 3 — SERVICIOS */}
+          {step === 3 && (
+            <motion.div key="s3" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
+              <h1 className="text-2xl font-extrabold text-black mb-1 tracking-tight">Tus servicios</h1>
+              <p className="text-sm text-[#5E6470] mb-8">Con precio y duración. Podés editarlos cuando quieras.</p>
 
               <motion.div variants={listStagger} initial="hidden" animate="show">
                 <AnimatePresence>
-                  {services.map((svc, i) => (
-                    <motion.div key={i} layout variants={listItem}
-                      initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9, height: 0, marginBottom: 0 }}
-                      className="rounded-3xl bg-[#141414] border border-[#262626] p-4 mb-3">
-                      <div className="flex gap-2 mb-3">
-                        <input value={svc.name}
-                          onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, name: e.target.value } : s)))}
-                          placeholder="Nombre del servicio"
-                          className="flex-1 rounded-xl bg-[#181818] border border-[#262626] px-3 py-2.5 text-sm outline-none focus:border-[#D8F34E]" />
-                        {services.length > 1 && (
-                          <button onClick={() => setServices(services.filter((_, j) => j !== i))} className="text-red-400 px-2">✕</button>
-                        )}
-                      </div>
-                      <div className="flex gap-3">
-                        <div className="flex-1">
-                          <label className="block text-[9px] text-[#5A5A54] mb-1 uppercase tracking-wider">Duración</label>
-                          <select value={svc.duration_min}
-                            onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, duration_min: Number(e.target.value) } : s)))}
-                            className={`${selectCls} w-full py-2.5`}>
-                            {[15, 20, 30, 45, 60, 90].map((d) => (<option key={d} value={d}>{d} min</option>))}
-                          </select>
+                  {services.map((svc, i) => {
+                    const aConsultar = svc.price === 0;
+                    return (
+                      <motion.div key={i} layout variants={listItem}
+                        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9, height: 0, marginBottom: 0 }}
+                        className="rounded-3xl bg-white border border-[#E3E5E9] p-4 mb-3">
+                        <div className="flex gap-2 mb-3">
+                          <input value={svc.name}
+                            onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, name: e.target.value } : s)))}
+                            placeholder="Nombre del servicio"
+                            className="flex-1 rounded-xl bg-[#F0F1F3] border border-[#E3E5E9] px-3 py-2.5 text-sm outline-none focus:border-[#014CFF]" />
+                          {services.length > 1 && (
+                            <button onClick={() => setServices(services.filter((_, j) => j !== i))} className="text-red-500 px-2">✕</button>
+                          )}
                         </div>
-                        <div className="flex-1">
-                          <label className="block text-[9px] text-[#5A5A54] mb-1 uppercase tracking-wider">Precio (ARS)</label>
-                          <input type="number" value={svc.price || ""}
-                            onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, price: Number(e.target.value) } : s)))}
-                            placeholder="3500"
-                            className="w-full rounded-xl bg-[#181818] border border-[#262626] px-3 py-2 text-sm outline-none focus:border-[#D8F34E]" />
+                        <div className="flex gap-3">
+                          <div className="flex-1">
+                            <label className="block text-[9px] text-[#9AA0AA] mb-1 uppercase tracking-wider font-bold">Duración</label>
+                            <select value={svc.duration_min}
+                              onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, duration_min: Number(e.target.value) } : s)))}
+                              className={`${selectCls} w-full py-2.5`}>
+                              {DURACION_OPTS.map((d) => (<option key={d} value={d}>{formatDuracion(d)}</option>))}
+                            </select>
+                          </div>
+                          <div className="flex-1">
+                            <label className="block text-[9px] text-[#9AA0AA] mb-1 uppercase tracking-wider font-bold">Precio (ARS)</label>
+                            <input type="number" value={svc.price || ""} disabled={aConsultar}
+                              onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, price: Number(e.target.value) } : s)))}
+                              placeholder={aConsultar ? "A consultar" : "3500"}
+                              className="w-full rounded-xl bg-[#F0F1F3] border border-[#E3E5E9] px-3 py-2 text-sm outline-none focus:border-[#014CFF] disabled:text-[#9AA0AA] disabled:italic" />
+                          </div>
                         </div>
-                      </div>
-                    </motion.div>
-                  ))}
+                        {/* Sin precio de lista: el tatuaje se cotiza por diseño. */}
+                        <label className="flex items-center gap-2 mt-3 text-xs text-[#5E6470] cursor-pointer select-none">
+                          <input type="checkbox" checked={aConsultar}
+                            onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, price: e.target.checked ? 0 : 1000 } : s)))}
+                            className="accent-[#014CFF] w-4 h-4" />
+                          Sin precio fijo — mostrar &quot;a consultar&quot;
+                        </label>
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
               </motion.div>
 
               <motion.button whileTap={{ scale: 0.97 }}
-                onClick={() => setServices([...services, { name: "", duration_min: 30, price: 0 }])}
-                className="w-full rounded-3xl border border-dashed border-[#333] py-3.5 text-sm text-[#D8F34E] font-semibold mb-8">
+                onClick={() => setServices([...services, { name: "", duration_min: rubro?.slotMinutes ?? 30, price: 0 }])}
+                className="w-full rounded-3xl border border-dashed border-[#C6CAD2] py-3.5 text-sm text-[#014CFF] font-bold mb-8 hover:border-[#014CFF] transition-colors">
                 + Agregar servicio
               </motion.button>
 
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={() => goTo(3)}
-                disabled={services.some((s) => !s.name.trim() || s.price <= 0)}
+                onClick={() => goTo(4)}
+                disabled={services.length === 0 || services.some((s) => !s.name.trim())}
                 className={btnPrimary}>Continuar →</motion.button>
             </motion.div>
           )}
 
-          {/* PASO 3 */}
-          {step === 3 && (
-            <motion.div key="s3" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <h1 className="text-2xl font-bold mb-1">Tus horarios</h1>
-              <p className="text-sm text-[#6E6E68] mb-8">Cuándo está abierto el local</p>
+          {/* PASO 4 — HORARIOS */}
+          {step === 4 && (
+            <motion.div key="s4" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
+              <h1 className="text-2xl font-extrabold text-black mb-1 tracking-tight">Tus horarios</h1>
+              <p className="text-sm text-[#5E6470] mb-8">Cuándo está abierto el local</p>
 
               <motion.div variants={listStagger} initial="hidden" animate="show">
                 {DAYS.map((d) => {
                   const h = hours[d.weekday];
                   return (
                     <motion.div key={d.weekday} variants={listItem}
-                      animate={{ opacity: h.open ? 1 : 0.4 }}
-                      className="flex items-center gap-3 rounded-2xl bg-[#141414] border border-[#262626] px-4 py-3 mb-2">
+                      animate={{ opacity: h.open ? 1 : 0.5 }}
+                      className="flex items-center gap-3 rounded-2xl bg-white border border-[#E3E5E9] px-4 py-3 mb-2">
                       <button onClick={() => setHours({ ...hours, [d.weekday]: { ...h, open: !h.open } })}
-                        className={`w-10 h-[22px] rounded-full relative transition-colors shrink-0 ${h.open ? "bg-[#D8F34E]" : "bg-[#2A2A2A]"}`}>
+                        className={`w-10 h-[22px] rounded-full relative transition-colors shrink-0 ${h.open ? "bg-[#014CFF]" : "bg-[#D7DAE0]"}`}>
                         <motion.span layout transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                          className={`absolute top-[3px] w-4 h-4 rounded-full ${h.open ? "left-[22px] bg-[#101010]" : "left-[3px] bg-[#5A5A54]"}`} />
+                          className={`absolute top-[3px] w-4 h-4 rounded-full bg-white ${h.open ? "left-[22px]" : "left-[3px]"}`} />
                       </button>
-                      <span className="text-sm font-semibold w-20">{d.label}</span>
+                      <span className="text-sm font-bold w-20 text-black">{d.label}</span>
                       {h.open ? (
                         <div className="flex items-center gap-1.5 ml-auto">
                           <select value={h.opens_at} onChange={(e) => setHours({ ...hours, [d.weekday]: { ...h, opens_at: e.target.value } })} className={selectCls}>
                             {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
                           </select>
-                          <span className="text-xs text-[#5A5A54]">a</span>
+                          <span className="text-xs text-[#9AA0AA]">a</span>
                           <select value={h.closes_at} onChange={(e) => setHours({ ...hours, [d.weekday]: { ...h, closes_at: e.target.value } })} className={selectCls}>
                             {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
                           </select>
                         </div>
                       ) : (
-                        <span className="ml-auto text-xs text-[#5A5A54]">Cerrado</span>
+                        <span className="ml-auto text-xs text-[#9AA0AA]">Cerrado</span>
                       )}
                     </motion.div>
                   );
                 })}
               </motion.div>
 
-              <label className={`${labelCls} mt-6`}>Duración de cada turno</label>
-              <div className="flex gap-2 mb-8">
-                {[15, 30, 45, 60].map((m) => (
-                  <motion.button key={m} whileTap={{ scale: 0.94 }} onClick={() => setSlotMinutes(m)}
+              <label className={`${labelCls} mt-6`}>Cada cuánto arranca un turno</label>
+              <div className="flex gap-2 mb-2">
+                {[15, 30, 45, 60].map((mm) => (
+                  <motion.button key={mm} whileTap={{ scale: 0.94 }} onClick={() => setSlotMinutes(mm)}
                     className={`flex-1 rounded-full py-2.5 text-sm font-bold border transition-colors ${
-                      slotMinutes === m ? "bg-[#D8F34E] text-[#101010] border-[#D8F34E]" : "bg-[#141414] text-[#6E6E68] border-[#262626]"
-                    }`}>{m} min</motion.button>
+                      slotMinutes === mm ? "bg-[#014CFF] text-white border-[#014CFF]" : "bg-white text-[#5E6470] border-[#E3E5E9]"
+                    }`}>{mm} min</motion.button>
                 ))}
               </div>
+              <p className="text-xs text-[#9AA0AA] mb-8">
+                Es la grilla de horarios que ve tu cliente, no la duración del servicio: un turno de 3 h
+                sigue ocupando 3 h.
+              </p>
 
               {error && (
-                <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-sm text-red-400 mb-4">{error}</motion.p>
+                <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-sm text-red-500 mb-4">{error}</motion.p>
               )}
 
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
                 onClick={finish} disabled={saving} className={btnPrimary}>
-                {saving ? "Guardando…" : "Crear mi barbería →"}
+                {saving ? "Guardando…" : "Crear mi cuenta →"}
               </motion.button>
             </motion.div>
           )}

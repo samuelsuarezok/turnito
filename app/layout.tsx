@@ -1,21 +1,25 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Urbanist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+// Urbanist es variable font: no hace falta declarar weights.
+const urbanist = Urbanist({
+  variable: "--font-urbanist",
   subsets: ["latin"],
 });
 
+// Sólo para el slug (turnito.app/tu-negocio), que se muestra monoespaciado.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
 
 export const metadata: Metadata = {
-  title: "Turnito — Turnos online para tu barbería",
-  description: "Tus clientes reservan solos desde un link. Sin apps, sin cuentas. 7 días gratis.",
+  title: "Turnito — Turnos online para tu negocio",
+  description:
+    "Barbería, uñas, pestañas, tatuajes o peluquería: tus clientes reservan solos desde un link. Sin apps, sin cuentas. 30 días gratis.",
 };
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -23,8 +27,8 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      lang="es"
+      className={`${urbanist.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
     </html>

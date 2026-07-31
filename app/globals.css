@@ -1,26 +1,63 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ════════════════════════════════════════════════════════════════════
+   PALETA — tomada del sistema NeoVet.
+   Azul primario, lima secundario, negro para display, gris casi blanco
+   de fondo. Regla dura del lima: NUNCA lleva texto blanco encima
+   (contraste 1.4:1, ilegible). Sobre lima el texto va siempre negro.
+   ════════════════════════════════════════════════════════════════════ */
+@theme {
+  --color-brand: #014cff;
+  --color-brand-soft: #e6edff; /* fondo de estados seleccionados en claro */
+  --color-brand-deep: #0134b3; /* hover/pressed del azul */
+
+  --color-lime: #b4ec5c;
+  --color-lime-soft: #f0fbdd;
+
+  --color-ink: #000000; /* titulares */
+  --color-body: #1c1f26; /* texto corrido */
+  --color-muted: #5e6470; /* secundario — 5.9:1 sobre blanco, AA */
+  --color-faint: #9aa0aa; /* terciario, sólo para texto grande */
+
+  --color-canvas: #f0f1f3; /* fondo de página */
+  --color-surface: #ffffff; /* tarjetas */
+  --color-line: #e3e5e9; /* bordes */
+
+  --radius-card: 28px;
+  --radius-block: 40px;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-urbanist);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Sin variante dark: el sistema es claro por diseño. La media query que
+   había acá volvía el body #0a0a0a según el SO y se veía por detrás de
+   las páginas claras. */
+body {
+  background: var(--color-canvas);
+  color: var(--color-body);
+  font-family: var(--font-urbanist), system-ui, sans-serif;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Detalle de firma del sistema: el punto de color después del heading.
+   <h2 className="dot">Nuestros servicios</h2> */
+.dot::after {
+  content: "";
+  display: inline-block;
+  width: 0.32em;
+  height: 0.32em;
+  border-radius: 50%;
+  background: var(--color-lime);
+  margin-left: 0.14em;
+  vertical-align: baseline;
+}
+.dot-blue::after {
+  background: var(--color-brand);
+}
+
+::selection {
+  background: var(--color-lime);
+  color: var(--color-ink);
 }

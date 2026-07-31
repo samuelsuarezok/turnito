@@ -1,15 +1,14 @@
 "use client";
 
-
-
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
+import { AnimatePresence } from "framer-motion";
 import {
   motion,
   Reveal,
   RevealGroup,
   Item,
-  Parallax,
   fadeUp,
   scaleIn,
   slideRight,
@@ -19,140 +18,248 @@ import {
 } from "@/components/motion";
 
 const css = `
-.ld{box-sizing:border-box;background:#F2F2EF;color:#101010;font-family:var(--font-inter),sans-serif;font-size:16px;line-height:1.6}
+.ld{box-sizing:border-box;background:#F0F1F3;color:#1C1F26;font-family:var(--font-urbanist),sans-serif;font-size:16px;line-height:1.6}
 .ld *{box-sizing:border-box;margin:0;padding:0}
-.ld h1,.ld h2,.ld h3{font-family:var(--font-grotesk),sans-serif;letter-spacing:-0.03em}
-.ld ::selection{background:#D8F34E;color:#101010}
-.ld .wrap{max-width:1180px;margin:0 auto;padding:0 24px}
-.ld nav{position:sticky;top:12px;z-index:100;padding:0 24px}
-.ld .nav-in{max-width:1180px;margin:0 auto;background:rgba(255,255,255,0.85);backdrop-filter:blur(14px);border:1px solid #E4E4DF;border-radius:100px;padding:12px 12px 12px 24px;display:flex;align-items:center;justify-content:space-between}
-.ld .logo{font-family:var(--font-grotesk),sans-serif;font-weight:700;font-size:19px;letter-spacing:-0.03em;display:flex;align-items:center;gap:9px;text-decoration:none;color:#101010}
-.ld .nav-links{display:flex;gap:28px;font-size:14px;font-weight:500}
-.ld .nav-links a{color:#6E6E68;text-decoration:none;transition:color .15s}
-.ld .nav-links a:hover{color:#101010}
-.ld .pill{display:inline-flex;align-items:center;gap:8px;background:#101010;color:#fff;font-size:14px;font-weight:600;padding:12px 24px;border-radius:100px;text-decoration:none;transition:transform .15s ease,background .15s}
-.ld .pill.lime{background:#D8F34E;color:#101010}
-.ld .hero{padding:20px 24px 12px}
-.ld .hero-card{max-width:1180px;margin:0 auto;background:#101010;border-radius:40px;padding:72px 64px 0;color:#fff;position:relative;overflow:hidden;display:grid;grid-template-columns:1.15fr .85fr;gap:40px;min-height:640px}
-.ld .glow{position:absolute;width:560px;height:560px;border-radius:50%;background:radial-gradient(circle,rgba(216,243,78,0.16),transparent 65%);top:-180px;right:-120px;pointer-events:none}
-.ld .hero-copy{padding-bottom:72px;position:relative;z-index:2}
-.ld .tag{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(255,255,255,0.18);border-radius:100px;padding:7px 16px;font-size:12.5px;font-weight:500;color:rgba(255,255,255,0.75);margin-bottom:32px}
-.ld .tag b{color:#D8F34E;font-weight:600}
-.ld .hero h1{font-size:clamp(42px,5.4vw,68px);line-height:1.02;font-weight:700;margin-bottom:24px}
-.ld .hero h1 .hl{color:#D8F34E}
-.ld .hero p.sub{font-size:17px;color:rgba(255,255,255,0.62);max-width:440px;margin-bottom:36px;line-height:1.65}
-.ld .hero-ctas{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:36px}
-.ld .ghost{color:rgba(255,255,255,0.75);font-size:14px;font-weight:500;text-decoration:none;padding:12px 8px}
-.ld .hero-meta{display:flex;gap:28px;flex-wrap:wrap}
-.ld .hm{display:flex;flex-direction:column;gap:2px}
-.ld .hm b{font-family:var(--font-grotesk),sans-serif;font-size:22px;font-weight:700;color:#fff}
-.ld .hm span{font-size:12px;color:rgba(255,255,255,0.5)}
-.ld .hero-phone-zone{position:relative;display:flex;align-items:flex-end;justify-content:center}
-.ld .phone{width:300px;background:#1E1E1E;border:1.5px solid #333;border-radius:44px 44px 0 0;padding:14px 14px 0;box-shadow:0 -20px 80px rgba(0,0,0,0.5);position:relative;z-index:2}
-.ld .phone-notch{width:110px;height:26px;background:#000;border-radius:100px;margin:4px auto 12px}
-.ld .screen{background:#0C0C0C;border-radius:30px 30px 0 0;padding:18px 16px 24px;min-height:420px}
-.ld .scr-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px}
-.ld .scr-shop{font-family:var(--font-grotesk),sans-serif;font-weight:700;font-size:15px;color:#fff}
-.ld .scr-sub{font-size:10px;color:#6E6E68;margin-top:1px}
-.ld .scr-badge{background:rgba(216,243,78,0.14);color:#D8F34E;font-size:9px;font-weight:700;padding:4px 10px;border-radius:100px;letter-spacing:0.04em}
-.ld .scr-label{font-size:9.5px;font-weight:600;letter-spacing:0.1em;text-transform:uppercase;color:#5A5A54;margin:14px 0 8px}
+.ld h1,.ld h2,.ld h3{color:#000;letter-spacing:-0.035em;line-height:1.03}
+.ld ::selection{background:#B4EC5C;color:#000}
+.ld a{text-decoration:none}
+
+/* punto de color después del heading — firma del sistema */
+.ld .dot::after{content:'';display:inline-block;width:.3em;height:.3em;border-radius:50%;background:#B4EC5C;margin-left:.12em}
+.ld .dot-b::after{background:#014CFF}
+
+/* NAV */
+.ld nav{position:sticky;top:14px;z-index:100;padding:0 20px}
+.ld .nav-in{max-width:1200px;margin:0 auto;background:rgba(255,255,255,.88);backdrop-filter:blur(16px);border:1px solid #E3E5E9;border-radius:100px;padding:11px 11px 11px 24px;display:flex;align-items:center;justify-content:space-between}
+.ld .logo{font-weight:800;font-size:19px;letter-spacing:-0.04em;display:flex;align-items:center;gap:9px;color:#000}
+.ld .nav-links{display:flex;gap:30px;font-size:14.5px;font-weight:500}
+.ld .nav-links a{color:#5E6470;transition:color .15s}
+.ld .nav-links a:hover{color:#014CFF}
+.ld .pill{display:inline-flex;align-items:center;gap:8px;background:#014CFF;color:#fff;font-size:14.5px;font-weight:600;padding:12px 24px;border-radius:100px;transition:background .15s}
+.ld .pill:hover{background:#0134B3}
+.ld .pill.lime{background:#B4EC5C;color:#000}
+.ld .pill.lime:hover{background:#A3DE47}
+.ld .pill.ghost{background:#fff;color:#000;border:1px solid #E3E5E9}
+
+/* HERO */
+.ld .hero{padding:44px 20px 0}
+.ld .hero-in{max-width:1200px;margin:0 auto}
+.ld .eyebrow{display:inline-flex;align-items:center;gap:9px;background:#fff;border:1px solid #E3E5E9;border-radius:100px;padding:7px 16px 7px 8px;font-size:13px;font-weight:500;color:#5E6470;margin-bottom:26px}
+.ld .eyebrow b{background:#B4EC5C;color:#000;font-weight:700;font-size:11.5px;padding:4px 11px;border-radius:100px}
+.ld .display{font-size:clamp(52px,10.5vw,148px);font-weight:800;letter-spacing:-0.05em;line-height:.92}
+.ld .display .b{color:#014CFF}
+.ld .hero-sub{display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap;margin:26px 0 32px}
+.ld .hero-sub p{font-size:17.5px;color:#5E6470;max-width:430px}
+.ld .hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
+
+/* bloque azul del hero */
+.ld .stage{background:#014CFF;border-radius:40px;padding:52px 48px 0;display:grid;grid-template-columns:1fr auto 1fr;gap:32px;align-items:end;min-height:520px;position:relative;overflow:hidden}
+.ld .stage-l{padding-bottom:52px}
+.ld .stage-r{padding-bottom:52px;display:flex;flex-direction:column;align-items:flex-end;gap:14px}
+.ld .qcard{background:#fff;border-radius:24px;padding:22px 24px;max-width:260px}
+.ld .qcard h4{font-size:15px;font-weight:700;color:#000;margin-bottom:6px}
+.ld .qcard p{font-size:13.5px;color:#5E6470;line-height:1.55}
+.ld .qcard.lime{background:#B4EC5C}
+.ld .qcard.lime p{color:rgba(0,0,0,.68)}
+.ld .stat-b{color:#fff}
+.ld .stat-b b{display:block;font-size:44px;font-weight:800;letter-spacing:-0.04em;line-height:1}
+.ld .stat-b span{font-size:13px;color:rgba(255,255,255,.72)}
+
+/* teléfono */
+.ld .phone{width:296px;background:#fff;border-radius:42px;padding:12px;box-shadow:0 30px 70px rgba(0,0,0,.28);position:relative;z-index:2}
+.ld .notch{width:104px;height:24px;background:#000;border-radius:100px;margin:2px auto 10px}
+.ld .screen{background:#F0F1F3;border-radius:32px;padding:18px 16px 22px;min-height:432px}
+.ld .scr-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
+.ld .scr-shop{font-weight:800;font-size:15.5px;color:#000;letter-spacing:-0.02em}
+.ld .scr-sub{font-size:10px;color:#9AA0AA;margin-top:1px;font-family:var(--font-mono),monospace}
+.ld .scr-badge{background:#B4EC5C;color:#000;font-size:9px;font-weight:800;padding:4px 9px;border-radius:100px;letter-spacing:.05em;white-space:nowrap}
+.ld .scr-label{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:#9AA0AA;margin:14px 0 8px}
 .ld .chiprow{display:flex;gap:6px}
-.ld .chip{flex:1;background:#181818;border:1.5px solid #262626;border-radius:14px;padding:10px 6px;text-align:center}
-.ld .chip.on{border-color:#D8F34E;background:rgba(216,243,78,0.08)}
-.ld .chip b{display:block;font-size:11px;color:#EDEDEA;font-weight:600}
-.ld .chip span{font-size:10px;color:#D8F34E;font-weight:600}
-.ld .dayrow{display:flex;gap:6px}
-.ld .day{flex:1;background:#181818;border:1.5px solid #262626;border-radius:12px;padding:7px 2px;text-align:center}
-.ld .day.on{border-color:#D8F34E;background:rgba(216,243,78,0.08)}
-.ld .day em{display:block;font-style:normal;font-size:8px;color:#5A5A54;text-transform:uppercase}
-.ld .day b{font-size:13px;color:#EDEDEA}
-.ld .day.on b,.ld .day.on em{color:#D8F34E}
-.ld .slotgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
-.ld .slot{background:#181818;border:1.5px solid #262626;border-radius:10px;padding:7px 2px;text-align:center;font-size:10px;font-weight:600;color:#C9C9C4}
-.ld .slot.on{background:#D8F34E;border-color:#D8F34E;color:#101010}
-.ld .slot.off{opacity:.25;text-decoration:line-through}
-.ld .scr-btn{margin-top:16px;background:#D8F34E;color:#101010;border-radius:100px;padding:12px;text-align:center;font-size:12px;font-weight:700}
-.ld .strip{padding:56px 24px 8px}
-.ld .strip-in{max-width:1180px;margin:0 auto;display:flex;justify-content:space-between;gap:24px;flex-wrap:wrap;align-items:center}
-.ld .strip-item{font-size:13.5px;color:#6E6E68;display:flex;align-items:center;gap:10px;font-weight:500}
-.ld .strip-item .dot{width:7px;height:7px;border-radius:50%;background:#D8F34E;outline:3px solid rgba(216,243,78,0.4)}
-.ld section{padding:88px 24px;display:block}
-.ld .sec-head{max-width:1180px;margin:0 auto 48px;display:flex;align-items:flex-end;justify-content:space-between;gap:32px;flex-wrap:wrap}
-.ld .kicker{display:inline-flex;align-items:center;gap:8px;font-size:12px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:#6E6E68;margin-bottom:16px}
-.ld .kicker::before{content:'';width:22px;height:2px;background:#D8F34E;border-radius:2px}
-.ld h2{font-size:clamp(32px,4vw,50px);line-height:1.05;font-weight:700;max-width:560px}
-.ld .sec-head p{max-width:340px;color:#6E6E68;font-size:15px}
-.ld .bento{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.ld .card{background:#fff;border:1px solid #E4E4DF;border-radius:28px;padding:34px 30px;display:flex;flex-direction:column;height:100%}
-.ld .card.big{grid-column:span 2}
-.ld .card.dark{background:#101010;color:#fff;border-color:#101010}
-.ld .card.lime{background:#D8F34E;border-color:#D8F34E}
-.ld .card-ic{width:46px;height:46px;border-radius:14px;background:#F2F2EF;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:22px}
-.ld .card.dark .card-ic{background:rgba(255,255,255,0.08)}
-.ld .card.lime .card-ic{background:rgba(16,16,16,0.08)}
-.ld .card h3{font-size:19px;font-weight:700;margin-bottom:10px}
-.ld .card p{font-size:14px;color:#6E6E68;line-height:1.65}
-.ld .card.dark p{color:rgba(255,255,255,0.6)}
-.ld .card.lime p{color:rgba(16,16,16,0.65)}
-.ld .card .num{font-family:var(--font-grotesk),sans-serif;font-size:46px;font-weight:700;line-height:1;margin-bottom:6px}
-.ld .card .numlbl{font-size:12px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;opacity:.6}
-.ld .steps-wrap{max-width:1180px;margin:0 auto;background:#101010;border-radius:40px;padding:72px 64px;color:#fff}
-.ld .steps-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:52px}
-.ld .stepc{background:#1A1A1A;border:1px solid #262626;border-radius:24px;padding:30px 26px;position:relative;height:100%}
-.ld .step-badge{position:absolute;top:-14px;left:24px;background:#D8F34E;color:#101010;font-family:var(--font-grotesk),sans-serif;font-weight:700;font-size:13px;padding:5px 14px;border-radius:100px}
-.ld .stepc h3{font-size:17px;font-weight:700;margin:14px 0 8px}
-.ld .stepc p{font-size:13.5px;color:rgba(255,255,255,0.55);line-height:1.65}
-.ld .stepc .mono{font-family:var(--font-grotesk),sans-serif;color:#D8F34E;font-size:13px;font-weight:600}
-.ld .pricing{max-width:1180px;margin:0 auto;display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch}
-.ld .price-copy{padding:40px 30px;display:flex;flex-direction:column;justify-content:center}
-.ld .price-copy h2{margin-bottom:18px}
-.ld .price-copy p{color:#6E6E68;font-size:15px;max-width:400px;margin-bottom:12px}
-.ld .price-card{background:#101010;color:#fff;border-radius:28px;padding:44px 40px;position:relative;overflow:hidden}
-.ld .price-card .glow2{position:absolute;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(216,243,78,0.14),transparent 65%);bottom:-160px;right:-100px;pointer-events:none}
-.ld .price-tag{display:inline-block;background:rgba(216,243,78,0.14);color:#D8F34E;font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;padding:6px 14px;border-radius:100px;margin-bottom:26px}
-.ld .price-num{font-family:var(--font-grotesk),sans-serif;font-size:62px;font-weight:700;line-height:1;letter-spacing:-0.03em}
-.ld .price-num small{font-size:17px;color:rgba(255,255,255,0.5);font-weight:500;letter-spacing:0}
-.ld .price-note{font-size:13px;color:rgba(255,255,255,0.45);margin:6px 0 28px}
-.ld .pl{list-style:none;margin-bottom:32px}
-.ld .pl li{display:flex;align-items:center;gap:12px;padding:10px 0;font-size:14.5px;color:rgba(255,255,255,0.8);border-bottom:1px solid rgba(255,255,255,0.07)}
+.ld .chip{flex:1;background:#fff;border:1.5px solid #E3E5E9;border-radius:15px;padding:10px 5px;text-align:center}
+.ld .chip.on{border-color:#014CFF;background:#E6EDFF}
+.ld .chip b{display:block;font-size:10.5px;color:#000;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ld .chip span{font-size:9.5px;color:#014CFF;font-weight:700}
+.ld .dayrow{display:flex;gap:5px}
+.ld .day{flex:1;background:#fff;border:1.5px solid #E3E5E9;border-radius:13px;padding:7px 2px;text-align:center}
+.ld .day.on{border-color:#014CFF;background:#E6EDFF}
+.ld .day em{display:block;font-style:normal;font-size:8px;color:#9AA0AA;text-transform:uppercase;font-weight:600}
+.ld .day b{font-size:13px;color:#000}
+.ld .day.on em,.ld .day.on b{color:#014CFF}
+.ld .slotgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.ld .slot{background:#fff;border:1.5px solid #E3E5E9;border-radius:11px;padding:7px 2px;text-align:center;font-size:10px;font-weight:700;color:#1C1F26}
+.ld .slot.on{background:#014CFF;border-color:#014CFF;color:#fff}
+.ld .slot.off{opacity:.36;text-decoration:line-through;border-style:dashed}
+.ld .scr-btn{margin-top:15px;background:#014CFF;color:#fff;border-radius:100px;padding:12px;text-align:center;font-size:12px;font-weight:700}
+
+/* RUBROS */
+.ld .rubros{max-width:1200px;margin:0 auto;padding:22px 0 0;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.ld .rub{display:inline-flex;align-items:center;gap:9px;background:#fff;border:1px solid #E3E5E9;border-radius:100px;padding:11px 20px;font-size:14.5px;font-weight:600;color:#000}
+.ld .rub span{font-size:17px;line-height:1}
+
+/* SECCIONES */
+.ld section{padding:96px 20px}
+.ld .wrap{max-width:1200px;margin:0 auto}
+.ld .kicker{display:inline-flex;align-items:center;gap:9px;font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:#5E6470;margin-bottom:18px}
+.ld .kicker::before{content:'';width:24px;height:2px;background:#014CFF;border-radius:2px}
+.ld h2{font-size:clamp(34px,4.6vw,58px);font-weight:800;max-width:640px}
+.ld .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:36px;flex-wrap:wrap;margin-bottom:44px}
+.ld .sec-head p{max-width:350px;color:#5E6470;font-size:15.5px}
+
+/* bloque "sobre" — tarjeta blanca grande */
+.ld .about{background:#fff;border-radius:40px;padding:64px 56px}
+.ld .about .lead{font-size:clamp(26px,3.4vw,42px);font-weight:700;letter-spacing:-0.035em;line-height:1.16;color:#000;max-width:900px}
+.ld .about .lead i{font-style:normal;color:#014CFF}
+.ld .statrow{display:flex;gap:56px;flex-wrap:wrap;margin-top:44px;padding-top:36px;border-top:1px solid #E3E5E9}
+.ld .stat b{display:block;font-size:clamp(36px,4.4vw,52px);font-weight:800;color:#014CFF;letter-spacing:-0.04em;line-height:1}
+.ld .stat span{font-size:13.5px;color:#5E6470}
+
+/* features — bloque azul con tarjetas numeradas */
+.ld .feat-wrap{background:#014CFF;border-radius:40px;padding:64px 56px}
+.ld .feat-wrap h2,.ld .feat-wrap .kicker{color:#fff}
+.ld .feat-wrap .kicker::before{background:#B4EC5C}
+.ld .feat-wrap .sec-head p{color:rgba(255,255,255,.75)}
+.ld .fgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+.ld .fcard{background:#fff;border-radius:26px;padding:26px 24px;height:100%;display:flex;flex-direction:column}
+.ld .fcard .n{font-size:46px;font-weight:800;color:#014CFF;letter-spacing:-0.05em;line-height:1;margin-bottom:auto;padding-bottom:26px}
+.ld .fcard h3{font-size:17px;font-weight:700;margin-bottom:8px}
+.ld .fcard p{font-size:13.5px;color:#5E6470;line-height:1.6}
+.ld .fcard.lime{background:#B4EC5C}
+.ld .fcard.lime .n{color:#000}
+.ld .fcard.lime p{color:rgba(0,0,0,.7)}
+
+/* pasos */
+.ld .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.ld .step{background:#fff;border-radius:26px;padding:34px 30px;position:relative;height:100%}
+.ld .step .badge{display:inline-block;background:#014CFF;color:#fff;font-weight:800;font-size:12.5px;padding:5px 14px;border-radius:100px;margin-bottom:16px}
+.ld .step h3{font-size:18px;font-weight:700;margin-bottom:9px}
+.ld .step p{font-size:14px;color:#5E6470;line-height:1.65}
+.ld .step .mono{font-family:var(--font-mono),monospace;color:#014CFF;font-size:13px;font-weight:600}
+
+/* precio */
+.ld .pricing{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch}
+.ld .price-copy{padding:44px 8px 44px 0;display:flex;flex-direction:column;justify-content:center}
+.ld .price-copy p{color:#5E6470;font-size:15.5px;max-width:420px;margin-top:16px}
+.ld .price-card{background:#014CFF;color:#fff;border-radius:36px;padding:48px 44px}
+.ld .price-tag{display:inline-block;background:#B4EC5C;color:#000;font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:6px 14px;border-radius:100px;margin-bottom:26px}
+.ld .price-num{font-size:66px;font-weight:800;line-height:1;letter-spacing:-0.045em}
+.ld .price-num small{font-size:17px;color:rgba(255,255,255,.7);font-weight:500;letter-spacing:0}
+.ld .price-note{font-size:13px;color:rgba(255,255,255,.62);margin:8px 0 30px}
+.ld .pl{list-style:none;margin-bottom:30px}
+.ld .pl li{display:flex;align-items:center;gap:12px;padding:11px 0;font-size:14.5px;color:rgba(255,255,255,.92);border-bottom:1px solid rgba(255,255,255,.14)}
 .ld .pl li:last-child{border:none}
-.ld .pl .check{width:20px;height:20px;border-radius:50%;background:#D8F34E;color:#101010;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
-.ld .price-fine{font-size:12px;color:rgba(255,255,255,0.4);margin-top:14px;text-align:center}
-.ld .faq{max-width:760px;margin:0 auto}
-.ld details{background:#fff;border:1px solid #E4E4DF;border-radius:20px;margin-bottom:10px;overflow:hidden}
-.ld summary{padding:22px 26px;cursor:pointer;font-family:var(--font-grotesk),sans-serif;font-size:16px;font-weight:600;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.ld .pl .check{width:21px;height:21px;border-radius:50%;background:#B4EC5C;color:#000;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
+.ld .price-fine{font-size:12.5px;color:rgba(255,255,255,.6);margin-top:15px;text-align:center}
+
+/* faq */
+.ld .faq{max-width:790px;margin:0 auto}
+.ld details{background:#fff;border-radius:22px;margin-bottom:10px;overflow:hidden}
+.ld summary{padding:23px 27px;cursor:pointer;font-size:16.5px;font-weight:700;color:#000;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px}
 .ld summary::-webkit-details-marker{display:none}
-.ld .plus{width:30px;height:30px;border-radius:50%;background:#F2F2EF;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;transition:transform .2s,background .2s}
-.ld details[open] .plus{transform:rotate(45deg);background:#D8F34E}
-.ld details .ans{padding:0 26px 24px;font-size:14.5px;color:#6E6E68;line-height:1.7;max-width:600px}
-.ld .final{padding:88px 24px 100px}
-.ld .final-card{max-width:1180px;margin:0 auto;background:#D8F34E;border-radius:40px;padding:88px 64px;text-align:center;position:relative;overflow:hidden}
-.ld .final-card h2{max-width:640px;margin:0 auto 16px;font-size:clamp(36px,4.6vw,58px)}
-.ld .final-card p{color:rgba(16,16,16,0.6);font-size:16px;margin-bottom:36px}
-.ld .final-card .pill{background:#101010;color:#fff;font-size:15px;padding:16px 34px}
-.ld .final-fine{font-size:13px;color:rgba(16,16,16,0.5);margin-top:16px}
-.ld footer{padding:0 24px 32px;display:block}
-.ld .foot-in{max-width:1180px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px;padding:24px 4px;border-top:1px solid #E4E4DF}
-.ld .foot-in>span{font-size:13px;color:#6E6E68}
-.ld .foot-links{display:flex;gap:24px}
-.ld .foot-links a{font-size:13px;color:#6E6E68;text-decoration:none}
-@media(max-width:960px){
-  .ld .hero-card{grid-template-columns:1fr;padding:48px 28px 0;min-height:auto}
-  .ld .bento{grid-template-columns:1fr}
-  .ld .card.big{grid-column:span 1}
-  .ld .steps-wrap{padding:48px 28px}
-  .ld .steps-grid{grid-template-columns:1fr;gap:26px}
+.ld .plus{width:31px;height:31px;border-radius:50%;background:#F0F1F3;color:#014CFF;display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;flex-shrink:0;transition:transform .2s,background .2s,color .2s}
+.ld details[open] .plus{transform:rotate(45deg);background:#014CFF;color:#fff}
+.ld details .ans{padding:0 27px 25px;font-size:14.5px;color:#5E6470;line-height:1.7;max-width:620px}
+
+/* cta final */
+.ld .final{padding:0 20px 20px}
+.ld .final-card{max-width:1200px;margin:0 auto;background:#014CFF;border-radius:40px;padding:80px 48px 0;text-align:center;overflow:hidden}
+.ld .final-card h2{color:#fff;max-width:680px;margin:0 auto 16px;font-size:clamp(34px,4.6vw,56px)}
+.ld .final-card>p{color:rgba(255,255,255,.78);font-size:16.5px;margin-bottom:30px}
+.ld .final-fine{font-size:13px;color:rgba(255,255,255,.62);margin-top:16px}
+.ld .wordmark{font-size:clamp(64px,17vw,240px);font-weight:800;letter-spacing:-0.055em;color:#fff;line-height:.82;margin-top:44px;user-select:none}
+
+/* footer */
+.ld footer{padding:26px 20px 34px}
+.ld .foot-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.ld .foot-links{display:flex;gap:26px}
+.ld .foot-in span,.ld .foot-links a{font-size:13.5px;color:#5E6470}
+.ld .foot-links a:hover{color:#014CFF}
+
+@media(max-width:1000px){
+  .ld .stage{grid-template-columns:1fr;padding:40px 26px 0;gap:24px}
+  .ld .stage-l,.ld .stage-r{padding-bottom:0;align-items:flex-start}
+  .ld .stage-r{padding-bottom:40px}
+  .ld .phone{margin:0 auto}
+  .ld .fgrid{grid-template-columns:repeat(2,1fr)}
+  .ld .steps{grid-template-columns:1fr}
   .ld .pricing{grid-template-columns:1fr}
   .ld .nav-links{display:none}
+  .ld .about,.ld .feat-wrap{padding:44px 26px}
   .ld .sec-head{flex-direction:column;align-items:flex-start}
-  .ld .final-card{padding:64px 28px}
+  .ld .statrow{gap:30px}
+}
+@media(max-width:560px){
+  .ld .fgrid{grid-template-columns:1fr}
+  .ld section{padding:64px 20px}
+  .ld .price-card{padding:36px 26px}
 }
 `;
 
 const hover = { whileHover: { scale: 1.03 }, whileTap: { scale: 0.97 } };
 const cardHover = { whileHover: { y: -6, transition: { duration: 0.2 } } };
 
+// El mockup rota entre rubros: es el argumento más directo de que Turnito
+// dejó de ser sólo para barberías.
+const MOCKS = [
+  {
+    tag: "UÑAS",
+    shop: "Bloom Nails",
+    slug: "bloom-nails",
+    svc: [
+      ["Semi", "$8.500"],
+      ["Kapping", "$12.000"],
+      ["Soft gel", "$15.000"],
+    ],
+  },
+  {
+    tag: "BARBERÍA",
+    shop: "Barbería El Toro",
+    slug: "el-toro",
+    svc: [
+      ["Corte", "$3.500"],
+      ["Barba", "$2.000"],
+      ["Combo", "$5.000"],
+    ],
+  },
+  {
+    tag: "TATUAJES",
+    shop: "Tinta Negra",
+    slug: "tinta-negra",
+    svc: [
+      ["Sesión", "A consultar"],
+      ["Diseño", "$6.000"],
+      ["Retoque", "$4.000"],
+    ],
+  },
+  {
+    tag: "PESTAÑAS",
+    shop: "Estudio Mirada",
+    slug: "estudio-mirada",
+    svc: [
+      ["Lifting", "$9.000"],
+      ["Extensiones", "$14.000"],
+      ["Cejas", "$5.000"],
+    ],
+  },
+];
+
+const RUBROS_PILLS = [
+  ["💈", "Barberías"],
+  ["💅", "Uñas"],
+  ["👁️", "Pestañas y cejas"],
+  ["🖋️", "Tatuajes"],
+  ["✂️", "Peluquerías"],
+];
+
 export default function LandingPage() {
+  const [mock, setMock] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => setMock((m) => (m + 1) % MOCKS.length), 3400);
+    return () => clearInterval(id);
+  }, []);
+
+  const m = MOCKS[mock];
+
   return (
     <div className="ld">
       <style dangerouslySetInnerHTML={{ __html: css }} />
@@ -166,10 +273,10 @@ export default function LandingPage() {
         <div className="nav-in">
           <Link className="logo" href="#"><LogoMark size={26} /> turnito</Link>
           <div className="nav-links">
-            <a href="#como">Cómo funciona</a>
+            <a href="#rubros">Para quién es</a>
             <a href="#features">Qué incluye</a>
+            <a href="#como">Cómo funciona</a>
             <a href="#precio">Precio</a>
-            <a href="#faq">Preguntas</a>
           </div>
           <motion.div {...hover}>
             <Link className="pill" href="/login">Empezar gratis</Link>
@@ -179,155 +286,240 @@ export default function LandingPage() {
 
       {/* HERO */}
       <header className="hero">
-        <div className="hero-card">
-          <div className="glow" />
-          <motion.div className="hero-copy" variants={stagger} initial="hidden" animate="show">
-            <motion.div className="tag" variants={fadeUp}>Para barberías y más · <b>30 días gratis</b></motion.div>
-            <motion.h1 variants={fadeUp}>Los turnos de tu negocio, <span className="hl">en piloto automático.</span></motion.h1>
-            <motion.p className="sub" variants={fadeUp}>Tus clientes reservan solos desde un link, sin crearse cuentas ni descargar nada. Vos abrís tu panel y sabés exactamente quién sigue.</motion.p>
-            <motion.div className="hero-ctas" variants={fadeUp}>
-              <motion.div {...hover}><Link className="pill lime" href="/login">Probar 30 días gratis <span>→</span></Link></motion.div>
-              <a className="ghost" href="#como">Ver cómo funciona ↓</a>
+        <div className="hero-in">
+          <motion.div variants={stagger} initial="hidden" animate="show">
+            <motion.div className="eyebrow" variants={fadeUp}>
+              <b>30 días gratis</b> Sin tarjeta, sin permanencia
             </motion.div>
-            <motion.div className="hero-meta" variants={stagger}>
-              {[["15 min","de configuración"],["24/7","reservas abiertas"],["0","apps para tus clientes"]].map(([b,s])=>(
-                <motion.div className="hm" key={b} variants={fadeUp}><b>{b}</b><span>{s}</span></motion.div>
-              ))}
+            <motion.h1 className="display" variants={fadeUp}>
+              Tus turnos, <span className="b">solos.</span>
+            </motion.h1>
+            <motion.div className="hero-sub" variants={fadeUp}>
+              <p>
+                Barbería, uñas, pestañas, tatuajes o peluquería: tus clientes reservan
+                desde un link, sin crearse cuentas ni descargar nada. Vos abrís el panel
+                y sabés exactamente quién sigue.
+              </p>
+              <div className="hero-ctas">
+                <motion.div {...hover}>
+                  <Link className="pill" href="/login">Probar 30 días gratis <span>→</span></Link>
+                </motion.div>
+                <motion.div {...hover}>
+                  <a className="pill ghost" href="#como">Ver cómo funciona ↓</a>
+                </motion.div>
+              </div>
             </motion.div>
           </motion.div>
 
-          {/* teléfono con float + parallax */}
-          <div className="hero-phone-zone">
+          {/* bloque azul con el teléfono */}
+          <motion.div
+            className="stage"
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
+          >
+            <div className="stage-l">
+              <div className="qcard">
+                <h4>Tu link propio</h4>
+                <p>Lo ponés en el bio de Instagram o lo mandás por WhatsApp. Eso es toda la instalación.</p>
+              </div>
+            </div>
+
             <motion.div
-              initial={{ y: 80, opacity: 0, rotate: -3 }}
-              animate={{ y: 0, opacity: 1, rotate: 0 }}
-              transition={{ duration: 0.8, ease: EASE, delay: 0.2 }}
+              animate={{ y: [0, -10, 0] }}
+              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
             >
-              <motion.div
-                animate={{ y: [0, -10, 0] }}
-                transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-              >
-                <div className="phone">
-                  <div className="phone-notch"></div>
-                  <div className="screen">
-                    <div className="scr-head">
-                      <div><div className="scr-shop">Barbería El Toro</div><div className="scr-sub">turnito.app/el-toro</div></div>
-                      <div className="scr-badge">ONLINE</div>
-                    </div>
-                    <div className="scr-label">Servicio</div>
-                    <div className="chiprow">
-                      <div className="chip on"><b>Corte</b><span>$3.500</span></div>
-                      <div className="chip"><b>Barba</b><span>$2.000</span></div>
-                      <div className="chip"><b>Combo</b><span>$5.000</span></div>
-                    </div>
-                    <div className="scr-label">Día</div>
-                    <div className="dayrow">
-                      <div className="day on"><em>Hoy</em><b>16</b></div>
-                      <div className="day"><em>Vie</em><b>17</b></div>
-                      <div className="day"><em>Sáb</em><b>18</b></div>
-                      <div className="day"><em>Mar</em><b>21</b></div>
-                      <div className="day"><em>Mié</em><b>22</b></div>
-                    </div>
-                    <div className="scr-label">Horario</div>
-                    <div className="slotgrid">
-                      <div className="slot off">09:00</div><div className="slot">09:45</div>
-                      <div className="slot">10:30</div><div className="slot off">11:15</div>
-                      <div className="slot">12:00</div><div className="slot on">14:15</div>
-                      <div className="slot">15:00</div><div className="slot">15:45</div>
-                    </div>
-                    <div className="scr-btn">Confirmar turno →</div>
+              <div className="phone">
+                <div className="notch" />
+                <div className="screen">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={m.shop}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.32, ease: EASE }}
+                    >
+                      <div className="scr-head">
+                        <div>
+                          <div className="scr-shop">{m.shop}</div>
+                          <div className="scr-sub">turnito.app/{m.slug}</div>
+                        </div>
+                        <div className="scr-badge">{m.tag}</div>
+                      </div>
+                      <div className="scr-label">Servicio</div>
+                      <div className="chiprow">
+                        {m.svc.map(([n, p], i) => (
+                          <div className={`chip${i === 0 ? " on" : ""}`} key={n}>
+                            <b>{n}</b><span>{p}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
+
+                  <div className="scr-label">Día</div>
+                  <div className="dayrow">
+                    <div className="day on"><em>Hoy</em><b>16</b></div>
+                    <div className="day"><em>Vie</em><b>17</b></div>
+                    <div className="day"><em>Sáb</em><b>18</b></div>
+                    <div className="day"><em>Mar</em><b>21</b></div>
+                    <div className="day"><em>Mié</em><b>22</b></div>
                   </div>
+                  <div className="scr-label">Horario</div>
+                  <div className="slotgrid">
+                    <div className="slot off">09:00</div><div className="slot">09:45</div>
+                    <div className="slot">10:30</div><div className="slot off">11:15</div>
+                    <div className="slot">12:00</div><div className="slot on">14:15</div>
+                    <div className="slot">15:00</div><div className="slot">15:45</div>
+                  </div>
+                  <div className="scr-btn">Confirmar turno →</div>
                 </div>
-              </motion.div>
+              </div>
             </motion.div>
-          </div>
-        </div>
-      </header>
 
-      {/* STRIP */}
-      <div className="strip">
-        <RevealGroup className="strip-in" variants={staggerFast}>
-          {["Sin app para el cliente","Comprobante con link propio","Cancelación online","Sin permanencia"].map(t=>(
-            <Item className="strip-item" key={t} variants={fadeUp}><span className="dot"></span>{t}</Item>
-          ))}
-        </RevealGroup>
-      </div>
+            <div className="stage-r">
+              <div className="qcard lime">
+                <h4>Se agenda solo</h4>
+                <p>El horario se bloquea al instante para todos los demás. Vos no tocás nada.</p>
+              </div>
+              <div className="stat-b" style={{ textAlign: "right" }}>
+                <b>24/7</b><span>reservas abiertas</span>
+              </div>
+            </div>
+          </motion.div>
 
-      {/* FEATURES */}
-      <section id="features">
-        <div className="sec-head">
-          <Reveal>
-            <div className="kicker">Qué incluye</div>
-            <h2>Todo lo que necesitás. Nada que te sobre.</h2>
-          </Reveal>
-          <Reveal variants={fadeUp}><p>Una sola herramienta con un solo trabajo: que tu agenda se llene sola y vos solo tengas que cortar.</p></Reveal>
-        </div>
-        <RevealGroup className="bento">
-          <Item className="card big dark" variants={scaleIn}>
-            <motion.div style={{height:"100%",display:"flex",flexDirection:"column"}} {...cardHover}>
-              <div className="card-ic">🔗</div>
-              <h3>Tu link propio de reservas</h3>
-              <p>turnito.app/tu-barberia — lo ponés en el bio de Instagram, lo mandás por WhatsApp o lo imprimís en QR. El cliente entra, ve tus horarios libres reales y reserva en menos de un minuto. Sin registro, sin contraseñas, sin descargar nada.</p>
-            </motion.div>
-          </Item>
-          <Item className="card lime" variants={scaleIn}>
-            <motion.div style={{height:"100%"}} {...cardHover}>
-              <div className="num">24/7</div><div className="numlbl">Reservas abiertas</div>
-              <p style={{marginTop:12}}>Te llegan turnos mientras cortás, mientras cenás y mientras dormís.</p>
-            </motion.div>
-          </Item>
-          {[["📅","Agenda que se ordena sola","Cada reserva cae en su lugar. Los horarios ocupados se bloquean al instante para todos los demás."],
-            ["🎟️","Comprobante al instante","Apenas reserva, el cliente recibe un link propio con los datos de su turno para verlo o cancelarlo cuando quiera."],
-            ["🔓","Cancelaciones que liberan","Si alguien cancela, el horario vuelve a estar disponible al segundo. Nadie tiene que avisarte nada."]].map(([ic,h,p])=>(
-            <Item className="card" key={h} variants={scaleIn}>
-              <motion.div style={{height:"100%"}} {...cardHover}>
-                <div className="card-ic">{ic}</div><h3>{h}</h3><p>{p}</p>
-              </motion.div>
-            </Item>
-          ))}
-        </RevealGroup>
-      </section>
-
-      {/* CÓMO FUNCIONA */}
-      <section id="como">
-        <Reveal variants={scaleIn}>
-          <div className="steps-wrap">
-            <div className="kicker" style={{color:"rgba(255,255,255,0.5)"}}>Cómo funciona</div>
-            <h2 style={{color:"#fff"}}>De cero a recibir turnos<br/>en tres pasos.</h2>
-            <RevealGroup className="steps-grid">
-              {[["01","Configurá tu barbería",<>Nombre, servicios con precio y duración, y tus horarios. Son tres pantallas, <span className="mono">~15 minutos</span>, una sola vez.</>],
-                ["02","Compartí tu link",<>Te damos tu dirección propia: <span className="mono">turnito.app/tu-barberia</span>. La ponés donde ya hablás con tus clientes.</>],
-                ["03","Cortá con la agenda abierta",<>Tu panel te muestra quién sigue, qué pidió y a qué hora. Un botón para el siguiente. <span className="mono">Eso es todo.</span></>]].map(([n,h,p],i)=>(
-                <Item key={i as number} variants={fadeUp}>
-                  <div className="stepc"><div className="step-badge">{n}</div><h3>{h}</h3><p>{p}</p></div>
+          {/* rubros */}
+          <div id="rubros">
+            <RevealGroup className="rubros" variants={staggerFast}>
+              {RUBROS_PILLS.map(([e, t]) => (
+                <Item key={t} variants={fadeUp}>
+                  <div className="rub"><span>{e}</span>{t}</div>
                 </Item>
               ))}
             </RevealGroup>
           </div>
-        </Reveal>
+        </div>
+      </header>
+
+      {/* SOBRE */}
+      <section>
+        <div className="wrap">
+          <Reveal variants={scaleIn}>
+            <div className="about">
+              <div className="kicker">Qué es Turnito</div>
+              <p className="lead">
+                Una agenda que <i>trabaja sola</i>. Sin planillas, sin cadenas de WhatsApp
+                a las once de la noche, sin turnos <i>anotados en un papel</i> que después
+                nadie encuentra.
+              </p>
+              <div className="statrow">
+                {[
+                  ["15 min", "de configuración, una sola vez"],
+                  ["0", "apps que baja tu cliente"],
+                  ["24/7", "la agenda nunca cierra"],
+                ].map(([b, s]) => (
+                  <div className="stat" key={b}><b>{b}</b><span>{s}</span></div>
+                ))}
+              </div>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* FEATURES */}
+      <section id="features" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <Reveal variants={scaleIn}>
+            <div className="feat-wrap">
+              <div className="sec-head">
+                <div>
+                  <div className="kicker">Qué incluye</div>
+                  <h2 className="dot">Todo lo que necesitás. Nada que te sobre</h2>
+                </div>
+                <p>Una sola herramienta con un solo trabajo: que tu agenda se llene sola y vos sólo tengas que atender.</p>
+              </div>
+              <RevealGroup className="fgrid">
+                {[
+                  ["01.", "Tu link propio", "turnito.app/tu-negocio. El cliente entra, ve tus horarios libres reales y reserva en menos de un minuto. Sin registro ni contraseñas.", false],
+                  ["02.", "Agenda que se ordena sola", "Cada reserva cae en su lugar y el horario ocupado se bloquea al instante para todos los demás.", true],
+                  ["03.", "Comprobante al instante", "Apenas reserva, tu cliente recibe un link propio con los datos del turno para verlo o cancelarlo cuando quiera.", false],
+                  ["04.", "Varias agendas a la vez", "Si son más de uno, cada persona del equipo tiene su propia agenda y su propio horario libre.", false],
+                ].map(([n, h, p, lime]) => (
+                  <Item key={n as string} variants={scaleIn}>
+                    <motion.div className={`fcard${lime ? " lime" : ""}`} {...cardHover}>
+                      <div className="n">{n}</div>
+                      <h3>{h}</h3>
+                      <p>{p}</p>
+                    </motion.div>
+                  </Item>
+                ))}
+              </RevealGroup>
+            </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* CÓMO FUNCIONA */}
+      <section id="como" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <div className="sec-head">
+            <Reveal>
+              <div className="kicker">Cómo funciona</div>
+              <h2 className="dot dot-b">De cero a recibir turnos en tres pasos</h2>
+            </Reveal>
+          </div>
+          <RevealGroup className="steps">
+            {[
+              ["01", "Configurá tu negocio", <>Elegís a qué te dedicás y te precargamos los servicios típicos de tu rubro. Ajustás precios y horarios: <span className="mono">~15 minutos</span>, una sola vez.</>],
+              ["02", "Compartí tu link", <>Te damos tu dirección propia: <span className="mono">turnito.app/tu-negocio</span>. La ponés donde ya hablás con tus clientes.</>],
+              ["03", "Atendé con la agenda abierta", <>Tu panel te muestra quién sigue, qué pidió y a qué hora. Un botón para el siguiente. <span className="mono">Eso es todo.</span></>],
+            ].map(([n, h, p], i) => (
+              <Item key={i as number} variants={fadeUp}>
+                <div className="step">
+                  <div className="badge">{n}</div>
+                  <h3>{h}</h3>
+                  <p>{p}</p>
+                </div>
+              </Item>
+            ))}
+          </RevealGroup>
+        </div>
       </section>
 
       {/* PRECIO */}
-      <section id="precio">
-        <div className="pricing">
+      <section id="precio" style={{ paddingTop: 0 }}>
+        <div className="wrap pricing">
           <Reveal className="price-copy">
             <div className="kicker">Precio</div>
-            <h2>Un solo plan. Sin letra chica.</h2>
+            <h2 className="dot">Un solo plan. Sin letra chica</h2>
             <p>Nada de versión básica recortada ni &quot;premium&quot; con lo que de verdad necesitás. Un plan con todo, y una prueba gratis para decidir tranquilo.</p>
-            <p style={{fontWeight:600,color:"#101010"}}>Si en 30 días no te sirvió, no ponés un peso.</p>
+            <p style={{ fontWeight: 700, color: "#000" }}>Si en 30 días no te sirvió, no ponés un peso.</p>
           </Reveal>
           <Reveal variants={scaleIn}>
             <div className="price-card">
-              <div className="glow2" />
               <div className="price-tag">Plan único</div>
               <div className="price-num">$40.000<small> ARS/mes</small></div>
               <div className="price-note">IVA incluido · con factura · por Mercado Pago</div>
-              <motion.ul className="pl" variants={staggerFast} initial="hidden" whileInView="show" viewport={{once:true,amount:0.2}}>
-                {["Reservas online ilimitadas","Tu link propio: turnito.app/tu-barberia","Panel con la agenda del día","Comprobante online para cada turno","Cancelación online para tus clientes","Soporte directo por WhatsApp","Sin contrato, sin permanencia"].map(t=>(
+              <motion.ul className="pl" variants={staggerFast} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
+                {[
+                  "Reservas online ilimitadas",
+                  "Tu link propio: turnito.app/tu-negocio",
+                  "Panel con la agenda del día",
+                  "Una agenda por cada persona del equipo",
+                  "Comprobante online para cada turno",
+                  "Cancelación online para tus clientes",
+                  "Soporte directo por WhatsApp",
+                  "Sin contrato, sin permanencia",
+                ].map((t) => (
                   <motion.li key={t} variants={slideRight}><span className="check">✓</span>{t}</motion.li>
                 ))}
               </motion.ul>
-              <motion.div {...hover}><Link className="pill lime" href="/login" style={{width:"100%",justifyContent:"center"}}>Empezar mis 30 días gratis <span>→</span></Link></motion.div>
+              <motion.div {...hover}>
+                <Link className="pill lime" href="/login" style={{ width: "100%", justifyContent: "center" }}>
+                  Empezar mis 30 días gratis <span>→</span>
+                </Link>
+              </motion.div>
               <div className="price-fine">No pedimos tarjeta para probar.</div>
             </div>
           </Reveal>
@@ -335,21 +527,31 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ */}
-      <section id="faq">
-        <div className="sec-head" style={{marginBottom:36}}>
-          <Reveal><div className="kicker">Preguntas</div><h2>Antes de arrancar.</h2></Reveal>
+      <section id="faq" style={{ paddingTop: 0 }}>
+        <div className="wrap">
+          <div className="sec-head" style={{ marginBottom: 34 }}>
+            <Reveal>
+              <div className="kicker">Preguntas</div>
+              <h2 className="dot dot-b">Antes de arrancar</h2>
+            </Reveal>
+          </div>
+          <RevealGroup className="faq">
+            {[
+              ["¿Sirve si no tengo una barbería?", "Sí — Turnito es para cualquier negocio que trabaje con turnos: uñas, pestañas y cejas, tatuajes, peluquería, barbería. Al crear tu cuenta elegís a qué te dedicás y la app se acomoda: te precarga los servicios típicos de tu rubro y habla tu idioma."],
+              ["¿Mis clientes tienen que crearse una cuenta?", "No. Reservan con su nombre y su teléfono, y al confirmar reciben un link propio para ver o cancelar su turno. Cero contraseñas."],
+              ["Mis sesiones duran varias horas, ¿entra?", "Sí. Un servicio puede durar desde 15 minutos hasta 8 horas, así que una sesión larga de tatuaje ocupa el bloque completo y nadie te puede reservar encima."],
+              ["¿Y si no tengo un precio fijo?", "Podés dejar un servicio en \"a consultar\" en vez de poner un número. El cliente reserva igual y el precio lo arreglan entre ustedes."],
+              ["¿Qué pasa si un cliente cancela?", "El horario se libera automáticamente y vuelve a estar disponible para cualquier otra persona. Vos lo ves reflejado en tu agenda al instante."],
+              ["¿Sirve si trabajo sola?", "Sí, y es el caso más simple: una agenda, tus horarios, tu link. Si algún día sumás gente, cargás al equipo y cada uno pasa a tener su propia agenda sin que tengas que rehacer nada."],
+              ["¿Necesito saber de tecnología?", "Si sabés usar WhatsApp, sabés usar Turnito. La configuración son cuatro pantallas guiadas y el uso diario es una sola: la agenda del día."],
+              ["¿Cómo se paga? ¿Hay permanencia?", "Por Mercado Pago, mes a mes. Sin contrato: si un mes no lo querés pagar, se pausa y tus datos quedan guardados."],
+            ].map(([q, a]) => (
+              <Item key={q} variants={fadeUp}>
+                <details><summary>{q} <span className="plus">+</span></summary><div className="ans">{a}</div></details>
+              </Item>
+            ))}
+          </RevealGroup>
         </div>
-        <RevealGroup className="faq">
-          {[["¿Mis clientes tienen que crearse una cuenta?","No. Reservan con su nombre y su teléfono, y al confirmar reciben un link propio para ver o cancelar su turno. Cero contraseñas."],
-            ["¿Qué pasa si un cliente cancela?","El horario se libera automáticamente y vuelve a estar disponible para cualquier otra persona. Vos lo ves reflejado en tu agenda al instante."],
-            ["¿Sirve si trabajo solo?","Sí — está pensado primero para eso: una barbería, una agenda. Simple y directo."],
-            ["¿Necesito saber de tecnología?","Si sabés usar WhatsApp, sabés usar Turnito. La configuración son tres pantallas guiadas y el uso diario es una sola: la agenda del día."],
-            ["¿Cómo se paga? ¿Hay permanencia?","Por Mercado Pago, mes a mes. Sin contrato: si un mes no lo querés pagar, se pausa y tus datos quedan guardados."]].map(([q,a])=>(
-            <Item key={q} variants={fadeUp}>
-              <details><summary>{q} <span className="plus">+</span></summary><div className="ans">{a}</div></details>
-            </Item>
-          ))}
-        </RevealGroup>
       </section>
 
       {/* CTA FINAL */}
@@ -357,9 +559,12 @@ export default function LandingPage() {
         <Reveal variants={scaleIn}>
           <div className="final-card">
             <h2>Tu próximo turno se reserva solo.</h2>
-            <p>Configurá tu barbería hoy y probalo 30 días con tus clientes reales.</p>
-            <motion.div {...hover} style={{display:"inline-block"}}><Link className="pill" href="/login">Crear mi barbería gratis <span>→</span></Link></motion.div>
+            <p>Configurá tu negocio hoy y probalo 30 días con tus clientes reales.</p>
+            <motion.div {...hover} style={{ display: "inline-block" }}>
+              <Link className="pill lime" href="/login">Crear mi cuenta gratis <span>→</span></Link>
+            </motion.div>
             <div className="final-fine">Sin tarjeta · Sin permanencia · Configuración en 15 minutos</div>
+            <div className="wordmark">turnito</div>
           </div>
         </Reveal>
       </div>
@@ -367,12 +572,12 @@ export default function LandingPage() {
       {/* FOOTER */}
       <footer>
         <div className="foot-in">
-          <Link className="logo" href="#" style={{fontSize:16}}><LogoMark size={22} /> turnito</Link>
+          <Link className="logo" href="#" style={{ fontSize: 16 }}><LogoMark size={22} /> turnito</Link>
           <div className="foot-links">
-              <a href="#">Contacto</a>
-              <a href="#">WhatsApp</a>
-  <Link href="/legales">Términos y Privacidad</Link>
-</div>
+            <a href="#">Contacto</a>
+            <a href="#">WhatsApp</a>
+            <Link href="/legales">Términos y Privacidad</Link>
+          </div>
           <span>© 2026 Turnito · Córdoba, Argentina</span>
         </div>
       </footer>

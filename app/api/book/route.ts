@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
 
-  const { slug, service_id, barber_id, date, time, client_name, client_phone, client_email } = body;
+  const { slug, service_id, staff_id, date, time, client_name, client_phone, client_email } = body;
 
   if (
     !slug || !service_id || !date || !time ||
@@ -37,23 +37,23 @@ export async function POST(req: Request) {
 
   const supabase = createAdminClient();
 
-  // 1. Barbería activa (traemos también la anticipación mínima)
+  // 1. Negocio activo (traemos también la anticipación mínima)
   const { data: shop } = await supabase
-    .from("barbershops")
+    .from("businesses")
     .select("id, name, subscription_status, min_notice_min, timezone")
     .eq("slug", slug)
     .maybeSingle();
 
   if (!shop || !["trial", "active"].includes(shop.subscription_status)) {
-    return NextResponse.json({ error: "Barbería no disponible" }, { status: 404 });
+    return NextResponse.json({ error: "Este negocio no está disponible" }, { status: 404 });
   }
 
-  // 2. El servicio pertenece a esta barbería (traemos la duración)
+  // 2. El servicio pertenece a este negocio (traemos la duración)
   const { data: service } = await supabase
     .from("services")
     .select("id, name, duration_min")
     .eq("id", service_id)
-    .eq("barbershop_id", shop.id)
+    .eq("business_id", shop.id)
     .eq("active", true)
     .maybeSingle();
 
@@ -61,46 +61,46 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Servicio inválido" }, { status: 400 });
   }
 
-  // 2.2 Barbero: si la barbería cargó barberos, hay que elegir uno de los suyos.
-  //     Si no cargó ninguno, es de un solo sillón y barber_id queda NULL.
-  const { data: shopBarbers } = await supabase
-    .from("barbers")
+  // 2.2 Equipo: si el negocio cargó gente, hay que elegir a alguien de los suyos.
+  //     Si no cargó a nadie, es de una sola agenda y staff_id queda NULL.
+  const { data: shopStaff } = await supabase
+    .from("staff")
     .select("id, name")
-    .eq("barbershop_id", shop.id)
+    .eq("business_id", shop.id)
     .eq("active", true);
 
-  const hasBarbers = (shopBarbers ?? []).length > 0;
-  let barberId: string | null = null;
+  const hasStaff = (shopStaff ?? []).length > 0;
+  let staffId: string | null = null;
 
-  if (hasBarbers) {
-    if (!barber_id || !(shopBarbers ?? []).some((b) => b.id === barber_id)) {
-      return NextResponse.json({ error: "Elegí un barbero disponible" }, { status: 400 });
+  if (hasStaff) {
+    if (!staff_id || !(shopStaff ?? []).some((b) => b.id === staff_id)) {
+      return NextResponse.json({ error: "Elegí con quién querés reservar" }, { status: 400 });
     }
-    barberId = barber_id as string;
+    staffId = staff_id as string;
 
-    // 2.3 Ese día el barbero no está
+    // 2.3 Esa persona no está ese día
     const { data: absent } = await supabase
-      .from("barber_absences")
+      .from("staff_absences")
       .select("id")
-      .eq("barber_id", barberId)
+      .eq("staff_id", staffId)
       .eq("date", date)
       .maybeSingle();
 
     if (absent) {
-      return NextResponse.json({ error: "Ese barbero no atiende ese día. Elegí otro día u otro barbero." }, { status: 400 });
+      return NextResponse.json({ error: "No atiende ese día. Elegí otro día u otra persona." }, { status: 400 });
     }
   }
 
-  // 2.5 Día bloqueado por la barbería
+  // 2.5 Día bloqueado por el negocio
   const { data: closedDay } = await supabase
     .from("closed_dates")
     .select("id")
-    .eq("barbershop_id", shop.id)
+    .eq("business_id", shop.id)
     .eq("date", date)
     .maybeSingle();
 
   if (closedDay) {
-    return NextResponse.json({ error: "La barbería está cerrada ese día" }, { status: 400 });
+    return NextResponse.json({ error: "El local está cerrado ese día" }, { status: 400 });
   }
 
   // 3. Anticipación mínima (tampoco en el pasado)
@@ -121,12 +121,12 @@ export async function POST(req: Request) {
   }
 
   // 3.5 Solapamiento por duración: el nuevo turno [inicio, fin) no puede
-  //     pisar ningún turno existente del día DEL MISMO BARBERO.
-  //     Los turnos con barber_id NULL (época de un solo sillón) ocupan a todos.
+  //     pisar ningún turno existente del día DE LA MISMA PERSONA.
+  //     Los turnos con staff_id NULL (época de un solo sillón) ocupan a todos.
   const { data: existing } = await supabase
     .from("appointments")
-    .select("time, barber_id, services(duration_min)")
-    .eq("barbershop_id", shop.id)
+    .select("time, staff_id, services(duration_min)")
+    .eq("business_id", shop.id)
     .eq("date", date)
     .in("status", ["confirmed", "done"]);
 
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
   const newEnd = newStart + service.duration_min;
 
   const sameChair = (existing ?? []).filter(
-    (a) => !barberId || a.barber_id === null || a.barber_id === barberId
+    (a) => !staffId || a.staff_id === null || a.staff_id === staffId
   );
 
   const overlaps = sameChair.some((a) => {
@@ -154,16 +154,16 @@ export async function POST(req: Request) {
   const { data: appt, error } = await supabase
     .from("appointments")
     .insert({
-      barbershop_id: shop.id,
+      business_id: shop.id,
       service_id,
-      // Sólo mandamos barber_id si hay barbero: así la reserva sigue andando
-      // aunque todavía no se haya corrido la migración de barberos.
-      ...(barberId ? { barber_id: barberId } : {}),
+      // Sólo mandamos staff_id si hay equipo cargado: así la reserva sigue
+      // andando aunque todavía no se haya corrido la migración del equipo.
+      ...(staffId ? { staff_id: staffId } : {}),
       date,
       time,
       client_name: client_name.trim(),
       client_phone: client_phone.trim(),
-      // Igual que barber_id: si no dejó email, ni mandamos la columna. Así la
+      // Igual que staff_id: si no dejó email, ni mandamos la columna. Así la
       // reserva sigue andando aunque falte correr la migración 0002.
       ...(email ? { client_email: email } : {}),
     })
@@ -191,7 +191,7 @@ export async function POST(req: Request) {
       shopName: shop.name,
       clientName: client_name.trim(),
       serviceName: service.name,
-      barberName: barberId ? (shopBarbers ?? []).find((b) => b.id === barberId)?.name ?? null : null,
+      staffName: staffId ? (shopStaff ?? []).find((b) => b.id === staffId)?.name ?? null : null,
       date: String(date),
       time: String(time),
       manageUrl: `${origin}/t/${appt.token}`,
