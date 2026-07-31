@@ -3,6 +3,7 @@
 import { use, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 
 type Appt = {
@@ -82,9 +83,12 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
   return (
     <Center>
       <div className="w-full max-w-sm">
-        <motion.div className="flex justify-center mb-8"
+        {/* relative + absolute para que el logo quede centrado de verdad: si
+            el toggle fuera su hermano en el flex, lo correría a la izquierda. */}
+        <motion.div className="relative flex justify-center mb-8"
           initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
           <Logo size={28} />
+          <ThemeToggle className="absolute right-0 top-1/2 -translate-y-1/2" />
         </motion.div>
 
         <motion.div

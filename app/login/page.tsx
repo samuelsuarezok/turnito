@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 import { motion, stagger, fadeUp, scaleIn } from "@/components/motion";
 
 export default function LoginPage() {
@@ -36,8 +37,11 @@ export default function LoginPage() {
   return (
     <main className="min-h-screen bg-canvas text-body flex items-center justify-center p-6">
       <motion.div className="w-full max-w-sm" variants={stagger} initial="hidden" animate="show">
-        <motion.div className="flex justify-center mb-10" variants={fadeUp}>
+        {/* El logo queda centrado y el toggle se apoya en el borde derecho de
+            la columna: si fueran hermanos en un flex, el logo se correría. */}
+        <motion.div className="relative flex justify-center mb-10" variants={fadeUp}>
           <Logo size={30} />
+          <ThemeToggle className="absolute right-0 top-1/2 -translate-y-1/2" />
         </motion.div>
 
         <motion.div className="bg-surface border border-line rounded-3xl p-7" variants={scaleIn}>

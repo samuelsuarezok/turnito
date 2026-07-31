@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
+import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RUBROS_LISTA,
@@ -204,8 +205,11 @@ export default function OnboardingPage() {
   return (
     <main className="min-h-screen bg-canvas text-body p-6 overflow-x-hidden">
       <div className="max-w-md mx-auto pt-6 pb-16">
-        <motion.div className="flex justify-center mb-8" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
+        {/* relative + absolute para que el logo quede centrado de verdad: si
+            el toggle fuera su hermano en el flex, lo correría a la izquierda. */}
+        <motion.div className="relative flex justify-center mb-8" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
           <Logo size={28} />
+          <ThemeToggle className="absolute right-0 top-1/2 -translate-y-1/2" />
         </motion.div>
 
         {/* progreso */}
