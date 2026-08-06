@@ -1,0 +1,16 @@
+# Qué NO se sube de esta carpeta, y por qué.
+#
+# Los specs SÍ van al repo: son código, evolucionan con la app y sin ellos el
+# CI no tiene nada que correr. Lo que sigue es lo único que queda afuera.
+
+# Cookies de sesión REALES del dueño, generadas por gen-auth.mjs.
+# Es una credencial: con esto entrás al panel como él. Nunca al repo.
+.auth.json
+
+# Screenshots del panel: muestran NOMBRES Y TELÉFONOS de clientes reales.
+# Verificado — en panel.png se leen números tipo 351771xxxx. Es PII.
+shots/
+
+# Salida de Playwright (traces, videos, error-context). Se regenera sola y
+# también puede contener PII, porque son snapshots del DOM del panel.
+test-results/
