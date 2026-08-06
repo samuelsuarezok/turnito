@@ -6,7 +6,7 @@ import ThemeToggle from "@/components/ThemeToggle";
 import { motion } from "framer-motion";
 import { CONTACT_TO } from "@/lib/contacto";
 
-const UPDATED = "31 de julio de 2026";
+const UPDATED = "6 de agosto de 2026";
 
 export default function LegalesPage() {
   return (
@@ -132,13 +132,18 @@ export default function LegalesPage() {
               <b className="text-ink">De los Clientes:</b> nombre y número de teléfono, y opcionalmente un
               email, que se ingresan al reservar un turno. Los Clientes no crean una cuenta ni establecen
               contraseña. Estos datos se usan únicamente para gestionar y confirmar el turno con el Negocio
-              elegido.
+              elegido.<br /><br />
+              <b className="text-ink">De quienes nos escriben:</b> si usás el formulario de contacto,
+              guardamos tu nombre, email, el rubro que indiques y el mensaje, para poder responderte.
+              También registramos de forma temporal la dirección IP desde la que se envía, con el único
+              fin de evitar el envío automatizado de mensajes repetidos.
             </Block>
 
             <Block title="2.3 Para qué los usamos">
               Para operar el servicio: crear y mostrar turnos, confirmar reservas, permitir cancelaciones,
-              enviar notificaciones relativas al turno y administrar la suscripción del Negocio. No usamos
-              los datos para publicidad ni los vendemos a terceros.
+              enviar notificaciones relativas al turno, responder las consultas que nos envían y administrar
+              la suscripción del Negocio. No usamos los datos para publicidad ni los vendemos a terceros, y
+              no registramos si abriste los emails que te mandamos.
             </Block>
 
             <Block title="2.4 Con quién los compartimos">

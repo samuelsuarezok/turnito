@@ -90,6 +90,14 @@ export async function sendEmail(opts: {
             Subject: opts.subject,
             HTMLPart: opts.html,
             TextPart: opts.text,
+            // Mailjet trae el seguimiento ENCENDIDO por defecto: le inyecta al
+            // mail un pixel invisible para registrar cuándo lo abrieron, y
+            // reescribe los links para contar clics. Esto es transaccional, no
+            // una campaña — saber si el cliente abrió su confirmación no nos
+            // sirve para nada, y es un dato de comportamiento que después hay
+            // que declarar y justificar. Preferimos no recolectarlo.
+            TrackOpens: "disabled",
+            TrackClicks: "disabled",
             ...(opts.replyTo
               ? { ReplyTo: { Email: opts.replyTo.email, Name: opts.replyTo.name } }
               : {}),
