@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# ...pero el ejemplo SIN valores sí va: es lo que le dice a alguien nuevo
+# qué variables necesita. No tiene secretos.
+!.env.example
 
 # vercel
 .vercel
