@@ -40,6 +40,8 @@
 //   EMAIL_FROM          — dirección verificada en Mailjet
 //   EMAIL_FROM_NAME     — nombre que ve el destinatario (default: "Turnito")
 
+import { SITE_DOMAIN } from "./site";
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export const isValidEmail = (v: unknown): v is string =>
@@ -306,7 +308,7 @@ export function contactEmail(c: {
   const subject = `Consulta de ${c.name}${c.rubro ? ` (${c.rubro})` : ""}`;
 
   const text = [
-    `Nueva consulta desde turnito.app`,
+    `Nueva consulta desde ${SITE_DOMAIN}`,
     ``,
     `Nombre: ${c.name}`,
     `Email: ${c.email}`,

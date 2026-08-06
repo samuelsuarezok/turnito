@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
+import { SITE_DOMAIN } from "@/lib/site";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -440,7 +441,7 @@ export default function ConfigPage() {
             </div>
           </div>
           <p className="text-[11px] text-faint">
-            Tu link es <span className="font-mono text-muted">turnito.app/{slug}</span> y no se puede cambiar (para no romper los links que ya compartiste).
+            Tu link es <span className="font-mono text-muted">{SITE_DOMAIN}/{slug}</span> y no se puede cambiar (para no romper los links que ya compartiste).
           </p>
         </SectionCard>
 

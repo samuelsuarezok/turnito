@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
+import { SITE_DOMAIN } from "@/lib/site";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
@@ -267,7 +268,7 @@ export default function PanelPage() {
           </div>
         </motion.div>
         <button onClick={copyLink} className="text-[11px] font-mono text-muted mb-6">
-          turnito.app/{shop.slug} <span className={copied ? "text-accent-ink font-bold" : "text-faint"}>{copied ? "✓ copiado" : "· copiar"}</span>
+          {SITE_DOMAIN}/{shop.slug} <span className={copied ? "text-accent-ink font-bold" : "text-faint"}>{copied ? "✓ copiado" : "· copiar"}</span>
         </button>
 
         {/* días */}

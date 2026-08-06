@@ -9,7 +9,7 @@ const urbanist = Urbanist({
   subsets: ["latin"],
 });
 
-// Sólo para el slug (turnito.app/tu-negocio), que se muestra monoespaciado.
+// Sólo para el slug (turnito.site/tu-negocio), que se muestra monoespaciado.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],

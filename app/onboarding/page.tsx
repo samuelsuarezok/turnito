@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
+import { SITE_DOMAIN } from "@/lib/site";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RUBROS_LISTA,
@@ -275,7 +276,7 @@ export default function OnboardingPage() {
 
               <label className={labelCls}>Tu link</label>
               <div className="flex items-center rounded-2xl bg-surface border border-line mb-8 focus-within:border-accent transition-colors">
-                <span className="pl-4 text-sm text-faint font-mono">turnito.app/</span>
+                <span className="pl-4 text-sm text-faint font-mono">{SITE_DOMAIN}/</span>
                 <input value={effectiveSlug} onChange={(e) => { setSlugEdited(true); setSlug(slugify(e.target.value)); }}
                   placeholder={rubro.ejemploSlug} className="flex-1 bg-transparent px-1 py-3.5 outline-none font-mono text-sm text-accent-ink font-semibold" />
               </div>

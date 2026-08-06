@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
 import { EQUIPO, formatPrecio, formatDuracion } from "@/lib/rubros";
+import { SITE_DOMAIN } from "@/lib/site";
 import ThemeToggle from "@/components/ThemeToggle";
 
 type Service = { id: string; name: string; icon: string; duration_min: number; price: number };
@@ -251,7 +252,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
           initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
           <div>
             <h1 className="text-lg font-extrabold text-ink tracking-tight">{shop.name}</h1>
-            <p className="text-[11px] text-faint font-mono">turnito.app/{shop.slug}</p>
+            <p className="text-[11px] text-faint font-mono">{SITE_DOMAIN}/{shop.slug}</p>
           </div>
           <div className="flex items-center gap-2.5">
             <ThemeToggle />

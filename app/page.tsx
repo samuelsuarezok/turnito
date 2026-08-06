@@ -5,6 +5,7 @@ import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
 import ContactModal from "@/components/ContactModal";
 import ThemeToggle from "@/components/ThemeToggle";
+import { SITE_DOMAIN } from "@/lib/site";
 import { WHATSAPP_URL } from "@/lib/contacto";
 import { AnimatePresence } from "framer-motion";
 import {
@@ -357,7 +358,7 @@ export default function LandingPage() {
                       <div className="scr-head">
                         <div>
                           <div className="scr-shop">{m.shop}</div>
-                          <div className="scr-sub">turnito.app/{m.slug}</div>
+                          <div className="scr-sub">{SITE_DOMAIN}/{m.slug}</div>
                         </div>
                         <div className="scr-badge">{m.tag}</div>
                       </div>
@@ -455,7 +456,7 @@ export default function LandingPage() {
               </div>
               <RevealGroup className="fgrid">
                 {[
-                  ["01.", "Tu link propio", "turnito.app/tu-negocio. El cliente entra, ve tus horarios libres reales y reserva en menos de un minuto. Sin registro ni contraseñas.", false],
+                  ["01.", "Tu link propio", `${SITE_DOMAIN}/tu-negocio. El cliente entra, ve tus horarios libres reales y reserva en menos de un minuto. Sin registro ni contraseñas.`, false],
                   ["02.", "Agenda que se ordena sola", "Cada reserva cae en su lugar y el horario ocupado se bloquea al instante para todos los demás.", true],
                   ["03.", "Comprobante al instante", "Apenas reserva, tu cliente recibe un link propio con los datos del turno para verlo o cancelarlo cuando quiera.", false],
                   ["04.", "Varias agendas a la vez", "Si son más de uno, cada persona del equipo tiene su propia agenda y su propio horario libre.", false],
@@ -486,7 +487,7 @@ export default function LandingPage() {
           <RevealGroup className="steps">
             {[
               ["01", "Configurá tu negocio", <>Elegís a qué te dedicás y te precargamos los servicios típicos de tu rubro. Ajustás precios y horarios: <span className="mono">~15 minutos</span>, una sola vez.</>],
-              ["02", "Compartí tu link", <>Te damos tu dirección propia: <span className="mono">turnito.app/tu-negocio</span>. La ponés donde ya hablás con tus clientes.</>],
+              ["02", "Compartí tu link", <>Te damos tu dirección propia: <span className="mono">{SITE_DOMAIN}/tu-negocio</span>. La ponés donde ya hablás con tus clientes.</>],
               ["03", "Atendé con la agenda abierta", <>Tu panel te muestra quién sigue, qué pidió y a qué hora. Un botón para el siguiente. <span className="mono">Eso es todo.</span></>],
             ].map(([n, h, p], i) => (
               <Item key={i as number} variants={fadeUp}>
@@ -518,7 +519,7 @@ export default function LandingPage() {
               <motion.ul className="pl" variants={staggerFast} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
                 {[
                   "Reservas online ilimitadas",
-                  "Tu link propio: turnito.app/tu-negocio",
+                  `Tu link propio: ${SITE_DOMAIN}/tu-negocio`,
                   "Panel con la agenda del día",
                   "Una agenda por cada persona del equipo",
                   "Comprobante online para cada turno",
