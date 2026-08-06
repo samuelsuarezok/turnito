@@ -1,36 +1,44 @@
 // Envío de mails transaccionales. SOLO se usa desde el server (la API key no
 // puede salir al navegador nunca).
 //
-// ⚠️ HOY ESTÁ APAGADO. Se prende con NEXT_PUBLIC_EMAIL_ENABLED=1, y NO alcanza
-// con eso solo. Checklist completo para prenderlo (los 4 pasos, en orden):
+// ⚠️ EL MAIL DE TURNOS ESTÁ APAGADO. Se prende con NEXT_PUBLIC_EMAIL_ENABLED=1,
+// y NO alcanza con eso solo. Checklist completo (los 4 pasos, en orden):
 //
 //   1. Correr supabase/migrations/0002_email_confirmacion.sql en Supabase.
 //      Sin esto, cualquier reserva con email escrito FALLA: la columna
 //      client_email no existe y el insert revienta.
-//   2. Verificar el remitente en Brevo y cargar BREVO_API_KEY + EMAIL_FROM
-//      (en Vercel y en .env.local).
-//   3. Volver a poner en app/legales/page.tsx lo que se sacó al postergar esto:
-//      el email en "2.2 Qué datos recopilamos", su finalidad en "2.3 Para qué
-//      los usamos", y Brevo en "2.4 Con quién los compartimos". Es obligatorio
-//      declararlo ANTES de empezar a guardar direcciones.
+//   2. Verificar el remitente en Mailjet y cargar las claves (ver "Proveedor").
+//   3. En app/legales/page.tsx, nombrar al proveedor en "2.4 Con quién los
+//      compartimos", que hoy dice genéricamente "y envío de mensajes". El email
+//      del Cliente (2.2) y su finalidad (2.3) ya están declarados. Es
+//      obligatorio declararlo ANTES de empezar a guardar direcciones.
 //   4. Recién ahí NEXT_PUBLIC_EMAIL_ENABLED=1, que muestra el campo al cliente.
 //
-// Sin dominio propio los mails van a caer en spam casi siempre (Gmail rechaza
-// que un tercero mande como @gmail.com). Con dominio: verificarlo en Brevo y
-// cambiar EMAIL_FROM — el código no se toca.
+// El formulario de contacto (app/api/contact/route.ts) es independiente de ese
+// flag: siempre le escribe a CONTACT_TO, que es nuestra casilla.
 //
-// Proveedor: Brevo. Se eligió porque permite verificar UNA dirección suelta
-// (ej: tu Gmail) sin tener dominio propio, y desde ahí mandarle a cualquiera.
-// Resend, que es más lindo de usar, sin dominio sólo deja mandarte mails a vos
-// mismo — no sirve para avisarle al cliente.
+// Proveedor: Mailjet
+// ------------------
+// Se eligió porque deja verificar UNA dirección suelta (nuestro Gmail) y desde
+// ahí escribirle a cualquiera, sin tener dominio propio. Todavía no tenemos
+// dominio: la app vive en un .vercel.app.
+//
+// ⚠️ Mientras el remitente sea un @gmail.com, una parte de los mails va a caer
+// en spam. Gmail sabe que ese mensaje no salió de sus servidores, y no hay
+// forma de arreglarlo sin dominio. Es una limitación aceptada a propósito, no
+// un bug: sirve para arrancar, no es el estado final.
+//
+// Cuando haya dominio: verificarlo en Mailjet (o pasar a Resend, que es más
+// lindo pero EXIGE dominio) y cambiar EMAIL_FROM. El código no se toca.
 //
 // Para cambiar de proveedor: reescribir SOLO `sendEmail`. El resto del archivo
 // (y el resto de la app) no se entera.
 //
 // Variables de entorno:
-//   BREVO_API_KEY    — la key de Brevo (obligatoria; sin ella no se manda nada)
-//   EMAIL_FROM       — dirección verificada en Brevo
-//   EMAIL_FROM_NAME  — nombre que ve el destinatario (default: "Turnito")
+//   MAILJET_API_KEY     — API Key de Mailjet (la pública)
+//   MAILJET_SECRET_KEY  — Secret Key de Mailjet (la privada; nunca al cliente)
+//   EMAIL_FROM          — dirección verificada en Mailjet
+//   EMAIL_FROM_NAME     — nombre que ve el destinatario (default: "Turnito")
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -38,6 +46,11 @@ export const isValidEmail = (v: unknown): v is string =>
   typeof v === "string" && v.length <= 254 && EMAIL_RE.test(v.trim());
 
 type SendResult = { ok: true } | { ok: false; error: string };
+
+/** Sólo lo que miramos de la respuesta de Mailjet; el resto no nos interesa. */
+type MailjetResponse = {
+  Messages?: { Status?: string; Errors?: { ErrorMessage?: string }[] }[];
+};
 
 /**
  * Manda un mail. NUNCA lanza: devuelve { ok:false } y el que llama decide.
@@ -52,33 +65,55 @@ export async function sendEmail(opts: {
   /** Para que "Responder" le conteste a quien escribió, no a la casilla del sistema. */
   replyTo?: { email: string; name?: string };
 }): Promise<SendResult> {
-  const apiKey = process.env.BREVO_API_KEY;
+  const apiKey = process.env.MAILJET_API_KEY;
+  const secretKey = process.env.MAILJET_SECRET_KEY;
   const from = process.env.EMAIL_FROM;
 
   // Sin configurar (ej: en local) no es un error: simplemente no se manda.
-  if (!apiKey || !from) return { ok: false, error: "EMAIL_NOT_CONFIGURED" };
+  if (!apiKey || !secretKey || !from) return { ok: false, error: "EMAIL_NOT_CONFIGURED" };
+
+  // Mailjet autentica con Basic y las DOS claves, no con un bearer.
+  const auth = Buffer.from(`${apiKey}:${secretKey}`).toString("base64");
 
   try {
-    const res = await fetch("https://api.brevo.com/v3/smtp/email", {
+    const res = await fetch("https://api.mailjet.com/v3.1/send", {
       method: "POST",
       headers: {
-        "api-key": apiKey,
+        authorization: `Basic ${auth}`,
         "content-type": "application/json",
-        accept: "application/json",
       },
       body: JSON.stringify({
-        sender: { email: from, name: process.env.EMAIL_FROM_NAME || "Turnito" },
-        to: [{ email: opts.to }],
-        subject: opts.subject,
-        htmlContent: opts.html,
-        textContent: opts.text,
-        ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
+        Messages: [
+          {
+            From: { Email: from, Name: process.env.EMAIL_FROM_NAME || "Turnito" },
+            To: [{ Email: opts.to }],
+            Subject: opts.subject,
+            HTMLPart: opts.html,
+            TextPart: opts.text,
+            ...(opts.replyTo
+              ? { ReplyTo: { Email: opts.replyTo.email, Name: opts.replyTo.name } }
+              : {}),
+          },
+        ],
       }),
     });
 
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       return { ok: false, error: `HTTP ${res.status} ${body.slice(0, 200)}` };
+    }
+
+    // OJO: la v3.1 devuelve 200 aunque el mensaje no haya salido — el resultado
+    // real viene por mensaje, en Messages[].Status. Sin este chequeo daríamos
+    // por enviado algo que Mailjet rechazó (típico: remitente sin verificar).
+    const data = (await res.json().catch(() => null)) as MailjetResponse | null;
+    const msg = data?.Messages?.[0];
+    if (msg?.Status !== "success") {
+      const detail = (msg?.Errors ?? [])
+        .map((e) => e.ErrorMessage)
+        .filter(Boolean)
+        .join("; ");
+      return { ok: false, error: (detail || `Status ${msg?.Status ?? "desconocido"}`).slice(0, 200) };
     }
     return { ok: true };
   } catch (e) {

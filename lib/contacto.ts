@@ -1,7 +1,7 @@
 // Datos de contacto públicos de Turnito.
 //
 // Vive aparte de lib/email.ts a propósito: esto lo importa el navegador (el
-// modal de la landing) y email.ts tiene el cliente de Brevo, que es server-only.
+// modal de la landing) y email.ts tiene el cliente de Mailjet, que es server-only.
 
 /** A dónde llegan las consultas del formulario. */
 export const CONTACT_TO = "labsbebop@gmail.com";

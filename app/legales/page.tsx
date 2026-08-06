@@ -145,8 +145,8 @@ export default function LegalesPage() {
               Los datos del Cliente se comparten con el Negocio en el que reserva (es quien lo atenderá).
               Utilizamos proveedores de infraestructura y servicios que actúan por cuenta nuestra, como
               alojamiento y base de datos (Supabase), hosting (Vercel), procesamiento de pagos (Mercado Pago)
-              y envío de mensajes. Estos proveedores solo acceden a los datos necesarios para prestar su
-              función.
+              y envío de emails (Mailjet). Estos proveedores solo acceden a los datos necesarios para prestar
+              su función.
             </Block>
 
             <Block title="2.5 Conservación">
