@@ -15,7 +15,6 @@ import {
   Item,
   fadeUp,
   scaleIn,
-  slideRight,
   stagger,
   staggerFast,
   EASE,
@@ -141,21 +140,6 @@ const css = `
 .ld .step p{font-size:14px;color:var(--c-muted);line-height:1.65}
 .ld .step .mono{font-family:var(--font-mono),monospace;color:var(--c-accent);font-size:13px;font-weight:600}
 
-/* precio */
-.ld .pricing{display:grid;grid-template-columns:1fr 1fr;gap:16px;align-items:stretch}
-.ld .price-copy{padding:44px 8px 44px 0;display:flex;flex-direction:column;justify-content:center}
-.ld .price-copy p{color:var(--c-muted);font-size:15.5px;max-width:420px;margin-top:16px}
-.ld .price-card{background:var(--c-block);color:var(--c-on-block);border-radius:36px;padding:48px 44px}
-.ld .price-tag{display:inline-block;background:var(--c-highlight);color:var(--c-on-highlight);font-size:11.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;padding:6px 14px;border-radius:100px;margin-bottom:26px}
-.ld .price-num{font-size:66px;font-weight:800;line-height:1;letter-spacing:-0.045em}
-.ld .price-num small{font-size:17px;color:var(--c-on-block-soft);font-weight:500;letter-spacing:0}
-.ld .price-note{font-size:13px;color:var(--c-on-block-faint);margin:8px 0 30px}
-.ld .pl{list-style:none;margin-bottom:30px}
-.ld .pl li{display:flex;align-items:center;gap:12px;padding:11px 0;font-size:14.5px;color:var(--c-on-block);border-bottom:1px solid var(--c-block-line)}
-.ld .pl li:last-child{border:none}
-.ld .pl .check{width:21px;height:21px;border-radius:50%;background:var(--c-highlight);color:var(--c-on-highlight);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;flex-shrink:0}
-.ld .price-fine{font-size:12.5px;color:var(--c-on-block-faint);margin-top:15px;text-align:center}
-
 /* faq */
 .ld .faq{max-width:790px;margin:0 auto}
 .ld details{background:var(--c-surface);border-radius:22px;margin-bottom:10px;overflow:hidden}
@@ -191,7 +175,6 @@ const css = `
   .ld .phone{margin:0 auto}
   .ld .fgrid{grid-template-columns:repeat(2,1fr)}
   .ld .steps{grid-template-columns:1fr}
-  .ld .pricing{grid-template-columns:1fr}
   .ld .nav-links{display:none}
   .ld .about,.ld .feat-wrap{padding:44px 26px}
   .ld .sec-head{flex-direction:column;align-items:flex-start}
@@ -200,7 +183,6 @@ const css = `
 @media(max-width:560px){
   .ld .fgrid{grid-template-columns:1fr}
   .ld section{padding:64px 20px}
-  .ld .price-card{padding:36px 26px}
 }
 `;
 
@@ -288,7 +270,7 @@ export default function LandingPage() {
             <a href="#rubros">Para quién es</a>
             <a href="#features">Qué incluye</a>
             <a href="#como">Cómo funciona</a>
-            <a href="#precio">Precio</a>
+            <a href="#faq">Preguntas</a>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
             <ThemeToggle />
@@ -499,45 +481,6 @@ export default function LandingPage() {
               </Item>
             ))}
           </RevealGroup>
-        </div>
-      </section>
-
-      {/* PRECIO */}
-      <section id="precio" style={{ paddingTop: 0 }}>
-        <div className="wrap pricing">
-          <Reveal className="price-copy">
-            <div className="kicker">Precio</div>
-            <h2 className="dot">Un solo plan. Sin letra chica</h2>
-            <p>Nada de versión básica recortada ni &quot;premium&quot; con lo que de verdad necesitás. Un plan con todo, y una prueba gratis para decidir tranquilo.</p>
-            <p style={{ fontWeight: 700, color: "#000" }}>Si en 30 días no te sirvió, no ponés un peso.</p>
-          </Reveal>
-          <Reveal variants={scaleIn}>
-            <div className="price-card">
-              <div className="price-tag">Plan único</div>
-              <div className="price-num">$40.000<small> ARS/mes</small></div>
-              <div className="price-note">IVA incluido · con factura · por Mercado Pago</div>
-              <motion.ul className="pl" variants={staggerFast} initial="hidden" whileInView="show" viewport={{ once: true, amount: 0.2 }}>
-                {[
-                  "Reservas online ilimitadas",
-                  `Tu link propio: ${SITE_DOMAIN}/tu-negocio`,
-                  "Panel con la agenda del día",
-                  "Una agenda por cada persona del equipo",
-                  "Comprobante online para cada turno",
-                  "Cancelación online para tus clientes",
-                  "Soporte directo por WhatsApp",
-                  "Sin contrato, sin permanencia",
-                ].map((t) => (
-                  <motion.li key={t} variants={slideRight}><span className="check">✓</span>{t}</motion.li>
-                ))}
-              </motion.ul>
-              <motion.div {...hover}>
-                <Link className="pill lime" href="/login" style={{ width: "100%", justifyContent: "center" }}>
-                  Empezar mis 30 días gratis <span>→</span>
-                </Link>
-              </motion.div>
-              <div className="price-fine">No pedimos tarjeta para probar.</div>
-            </div>
-          </Reveal>
         </div>
       </section>
 
