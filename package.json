@@ -8,9 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "db:snapshot": "node scripts/introspect.mjs",
-    "db:migrate": "node scripts/migrate.mjs"
+    "db:migrate": "node scripts/migrate.mjs",
+    "test:e2e": "playwright test --config e2e-local/playwright.config.ts",
+    "test:auth": "node --env-file=.env e2e-local/gen-auth.mjs",
+    "test:rls": "node --env-file=.env e2e-local/audit-rls.mjs"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.69.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",
     "framer-motion": "^12.42.2",
@@ -19,6 +23,7 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@playwright/test": "^1.62.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
