@@ -116,7 +116,19 @@ export default function PanelPage() {
     setAppts((data as unknown as Appt[]) ?? []);
   }
 
-  useEffect(() => { if (shop) loadAppts(shop.id, date); /* eslint-disable-next-line */ }, [shop, date]);
+  // Carga inicial y recarga al cambiar de día.
+  //
+  // El disable es a conciencia, no para tapar el error: `loadAppts` es async y
+  // su setAppts ocurre DESPUÉS del await, o sea después de que vuelve la red.
+  // Eso no es el render en cascada que la regla busca evitar — es un fetch, que
+  // es exactamente para lo que existe useEffect. El linter no puede ver a través
+  // del await y marca falso positivo.
+  //
+  // Si algún día loadAppts pasa a hacer setState de forma SÍNCRONA (por ejemplo
+  // un setLoading(true) al principio), este disable deja de ser válido y hay que
+  // rever el caso.
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => { if (shop) loadAppts(shop.id, date); }, [shop, date]);
 
   // ── AUTO-REFRESCO (polling) ──────────────────────────────────────────────
   // Ves turnos nuevos sin recargar la página. Encapsulado ACÁ a propósito: el
