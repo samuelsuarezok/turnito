@@ -1,0 +1,68 @@
+name: CI
+
+# Fase 1: chequeos estáticos en cada push y cada PR a main.
+#
+# Los e2e NO corren acá a propósito — ver el comentario al final del archivo.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Si pusheás dos veces seguidas, cancela la corrida vieja en vez de gastar
+# minutos en un commit que ya quedó atrás.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  static:
+    name: Types + Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          # Next 16 pide Node 20+. Fijamos 22 (LTS) para que CI no cambie de
+          # versión sola el día que GitHub mueva el default.
+          node-version: 22
+          cache: npm
+
+      # `npm ci` y no `npm install`: instala EXACTO lo del package-lock y falla
+      # si el lock no coincide con el package.json. En CI querés reproducible,
+      # no "que resuelva".
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      # eslint sale con código != 0 si hay ERRORES; los warnings no cortan.
+      # Si algún día querés que los warnings también rompan el build:
+      #   npx eslint --max-warnings 0
+      - name: Lint
+        run: npx eslint
+
+# ─────────────────────────────────────────────────────────────────────────────
+# POR QUÉ LOS E2E NO ESTÁN ACÁ
+#
+# Los specs de e2e-local/ le pegan al Supabase REAL: crean turnos, los borran y
+# generan cookies de sesión del dueño de verdad. Correr eso en cada push sería
+# escribir en producción desde CI. No es un olvido, es una decisión.
+#
+# Para sumarlos hace falta antes:
+#   1. Un proyecto de Supabase aparte para test, con su propio schema y seed.
+#   2. Las credenciales de ESE proyecto como secrets del repo.
+#   3. Resolver el login: hoy .auth.json se genera a mano con gen-auth.mjs y el
+#      JWT dura 1 hora, así que en CI hay que generarlo en cada corrida.
+#   4. Levantar la app (next build && next start) antes de Playwright.
+#
+# Mientras tanto se corren a mano:
+#   npm run dev
+#   node --env-file=.env e2e-local/gen-auth.mjs <email-del-dueño>
+#   npx playwright test --config e2e-local/playwright.config.ts
+# ─────────────────────────────────────────────────────────────────────────────
