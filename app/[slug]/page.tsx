@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useEffect, useMemo, useState } from "react";
+import { use, useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
@@ -69,6 +69,12 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const [error, setError] = useState("");
   const [token, setToken] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
+
+  // Honeypot. Va por ref y NO por useState a propósito: un bot que escribe
+  // input.value directo en el DOM no dispara el onChange de React, así que con
+  // un input controlado el estado quedaría vacío y la trampa nunca saltaría.
+  // Leyendo el ref vemos el valor real del DOM, lo haya puesto quien lo haya puesto.
+  const honeypotRef = useRef<HTMLInputElement>(null);
 
   const days = useMemo(() => getNext7Days(), []);
   const today = fmtDate(new Date());
@@ -150,11 +156,20 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     });
   }, [shop, weekday, date, today, dayIsClosed, staffAbsent, busyIntervals, closedBlocks, service]);
 
-  // Si cambia el servicio/persona y el horario elegido ya no entra, deseleccionarlo
-  useEffect(() => {
-    if (time && !availability[time]) setTime(null);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [service, member, availability]);
+  // Si cambia el servicio/persona y el horario elegido ya no entra, deseleccionarlo.
+  //
+  // Se ajusta DURANTE EL RENDER, no en un useEffect. Es el patrón que React
+  // documenta para "ajustar estado cuando cambia una prop"
+  // (react.dev → You Might Not Need an Effect):
+  //
+  //   - Con effect: React pinta un frame con el horario inválido todavía
+  //     seleccionado y recién después lo limpia. Se ve el parpadeo.
+  //   - Durante el render: React descarta el render y vuelve a arrancar antes
+  //     de tocar el DOM. El usuario nunca ve el estado intermedio.
+  //
+  // No hace loop: después del setTime(null), `time` es null y la condición da
+  // false. Converge en un solo re-render.
+  if (time && !availability[time]) setTime(null);
 
   async function book() {
     setError(""); setSaving(true);
@@ -165,6 +180,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
         slug, service_id: service!.id, staff_id: member?.id ?? null,
         date, time, client_name: name.trim(), client_phone: phone.trim(),
         client_email: EMAIL_ENABLED ? email.trim() || null : null,
+        website: honeypotRef.current?.value ?? "",
       }),
     });
     const json = await res.json();
@@ -399,6 +415,22 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 </>
               )}
               <p className="text-xs text-faint mb-7">Solo usamos tus datos para tu turno. No creamos ninguna cuenta.</p>
+
+              {/* Honeypot: invisible para humanos, irresistible para bots.
+                  Lo sacamos de pantalla en vez de usar display:none porque
+                  varios bots saltean los campos con display:none.
+                  aria-hidden + tabIndex=-1 para que no moleste a lectores de
+                  pantalla ni al recorrido por teclado. */}
+              <input
+                ref={honeypotRef}
+                type="text"
+                name="website"
+                defaultValue=""
+                tabIndex={-1}
+                aria-hidden="true"
+                autoComplete="off"
+                className="absolute left-[-9999px] top-0 h-0 w-0 opacity-0"
+              />
 
               {error && (
                 <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-sm text-danger mb-4">{error}</motion.p>

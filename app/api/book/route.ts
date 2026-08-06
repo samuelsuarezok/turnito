@@ -1,16 +1,59 @@
-// API DE RESERVA v3: solapamiento por duración + anticipación mínima
-// REEMPLAZA TODO: app/api/book/route.ts
+// API DE RESERVA v4: rate limit + honeypot + validación estricta
+//   v3: solapamiento por duración + anticipación mínima
+//
+// OJO con este archivo: usa la service role key, así que SALTEA RLS y todos los
+// GRANTs. Es el único endpoint público que escribe en la base. Todo lo que entre
+// acá sin validar entra directo.
 
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { zonedTimeToUtc } from "@/lib/slots";
 import { appointmentEmail, isValidEmail, ownerAppointmentEmail, sendEmail } from "@/lib/email";
+import { checkIpLimit, clientIp, hashIp, recordAttempt } from "@/lib/rate-limit";
+import { isBot, validateBooking } from "@/lib/validate-booking";
 
 const toMin = (t: string) => { const [h, m] = t.slice(0, 5).split(":").map(Number); return h * 60 + m; };
+
+const tooMany = (retryAfterSec: number) =>
+  NextResponse.json(
+    { error: "Demasiados intentos. Probá de nuevo en un rato.", code: "RATE_LIMITED" },
+    { status: 429, headers: { "Retry-After": String(retryAfterSec) } }
+  );
 
 export async function POST(req: Request) {
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+
+  const supabase = createAdminClient();
+  const ipHash = hashIp(clientIp(req));
+
+  // 0. Rate limit por IP. Va PRIMERO: si esta IP ya está pasada de rosca,
+  //    cortamos antes de gastar queries.
+  const ipCheck = await checkIpLimit(supabase, ipHash);
+
+  if (!ipCheck.ok) {
+    await recordAttempt(supabase, { ipHash, businessId: null, outcome: "rate_limited" });
+    return tooMany(ipCheck.retryAfterSec);
+  }
+
+  // 0.5 Honeypot: campo oculto que solo completa un bot.
+  //     Devolvemos 200 fingiendo éxito, igual que /api/contact: al bot no le
+  //     avisamos que lo detectamos, así no adapta el ataque.
+  if (isBot(body)) {
+    await recordAttempt(supabase, { ipHash, businessId: null, outcome: "honeypot" });
+    return NextResponse.json({ token: null, emailSent: false });
+  }
+
+  // 0.75 Validación estricta como COMPUERTA. A propósito no usamos los valores
+  //      que devuelve: solo cortamos si el payload es basura (teléfono
+  //      "1111111", nombre de 1 char, fecha inventada). Los campos los sigue
+  //      leyendo el código de abajo desde `body`, tal cual estaba, así
+  //      `staff_id` y `client_email` no se caen en el camino.
+  const gate = validateBooking(body);
+  if (!gate.ok) {
+    await recordAttempt(supabase, { ipHash, businessId: null, outcome: "invalid" });
+    return NextResponse.json({ error: gate.error }, { status: 400 });
+  }
 
   const { slug, service_id, staff_id, date, time, client_name, client_phone, client_email } = body;
 
@@ -35,7 +78,11 @@ export async function POST(req: Request) {
   }
   const email = rawEmail ? rawEmail.toLowerCase() : null;
 
-  const supabase = createAdminClient();
+  // NOTA: el cupo por negocio NO se chequea acá. Vive en un trigger de Postgres
+  // (0006_booking_caps_trigger.sql) y salta en el insert del paso 4. Se hizo así
+  // a propósito: en el código tenía una race condition —entre el count y el
+  // insert pasaban requests concurrentes— y podía quedar inactivo si la query
+  // fallaba. En la base no puede pasar ninguna de las dos.
 
   // 1. Negocio activo (traemos también la anticipación mínima)
   const { data: shop } = await supabase
@@ -177,6 +224,17 @@ export async function POST(req: Request) {
         { status: 409 }
       );
     }
+    // El cupo lo levanta el trigger enforce_booking_caps(). Llega como
+    // excepción de plpgsql, así que hay que traducirla a algo que el cliente
+    // entienda en vez de un 500 genérico.
+    if (error.message.includes("BOOKING_CAP_DAY")) {
+      await recordAttempt(supabase, { ipHash, businessId: shop.id, outcome: "rate_limited" });
+      return tooMany(6 * 3600);
+    }
+    if (error.message.includes("BOOKING_CAP_HOUR")) {
+      await recordAttempt(supabase, { ipHash, businessId: shop.id, outcome: "rate_limited" });
+      return tooMany(3600);
+    }
     console.error("Error al reservar:", error.message);
     return NextResponse.json({ error: "Error al reservar" }, { status: 500 });
   }
@@ -234,6 +292,9 @@ export async function POST(req: Request) {
   const emailSent = clientSent?.ok ?? false;
 
   // TODO: WhatsApp de confirmación con el link mágico
+
+  // Reserva exitosa: cuenta para el cupo de la IP.
+  await recordAttempt(supabase, { ipHash, businessId: shop.id, outcome: "booked" });
 
   return NextResponse.json({ token: appt.token, emailSent });
 }
