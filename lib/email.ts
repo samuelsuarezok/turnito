@@ -207,6 +207,83 @@ export function appointmentEmail(a: {
   return { subject, html, text };
 }
 
+/**
+ * Arma el aviso al dueño del local de que le entró un turno.
+ *
+ * Es otro mail, no el del cliente con el remitente cambiado: acá lo que importa
+ * es a quién atiende y cómo ubicarlo, así que el teléfono va arriba de todo y
+ * es lo único cliqueable junto con el panel.
+ */
+export function ownerAppointmentEmail(a: {
+  shopName: string;
+  clientName: string;
+  clientPhone: string;
+  clientEmail: string | null;
+  serviceName: string;
+  staffName: string | null;
+  date: string;
+  time: string;
+  panelUrl: string;
+}) {
+  const fecha = fmtFechaLarga(a.date);
+  const hora = a.time.slice(0, 5);
+  const conPersona = a.staffName ? ` con ${a.staffName}` : "";
+
+  const subject = `Nuevo turno: ${a.clientName} — ${fecha} ${hora} hs`;
+
+  const text = [
+    `Te reservaron un turno en ${a.shopName}.`,
+    ``,
+    `Cliente: ${a.clientName}`,
+    `Teléfono: ${a.clientPhone}`,
+    ...(a.clientEmail ? [`Email: ${a.clientEmail}`] : []),
+    `Servicio: ${a.serviceName}${conPersona}`,
+    `Día: ${fecha}`,
+    `Hora: ${hora} hs`,
+    ``,
+    `Verlo en tu panel:`,
+    a.panelUrl,
+  ].join("\n");
+
+  const row = (k: string, v: string) => `
+    <tr>
+      <td style="padding:10px 0;border-bottom:1px solid #E1E4EA;color:#5E6470;font-size:14px;white-space:nowrap;">${esc(k)}</td>
+      <td style="padding:10px 0;border-bottom:1px solid #E1E4EA;color:#0A0C10;font-size:14px;font-weight:600;text-align:right;">${v}</td>
+    </tr>`;
+
+  // El teléfono va como tel: para poder llamarlo de una desde el celular. Es lo
+  // primero que necesita el local si tiene que reprogramar o avisar algo.
+  const telHref = `tel:${a.clientPhone.replace(/[^\d+]/g, "")}`;
+
+  const html = `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:24px 12px;background:#F0F1F3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;border-radius:16px;overflow:hidden;border:1px solid #E1E4EA;">
+    <tr><td style="background:#014CFF;padding:20px 24px;">
+      <span style="color:#FFFFFF;font-size:18px;font-weight:700;letter-spacing:-0.02em;">Turnito</span>
+    </td></tr>
+    <tr><td style="padding:28px 24px 8px;">
+      <div style="display:inline-block;background:#B4EC5C;color:#000000;font-size:11px;font-weight:700;letter-spacing:0.08em;padding:6px 12px;border-radius:999px;">NUEVO TURNO</div>
+      <h1 style="margin:16px 0 4px;font-size:22px;color:#000000;font-weight:700;">${esc(fecha)}, ${esc(hora)} hs</h1>
+      <p style="margin:0 0 20px;font-size:14px;color:#5E6470;line-height:1.5;"><strong style="color:#000000;">${esc(a.clientName)}</strong> reservó en ${esc(a.shopName)}.</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
+        ${row("Teléfono", `<a href="${esc(telHref)}" style="color:#014CFF;text-decoration:none;">${esc(a.clientPhone)}</a>`)}
+        ${a.clientEmail ? row("Email", esc(a.clientEmail)) : ""}
+        ${row("Servicio", esc(a.serviceName + conPersona))}
+      </table>
+    </td></tr>
+    <tr><td style="padding:8px 24px 28px;">
+      <a href="${esc(a.panelUrl)}" style="display:block;background:#014CFF;color:#FFFFFF;text-decoration:none;text-align:center;font-weight:700;font-size:15px;padding:14px;border-radius:999px;">Ver en mi panel</a>
+    </td></tr>
+  </table>
+  <p style="max-width:480px;margin:14px auto 0;font-size:11px;color:#9A9A92;text-align:center;line-height:1.5;">
+    Recibís este aviso porque sos el titular de ${esc(a.shopName)} en Turnito.
+  </p>
+</body></html>`;
+
+  return { subject, html, text };
+}
+
 // La dirección vive en lib/contacto.ts (que también lee el cliente). Se
 // re-exporta acá para que la API route la traiga junto con contactEmail.
 export { CONTACT_TO } from "./contacto";

@@ -4,7 +4,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { zonedTimeToUtc } from "@/lib/slots";
-import { appointmentEmail, isValidEmail, sendEmail } from "@/lib/email";
+import { appointmentEmail, isValidEmail, ownerAppointmentEmail, sendEmail } from "@/lib/email";
 
 const toMin = (t: string) => { const [h, m] = t.slice(0, 5).split(":").map(Number); return h * 60 + m; };
 
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
   // 1. Negocio activo (traemos también la anticipación mínima)
   const { data: shop } = await supabase
     .from("businesses")
-    .select("id, name, subscription_status, min_notice_min, timezone")
+    .select("id, name, owner_id, subscription_status, min_notice_min, timezone")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -181,25 +181,57 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Error al reservar" }, { status: 500 });
   }
 
-  // 5. Mail de confirmación (opcional).
-  // OJO: el turno YA está guardado. Si el mail falla, se loguea y seguimos —
-  // sería absurdo perder una reserva porque el proveedor de mail se cayó.
-  let emailSent = false;
-  if (email) {
-    const origin = req.headers.get("origin") || new URL(req.url).origin;
-    const { subject, html, text } = appointmentEmail({
-      shopName: shop.name,
-      clientName: client_name.trim(),
-      serviceName: service.name,
-      staffName: staffId ? (shopStaff ?? []).find((b) => b.id === staffId)?.name ?? null : null,
-      date: String(date),
-      time: String(time),
-      manageUrl: `${origin}/t/${appt.token}`,
-    });
-    const sent = await sendEmail({ to: email, subject, html, text });
-    emailSent = sent.ok;
-    if (!sent.ok) console.error("No se pudo enviar el mail de confirmación:", sent.error);
+  // 5. Avisos por mail: confirmación al cliente y aviso al dueño.
+  // OJO: el turno YA está guardado. Si algo de esto falla, se loguea y seguimos
+  // — sería absurdo perder una reserva porque el proveedor de mail se cayó.
+  const origin = req.headers.get("origin") || new URL(req.url).origin;
+  const datos = {
+    shopName: shop.name,
+    clientName: client_name.trim(),
+    serviceName: service.name,
+    staffName: staffId ? (shopStaff ?? []).find((b) => b.id === staffId)?.name ?? null : null,
+    date: String(date),
+    time: String(time),
+  };
+
+  // El mail del dueño no está en `businesses`: vive en auth.users, atado por
+  // owner_id. Lo leemos con la service role key, que es la única que puede.
+  const { data: ownerData } = await supabase.auth.admin.getUserById(shop.owner_id);
+  const ownerEmail = ownerData?.user?.email ?? null;
+
+  // Al cliente sólo si dejó su mail; al dueño siempre, que para eso es su
+  // negocio. Los dos en paralelo: son llamadas de red y no tiene sentido que el
+  // cliente espere una atrás de la otra para ver su comprobante.
+  const [clientSent, ownerSent] = await Promise.all([
+    email
+      ? sendEmail({
+          to: email,
+          ...appointmentEmail({ ...datos, manageUrl: `${origin}/t/${appt.token}` }),
+        })
+      : Promise.resolve(null),
+    ownerEmail
+      ? sendEmail({
+          to: ownerEmail,
+          ...ownerAppointmentEmail({
+            ...datos,
+            clientPhone: client_phone.trim(),
+            clientEmail: email,
+            panelUrl: `${origin}/panel`,
+          }),
+          // Si el cliente dejó mail, "Responder" le escribe directo a él.
+          ...(email ? { replyTo: { email, name: client_name.trim() } } : {}),
+        })
+      : Promise.resolve(null),
+  ]);
+
+  if (clientSent && !clientSent.ok) {
+    console.error("No se pudo enviar el mail de confirmación:", clientSent.error);
   }
+  if (ownerSent && !ownerSent.ok) {
+    console.error("No se pudo avisar al dueño del turno nuevo:", ownerSent.error);
+  }
+
+  const emailSent = clientSent?.ok ?? false;
 
   // TODO: WhatsApp de confirmación con el link mágico
 
