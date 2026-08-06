@@ -136,6 +136,40 @@ export async function sendEmail(opts: {
 const esc = (s: string) =>
   s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
+/**
+ * Envoltorio común de los tres mails.
+ *
+ * Es deliberadamente sobrio: sin barra de color arriba, sin botones anchos y
+ * sin etiquetas tipo campaña. Un comprobante tiene que parecer un comprobante.
+ * Gmail lee el maquetado colorido como newsletter y lo manda a Promociones, y
+ * un aviso de turno tiene que llegar a Principal.
+ */
+function shell(inner: string, footer: string) {
+  return `<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:24px 20px;background:#ffffff;color:#1a1c20;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:15px;line-height:1.55;">
+  <div style="max-width:520px;margin:0 auto;">
+    <p style="margin:0 0 20px;font-size:13px;font-weight:700;color:#6b7280;">Turnito</p>
+${inner}
+    <p style="margin:26px 0 0;padding-top:14px;border-top:1px solid #ececec;font-size:12px;color:#8a8f98;">${footer}</p>
+  </div>
+</body></html>`;
+}
+
+/**
+ * Tabla de datos, estilo recibo. Los valores llegan YA escapados: algunos traen
+ * un enlace adentro, así que acá no se puede escapar de nuevo.
+ */
+function rows(pairs: [string, string][]) {
+  const tr = ([k, v]: [string, string]) => `      <tr>
+        <td style="padding:7px 0;border-bottom:1px solid #f2f2f2;color:#6b7280;font-size:14px;white-space:nowrap;">${esc(k)}</td>
+        <td style="padding:7px 0;border-bottom:1px solid #f2f2f2;color:#1a1c20;font-size:14px;font-weight:600;text-align:right;">${v}</td>
+      </tr>`;
+  return `    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:16px 0;border-collapse:collapse;">
+${pairs.map(tr).join("\n")}
+    </table>`;
+}
+
 // "2026-07-30" → "jueves 30 de julio"
 const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio",
   "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -179,40 +213,17 @@ export function appointmentEmail(a: {
     `Guardá este link: es tu comprobante.`,
   ].join("\n");
 
-  const row = (k: string, v: string) => `
-    <tr>
-      <td style="padding:10px 0;border-bottom:1px solid #ECECE8;color:#6E6E68;font-size:14px;">${esc(k)}</td>
-      <td style="padding:10px 0;border-bottom:1px solid #ECECE8;color:#101010;font-size:14px;font-weight:600;text-align:right;">${esc(v)}</td>
-    </tr>`;
-
-  // Estilos inline y layout con tablas: es lo único que renderiza parejo en
-  // Gmail, Outlook y demás.
-  const html = `<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:24px 12px;background:#F5F5F2;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;border-radius:16px;overflow:hidden;border:1px solid #E4E4DE;">
-    <tr><td style="background:#014CFF;padding:20px 24px;">
-      <span style="color:#FFFFFF;font-size:18px;font-weight:700;letter-spacing:-0.02em;">Turnito</span>
-    </td></tr>
-    <tr><td style="padding:28px 24px 8px;">
-      <div style="display:inline-block;background:#B4EC5C;color:#000000;font-size:11px;font-weight:700;letter-spacing:0.08em;padding:6px 12px;border-radius:999px;">TURNO CONFIRMADO</div>
-      <h1 style="margin:16px 0 4px;font-size:22px;color:#000000;font-weight:700;">¡Hola ${esc(a.clientName)}!</h1>
-      <p style="margin:0 0 20px;font-size:14px;color:#5E6470;line-height:1.5;">Tu turno en <strong style="color:#000000;">${esc(a.shopName)}</strong> quedó reservado. Te esperamos.</p>
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-        ${row("Servicio", a.serviceName + conPersona)}
-        ${row("Día", fecha)}
-        ${row("Hora", `${hora} hs`)}
-      </table>
-    </td></tr>
-    <tr><td style="padding:8px 24px 28px;">
-      <a href="${esc(a.manageUrl)}" style="display:block;background:#014CFF;color:#FFFFFF;text-decoration:none;text-align:center;font-weight:700;font-size:15px;padding:14px;border-radius:999px;">Ver o cancelar mi turno</a>
-      <p style="margin:14px 0 0;font-size:12px;color:#8A8A82;line-height:1.5;text-align:center;">Guardá este mail: el link de arriba es tu comprobante.</p>
-    </td></tr>
-  </table>
-  <p style="max-width:480px;margin:14px auto 0;font-size:11px;color:#9A9A92;text-align:center;line-height:1.5;">
-    Recibís este mail porque dejaste tu dirección al reservar un turno en ${esc(a.shopName)}.
-  </p>
-</body></html>`;
+  const html = shell(
+    `    <p style="margin:0;">Hola ${esc(a.clientName)}, tu turno en <strong>${esc(a.shopName)}</strong> quedó confirmado.</p>
+${rows([
+      ["Servicio", esc(a.serviceName + conPersona)],
+      ["Día", esc(fecha)],
+      ["Hora", `${esc(hora)} hs`],
+    ])}
+    <p style="margin:16px 0 0;">Podés <a href="${esc(a.manageUrl)}" style="color:#014cff;">ver o cancelar tu turno acá</a>.</p>
+    <p style="margin:8px 0 0;font-size:14px;color:#6b7280;">Guardá este mail: ese link es tu comprobante.</p>`,
+    `Recibís este mail porque dejaste tu dirección al reservar un turno en ${esc(a.shopName)}.`
+  );
 
   return { subject, html, text };
 }
@@ -255,41 +266,20 @@ export function ownerAppointmentEmail(a: {
     a.panelUrl,
   ].join("\n");
 
-  const row = (k: string, v: string) => `
-    <tr>
-      <td style="padding:10px 0;border-bottom:1px solid #E1E4EA;color:#5E6470;font-size:14px;white-space:nowrap;">${esc(k)}</td>
-      <td style="padding:10px 0;border-bottom:1px solid #E1E4EA;color:#0A0C10;font-size:14px;font-weight:600;text-align:right;">${v}</td>
-    </tr>`;
-
   // El teléfono va como tel: para poder llamarlo de una desde el celular. Es lo
   // primero que necesita el local si tiene que reprogramar o avisar algo.
   const telHref = `tel:${a.clientPhone.replace(/[^\d+]/g, "")}`;
 
-  const html = `<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:24px 12px;background:#F0F1F3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:480px;margin:0 auto;background:#FFFFFF;border-radius:16px;overflow:hidden;border:1px solid #E1E4EA;">
-    <tr><td style="background:#014CFF;padding:20px 24px;">
-      <span style="color:#FFFFFF;font-size:18px;font-weight:700;letter-spacing:-0.02em;">Turnito</span>
-    </td></tr>
-    <tr><td style="padding:28px 24px 8px;">
-      <div style="display:inline-block;background:#B4EC5C;color:#000000;font-size:11px;font-weight:700;letter-spacing:0.08em;padding:6px 12px;border-radius:999px;">NUEVO TURNO</div>
-      <h1 style="margin:16px 0 4px;font-size:22px;color:#000000;font-weight:700;">${esc(fecha)}, ${esc(hora)} hs</h1>
-      <p style="margin:0 0 20px;font-size:14px;color:#5E6470;line-height:1.5;"><strong style="color:#000000;">${esc(a.clientName)}</strong> reservó en ${esc(a.shopName)}.</p>
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%">
-        ${row("Teléfono", `<a href="${esc(telHref)}" style="color:#014CFF;text-decoration:none;">${esc(a.clientPhone)}</a>`)}
-        ${a.clientEmail ? row("Email", esc(a.clientEmail)) : ""}
-        ${row("Servicio", esc(a.serviceName + conPersona))}
-      </table>
-    </td></tr>
-    <tr><td style="padding:8px 24px 28px;">
-      <a href="${esc(a.panelUrl)}" style="display:block;background:#014CFF;color:#FFFFFF;text-decoration:none;text-align:center;font-weight:700;font-size:15px;padding:14px;border-radius:999px;">Ver en mi panel</a>
-    </td></tr>
-  </table>
-  <p style="max-width:480px;margin:14px auto 0;font-size:11px;color:#9A9A92;text-align:center;line-height:1.5;">
-    Recibís este aviso porque sos el titular de ${esc(a.shopName)} en Turnito.
-  </p>
-</body></html>`;
+  const html = shell(
+    `    <p style="margin:0;"><strong>${esc(a.clientName)}</strong> reservó un turno en ${esc(a.shopName)} para el ${esc(fecha)} a las ${esc(hora)} hs.</p>
+${rows([
+      ["Teléfono", `<a href="${esc(telHref)}" style="color:#014cff;">${esc(a.clientPhone)}</a>`],
+      ...(a.clientEmail ? ([["Email", esc(a.clientEmail)]] as [string, string][]) : []),
+      ["Servicio", esc(a.serviceName + conPersona)],
+    ])}
+    <p style="margin:16px 0 0;">Podés <a href="${esc(a.panelUrl)}" style="color:#014cff;">verlo en tu panel</a>.</p>`,
+    `Recibís este aviso porque sos el titular de ${esc(a.shopName)} en Turnito.`
+  );
 
   return { subject, html, text };
 }
@@ -319,39 +309,20 @@ export function contactEmail(c: {
     `— Respondé este mail y le llega directo a ${c.email}.`,
   ].join("\n");
 
-  const row = (k: string, v: string) => `
-    <tr>
-      <td style="padding:10px 0;border-bottom:1px solid #E1E4EA;color:#5E6470;font-size:14px;white-space:nowrap;">${esc(k)}</td>
-      <td style="padding:10px 0;border-bottom:1px solid #E1E4EA;color:#000;font-size:14px;font-weight:600;text-align:right;">${esc(v)}</td>
-    </tr>`;
-
   // El mensaje va escapado y con los saltos de línea convertidos a <br>, para
   // que no rompa el HTML ni se aplaste en un solo párrafo.
   const cuerpo = esc(c.message).replace(/\r?\n/g, "<br>");
 
-  const html = `<!doctype html>
-<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:24px 12px;background:#F0F1F3;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:520px;margin:0 auto;background:#FFFFFF;border-radius:16px;overflow:hidden;border:1px solid #E1E4EA;">
-    <tr><td style="background:#014CFF;padding:20px 24px;">
-      <span style="color:#FFFFFF;font-size:18px;font-weight:700;letter-spacing:-0.02em;">Turnito</span>
-    </td></tr>
-    <tr><td style="padding:26px 24px 8px;">
-      <div style="display:inline-block;background:#B4EC5C;color:#000;font-size:11px;font-weight:700;letter-spacing:0.08em;padding:6px 12px;border-radius:999px;">NUEVA CONSULTA</div>
-      <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin-top:18px;">
-        ${row("Nombre", c.name)}
-        ${row("Email", c.email)}
-        ${c.rubro ? row("Rubro", c.rubro) : ""}
-      </table>
-      <p style="margin:20px 0 0;font-size:15px;color:#0A0C10;line-height:1.6;">${cuerpo}</p>
-    </td></tr>
-    <tr><td style="padding:20px 24px 26px;">
-      <p style="margin:0;font-size:12px;color:#5E6470;line-height:1.5;">
-        Respondé este mail y le llega directo a ${esc(c.email)}.
-      </p>
-    </td></tr>
-  </table>
-</body></html>`;
+  const html = shell(
+    `    <p style="margin:0;">Nueva consulta desde ${esc(SITE_DOMAIN)}.</p>
+${rows([
+      ["Nombre", esc(c.name)],
+      ["Email", esc(c.email)],
+      ...(c.rubro ? ([["Rubro", esc(c.rubro)]] as [string, string][]) : []),
+    ])}
+    <p style="margin:16px 0 0;">${cuerpo}</p>`,
+    `Respondé este mail y le llega directo a ${esc(c.email)}.`
+  );
 
   return { subject, html, text };
 }
