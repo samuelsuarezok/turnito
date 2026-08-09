@@ -267,6 +267,13 @@ export default function ConfigPage() {
       .eq("business_id", shopId).eq("active", true).order("sort_order");
     setServices((svcs ?? []) as Svc[]);
 
+    // Los chips de "quién lo hace" viven en esta sección pero escriben la misma
+    // relación que Equipo. Sin esto, tocarlos acá y apretar Guardar no guardaría
+    // nada y habría que ir a apretar el otro botón, que no lo adivina nadie.
+    for (const b of staff) {
+      if (b.id && !b._deleted) await syncServicios(b.id, b.service_ids);
+    }
+
     setSavingKey("");
     flash("svc");
   }
@@ -552,6 +559,56 @@ export default function ConfigPage() {
                     Cuando cierren, cargá el turno vos desde la agenda.
                   </p>
                 )}
+
+                {/* Quién lo hace. Es la MISMA relación que se edita en Equipo,
+                    leída al revés: armando un local uno piensa "el piercing lo
+                    hace Juan", no "Juan hace piercing". Las dos vistas comparten
+                    el estado, así que se mantienen solas en sincronía. */}
+                {svc.id && visibleStaff.length > 1 && (() => {
+                  const lohacen = visibleStaff.filter((b) => b.service_ids.includes(svc.id!));
+                  return (
+                    <div className="mt-2.5 pt-2.5 border-t border-line">
+                      <div className="text-[11px] text-faint mb-1.5">
+                        {lohacen.length === 0
+                          ? `Lo hace todo el equipo: ${visibleStaff.map((b) => b.name.trim() || "sin nombre").join(", ")}`
+                          : "Lo hacen sólo estas personas."}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {/* "Todos" no es un valor aparte: es la ausencia de
+                            asignaciones. El atajo deja eso a la vista. */}
+                        <button type="button"
+                          onClick={() => setStaff(staff.map((x) => ({
+                            ...x, service_ids: x.service_ids.filter((y) => y !== svc.id),
+                          })))}
+                          className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                            lohacen.length === 0
+                              ? "border-accent bg-accent-soft text-accent-ink"
+                              : "border-dashed border-line bg-surface text-faint"
+                          }`}>
+                          Todos
+                        </button>
+                        {visibleStaff.map((b) => {
+                          const on = b.service_ids.includes(svc.id!);
+                          const idx = staff.indexOf(b);
+                          return (
+                            <button key={b.id ?? `n${idx}`} type="button"
+                              onClick={() => setStaff(staff.map((x, j) => j !== idx ? x : {
+                                ...x,
+                                service_ids: on
+                                  ? x.service_ids.filter((y) => y !== svc.id)
+                                  : [...x.service_ids, svc.id!],
+                              }))}
+                              className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                                on ? "border-accent bg-accent-soft text-accent-ink" : "border-line bg-surface text-muted"
+                              }`}>
+                              {b.name.trim() || "Sin nombre"}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             );
           })}
