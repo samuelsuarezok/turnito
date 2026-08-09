@@ -38,7 +38,11 @@ type DayHours = { open: boolean; ranges: HourRange[] };
 type Closed = { id: string; date: string; reason: string | null; from_time?: string | null; to_time?: string | null };
 type Absence = { id: string; date: string };
 // Persona del equipo. `absences` son los días sueltos en que no está.
-type StaffMember = { id?: string; name: string; absences: Absence[]; _deleted?: boolean };
+// `service_ids`: qué servicios hace. VACÍO SIGNIFICA TODOS, igual que en la
+// base — ver 0009_servicios_por_persona.sql. No es "no hace nada".
+type StaffMember = {
+  id?: string; name: string; absences: Absence[]; service_ids: string[]; _deleted?: boolean;
+};
 
 const inputCls = "w-full rounded-2xl bg-surface border border-line px-4 py-3 outline-none focus:border-accent transition-colors text-sm";
 const selectCls = "rounded-xl bg-surface border border-line px-2.5 py-1.5 text-xs outline-none focus:border-accent";
@@ -172,6 +176,7 @@ export default function ConfigPage() {
 
     const ids = (brs ?? []).map((b) => b.id as string);
     let abs: { id: string; staff_id: string; date: string }[] = [];
+    let asign: { service_id: string; staff_id: string }[] = [];
     if (ids.length > 0) {
       const { data } = await supabase
         .from("staff_absences")
@@ -180,6 +185,12 @@ export default function ConfigPage() {
         .gte("date", today)
         .order("date");
       abs = (data ?? []) as typeof abs;
+
+      const { data: ss } = await supabase
+        .from("service_staff")
+        .select("service_id, staff_id")
+        .in("staff_id", ids);
+      asign = (ss ?? []) as typeof asign;
     }
 
     setStaff(
@@ -187,6 +198,7 @@ export default function ConfigPage() {
         id: b.id as string,
         name: b.name as string,
         absences: abs.filter((a) => a.staff_id === b.id).map((a) => ({ id: a.id, date: a.date })),
+        service_ids: asign.filter((a) => a.staff_id === b.id).map((a) => a.service_id),
       }))
     );
   }
@@ -255,6 +267,30 @@ export default function ConfigPage() {
   // ── guardar equipo ──
   // Baja lógica (active=false) igual que servicios: si borráramos la fila,
   // los turnos históricos perderían con quién fueron.
+  // Deja service_staff igual a lo que quedó tildado para esa persona: borra lo
+  // que sacó y agrega lo que sumó. Se hace por diferencia y no borrando todo
+  // para reinsertarlo, así una reserva concurrente no encuentra a la persona
+  // sin ningún servicio por una milésima.
+  async function syncServicios(staffId: string, quiere: string[]) {
+    const { data: actuales } = await supabase
+      .from("service_staff")
+      .select("service_id")
+      .eq("staff_id", staffId);
+
+    const tiene = (actuales ?? []).map((r) => r.service_id as string);
+    const sumar = quiere.filter((id) => !tiene.includes(id));
+    const sacar = tiene.filter((id) => !quiere.includes(id));
+
+    if (sacar.length > 0) {
+      await supabase.from("service_staff").delete().eq("staff_id", staffId).in("service_id", sacar);
+    }
+    if (sumar.length > 0) {
+      await supabase
+        .from("service_staff")
+        .insert(sumar.map((service_id) => ({ service_id, staff_id: staffId })));
+    }
+  }
+
   async function saveStaff() {
     if (!shopId) return;
     setError(""); setSavingKey("brb");
@@ -263,10 +299,20 @@ export default function ConfigPage() {
       const b = staff[i];
       if (b._deleted && b.id) {
         await supabase.from("staff").update({ active: false }).eq("id", b.id);
-      } else if (!b._deleted && b.id) {
+        continue;
+      }
+      if (!b._deleted && b.id) {
         await supabase.from("staff").update({ name: b.name.trim(), sort_order: i }).eq("id", b.id);
+        await syncServicios(b.id, b.service_ids);
       } else if (!b._deleted && b.name.trim()) {
-        await supabase.from("staff").insert({ business_id: shopId, name: b.name.trim(), sort_order: i });
+        // Hace falta el id de vuelta: sin él no se puede vincular a los
+        // servicios que se le tildaron antes de existir en la base.
+        const { data: nuevo } = await supabase
+          .from("staff")
+          .insert({ business_id: shopId, name: b.name.trim(), sort_order: i })
+          .select("id")
+          .single();
+        if (nuevo?.id) await syncServicios(nuevo.id as string, b.service_ids);
       }
     }
 
@@ -504,6 +550,37 @@ export default function ConfigPage() {
                     className="text-danger px-2" title="Quitar del equipo">✕</button>
                 </div>
 
+                {/* Qué servicios hace. Sólo los que ya existen en la base:
+                    uno recién agregado todavía no tiene id para vincular. */}
+                {services.some((s) => s.id && !s._deleted) && (
+                  <div className="mt-2.5">
+                    <div className="text-[11px] text-faint mb-1.5">
+                      {brb.service_ids.length === 0
+                        ? "Hace todos los servicios. Tocá alguno para limitarlo."
+                        : "Sólo hace los servicios marcados."}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {services.filter((s) => s.id && !s._deleted).map((s) => {
+                        const on = brb.service_ids.includes(s.id!);
+                        return (
+                          <button key={s.id} type="button"
+                            onClick={() => setStaff(staff.map((b, j) => j !== realIndex ? b : {
+                              ...b,
+                              service_ids: on
+                                ? b.service_ids.filter((x) => x !== s.id)
+                                : [...b.service_ids, s.id!],
+                            }))}
+                            className={`rounded-full border px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                              on ? "border-accent bg-accent-soft text-accent-ink" : "border-line bg-surface text-muted"
+                            }`}>
+                            {s.name || "Sin nombre"}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 {/* Quitar = ya no trabaja más acá. Pedimos confirmación porque
                     se lleva puesta su disponibilidad futura. */}
                 {confirmDelStaff === realIndex && (
@@ -558,7 +635,7 @@ export default function ConfigPage() {
             );
           })}
 
-          <button onClick={() => setStaff([...staff, { name: "", absences: [] }])}
+          <button onClick={() => setStaff([...staff, { name: "", absences: [], service_ids: [] }])}
             className="w-full rounded-2xl border border-dashed border-line py-3 text-sm text-accent-ink font-bold hover:border-accent transition-colors">
             {EQUIPO.agregar}
           </button>

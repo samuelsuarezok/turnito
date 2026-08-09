@@ -8,7 +8,12 @@ import { EQUIPO, formatPrecio, formatDuracion } from "@/lib/rubros";
 import { SITE_DOMAIN } from "@/lib/site";
 import ThemeToggle from "@/components/ThemeToggle";
 
-type Service = { id: string; name: string; icon: string; duration_min: number; price: number };
+// `staff_ids`: quiénes hacen este servicio. Vacío (o ausente, si todavía no se
+// corrió 0009) = lo hace todo el equipo. Ver 0009_servicios_por_persona.sql.
+type Service = {
+  id: string; name: string; icon: string; duration_min: number; price: number;
+  staff_ids?: string[];
+};
 // staff_id null = turno viejo / negocio de una sola agenda → ocupa a todos.
 type BusySlot = { time: string; duration_min: number; staff_id: string | null };
 // `absences`: días (YYYY-MM-DD) en que esa persona no está.
@@ -57,7 +62,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
   const [service, setService] = useState<Service | null>(null);
   const [staff, setStaff] = useState<StaffMember[]>([]);
-  const [member, setMember] = useState<StaffMember | null>(null);
+  // Lo que el usuario tocó. La persona que vale es `member`, más abajo: puede
+  // no coincidir con esto si el servicio elegido cambió las reglas.
+  const [memberSel, setMember] = useState<StaffMember | null>(null);
   const [date, setDate] = useState(fmtDate(new Date()));
   const [time, setTime] = useState<string | null>(null);
   const [busy, setBusy] = useState<BusySlot[]>([]);
@@ -87,9 +94,9 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     // Equipo: si el negocio no cargó a nadie, es de una sola agenda y todo
     // funciona como siempre (no se muestra el selector).
     supabase.rpc("public_shop_staff", { shop_slug: slug }).then(({ data }) => {
-      const list = (data ?? []) as StaffMember[];
-      setStaff(list);
-      if (list.length === 1) setMember(list[0]); // una sola: no la hacemos elegir
+      setStaff((data ?? []) as StaffMember[]);
+      // La autoselección cuando queda una sola persona la resuelve el efecto de
+      // más abajo, que además reacciona al servicio elegido.
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
@@ -120,6 +127,30 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
   const dayIsClosed = fullDayClosed.has(date);
 
   const hasStaff = staff.length > 0;
+
+  // Quiénes pueden atender el servicio elegido. Un servicio sin `staff_ids` lo
+  // hace todo el equipo: es la regla de 0009 y también el caso de los negocios
+  // que nunca tocaron la asignación. Sin servicio elegido todavía, mostramos a
+  // todos para que se vea el equipo completo.
+  const elegibles = useMemo(() => {
+    const ids = service?.staff_ids;
+    if (!ids || ids.length === 0) return staff;
+    return staff.filter((s) => ids.includes(s.id));
+  }, [staff, service]);
+
+  // La persona que realmente vale. Es DERIVADA, no un estado que sincronizamos:
+  // si elegiste un barbero para "Corte" y después cambiás a "Tatuaje", ese
+  // barbero deja de valer solo, sin efectos ni renders intermedios. Y si sólo
+  // queda una persona posible, se da por elegida y ni se le pregunta.
+  //
+  // El horario se limpia solo: `availability` depende de `member`, y más abajo
+  // hay un ajuste durante el render que descarta el horario que ya no entra.
+  const member = useMemo(() => {
+    if (elegibles.length === 1) return elegibles[0];
+    if (memberSel && elegibles.some((s) => s.id === memberSel.id)) return memberSel;
+    return null;
+  }, [elegibles, memberSel]);
+
   // La persona elegida no está ese día → para el cliente es lo mismo que cerrado.
   const staffAbsent = !!member && member.absences.includes(date);
 
@@ -296,12 +327,14 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 ))}
               </motion.div>
 
-              {/* Equipo: sólo si el negocio cargó a más de una persona */}
-              {hasStaff && (
+              {/* Equipo: sólo cuando hay algo para elegir. Si el servicio lo
+                  hace una sola persona, ya quedó elegida sola y mostrar un
+                  selector de una opción es ruido. */}
+              {elegibles.length > 1 && (
                 <>
                   <div className={labelCls}>{EQUIPO.selector}</div>
                   <motion.div className="grid grid-cols-3 gap-2 mb-6" variants={gridStagger} initial="hidden" animate="show">
-                    {staff.map((b) => (
+                    {elegibles.map((b) => (
                       <motion.button key={b.id} variants={gridItem} whileTap={{ scale: 0.94 }}
                         onClick={() => { setMember(b); setTime(null); }}
                         className={`rounded-2xl border-[1.5px] p-3 text-center transition-colors ${
@@ -350,7 +383,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
               </div>
               {!service ? (
                 <p className="text-sm text-faint mb-6">Primero elegí un servicio para ver los horarios disponibles.</p>
-              ) : hasStaff && !member ? (
+              ) : elegibles.length > 0 && !member ? (
                 <p className="text-sm text-faint mb-6">Elegí con quién querés reservar para ver sus horarios.</p>
               ) : dayIsClosed || staffAbsent || grid.length === 0 ? (
                 <p className="text-sm text-faint mb-6">
@@ -377,7 +410,7 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
               )}
 
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={() => goTo(2)} disabled={!service || !time || (hasStaff && !member)}
+                onClick={() => goTo(2)} disabled={!service || !time || (elegibles.length > 0 && !member)}
                 className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
                 Continuar →
               </motion.button>

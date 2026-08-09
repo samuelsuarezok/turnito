@@ -98,7 +98,7 @@ export async function POST(req: Request) {
   // 2. El servicio pertenece a este negocio (traemos la duración)
   const { data: service } = await supabase
     .from("services")
-    .select("id, name, duration_min")
+    .select("id, name, duration_min, price")
     .eq("id", service_id)
     .eq("business_id", shop.id)
     .eq("active", true)
@@ -124,6 +124,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Elegí con quién querés reservar" }, { status: 400 });
     }
     staffId = staff_id as string;
+
+    // 2.25 Esa persona hace ese servicio.
+    //
+    // La UI ya filtra el selector, pero esto es un endpoint público: cualquiera
+    // puede mandar el par que quiera por fuera del navegador. Sin este chequeo
+    // se le puede reservar un tatuaje a un barbero.
+    //
+    // Regla de 0009: si el servicio no tiene NINGUNA fila en service_staff, lo
+    // hace todo el equipo. Por eso preguntamos primero si hay asignación.
+    const { data: asignados } = await supabase
+      .from("service_staff")
+      .select("staff_id")
+      .eq("service_id", service_id);
+
+    const restringido = (asignados ?? []).length > 0;
+    if (restringido && !(asignados ?? []).some((a) => a.staff_id === staffId)) {
+      return NextResponse.json(
+        { error: "Esa persona no hace ese servicio. Elegí otra." },
+        { status: 400 }
+      );
+    }
 
     // 2.3 Esa persona no está ese día
     const { data: absent } = await supabase
@@ -198,24 +219,45 @@ export async function POST(req: Request) {
   }
 
   // 4. Insertar (el índice único sigue siendo la red final para inicios exactos)
-  const { data: appt, error } = await supabase
+  const fila = {
+    business_id: shop.id,
+    service_id,
+    // Sólo mandamos staff_id si hay equipo cargado: así la reserva sigue
+    // andando aunque todavía no se haya corrido la migración del equipo.
+    ...(staffId ? { staff_id: staffId } : {}),
+    date,
+    time,
+    client_name: client_name.trim(),
+    client_phone: client_phone.trim(),
+    // Igual que staff_id: si no dejó email, ni mandamos la columna. Así la
+    // reserva sigue andando aunque falte correr la migración 0002.
+    ...(email ? { client_email: email } : {}),
+  };
+
+  // Precio y nombre CONGELADOS al momento de reservar. La facturación se
+  // calcula con esto y nunca con services.price, que cambia cuando el negocio
+  // actualiza la lista. Ver 0008_precio_en_turno.sql.
+  const congelado = { price: service.price, service_name: service.name };
+
+  let { data: appt, error } = await supabase
     .from("appointments")
-    .insert({
-      business_id: shop.id,
-      service_id,
-      // Sólo mandamos staff_id si hay equipo cargado: así la reserva sigue
-      // andando aunque todavía no se haya corrido la migración del equipo.
-      ...(staffId ? { staff_id: staffId } : {}),
-      date,
-      time,
-      client_name: client_name.trim(),
-      client_phone: client_phone.trim(),
-      // Igual que staff_id: si no dejó email, ni mandamos la columna. Así la
-      // reserva sigue andando aunque falte correr la migración 0002.
-      ...(email ? { client_email: email } : {}),
-    })
+    .insert({ ...fila, ...congelado })
     .select("token")
     .single();
+
+  // Red de seguridad para la ventana entre "se deployó el código" y "se corrió
+  // la 0008": si las columnas todavía no existen, guardamos el turno sin ellas
+  // antes que romper todas las reservas. PGRST204 es el "no encuentro esa
+  // columna" de PostgREST. Se puede borrar cuando la migración esté corrida en
+  // todos los entornos.
+  if (error?.code === "PGRST204") {
+    console.warn("Falta correr 0008_precio_en_turno.sql: el turno se guarda sin precio.");
+    ({ data: appt, error } = await supabase
+      .from("appointments")
+      .insert(fila)
+      .select("token")
+      .single());
+  }
 
   if (error) {
     if (error.code === "23505") {
@@ -236,6 +278,14 @@ export async function POST(req: Request) {
       return tooMany(3600);
     }
     console.error("Error al reservar:", error.message);
+    return NextResponse.json({ error: "Error al reservar" }, { status: 500 });
+  }
+
+  // Sin error y sin fila no debería pasar nunca, pero como el insert ahora puede
+  // ejecutarse dos veces (ver el fallback de PGRST204), TypeScript ya no puede
+  // deducir que `appt` está: se lo confirmamos acá en vez de con un `!`.
+  if (!appt) {
+    console.error("Error al reservar: el insert no devolvió el turno");
     return NextResponse.json({ error: "Error al reservar" }, { status: 500 });
   }
 
