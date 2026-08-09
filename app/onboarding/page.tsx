@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
-import { SITE_DOMAIN } from "@/lib/site";
+import { SITE_DOMAIN, slugify } from "@/lib/site";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   RUBROS_LISTA,
@@ -22,13 +22,8 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 // los guiones DESPU\u00c9S del slice() es lo que evita que truncar a 30 caracteres
 // justo sobre un gui\u00f3n genere un slug inv\u00e1lido y el insert reviente con un
 // 23514 crudo en la cara del usuario.
-const slugify = (s: string) =>
-  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/[\s-]+/g, "-")
-    .slice(0, 30)
-    .replace(/^-+|-+$/g, "");
+// Vive en lib/site.ts: el panel necesita el MISMO criterio para detectar
+// cu\u00e1ndo el link y el nombre del local se despegaron.
 
 const DAYS = [
   { weekday: 1, label: "Lunes" }, { weekday: 2, label: "Martes" },

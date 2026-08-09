@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
-import { SITE_DOMAIN } from "@/lib/site";
+import { SITE_DOMAIN, slugify } from "@/lib/site";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -105,6 +105,12 @@ export default function ConfigPage() {
   const [closedPartial, setClosedPartial] = useState(false); // false = día completo
   const [newClosedFrom, setNewClosedFrom] = useState("");
   const [newClosedTo, setNewClosedTo] = useState("");
+
+  // Cambiar el link del local (ver 0012_cambiar_slug.sql)
+  const [editandoSlug, setEditandoSlug] = useState(false);
+  const [nuevoSlug, setNuevoSlug] = useState("");
+  const [slugMsg, setSlugMsg] = useState("");
+  const [slugOk, setSlugOk] = useState(false);
 
   const [savingKey, setSavingKey] = useState("");
   const [savedKey, setSavedKey] = useState("");
@@ -223,6 +229,43 @@ export default function ConfigPage() {
   }
 
   // ── guardar datos ──
+  // La validación de disponibilidad la hace la base, no acá: desde el cliente,
+  // la RLS de `businesses` sólo deja ver el propio local, así que un slug
+  // ocupado por otro se vería libre. La función cambiar_slug() mira todos y
+  // hace el cambio en la misma transacción que guarda la redirección.
+  async function guardarSlug() {
+    if (!shopId || nuevoSlug === slug) return;
+    setSavingKey("slug"); setSlugMsg(""); setSlugOk(false);
+
+    const { data, error: e } = await supabase.rpc("cambiar_slug", { nuevo: nuevoSlug });
+    setSavingKey("");
+
+    if (e) {
+      console.error("cambiar_slug:", e.code, e.message);
+      return setSlugMsg(
+        e.code === "PGRST202"
+          ? "Todavía no está habilitado en la base. Falta correr la migración 0012_cambiar_slug.sql."
+          : "No pudimos cambiar el link. Probá de nuevo."
+      );
+    }
+
+    const r = data as { ok: boolean; error?: string; slug?: string };
+    if (!r.ok) {
+      const motivos: Record<string, string> = {
+        OCUPADO: "Ese link ya lo está usando otro negocio. Probá con otro.",
+        RESERVADO: "Esa palabra la usa Turnito para sus propias páginas. Elegí otra.",
+        FORMATO: "Sólo letras, números y guiones, hasta 30 caracteres.",
+        SIN_NEGOCIO: "No encontramos tu local. Recargá la página.",
+      };
+      return setSlugMsg(motivos[r.error ?? ""] ?? "No pudimos cambiar el link.");
+    }
+
+    setSlug(r.slug!);
+    setSlugOk(true);
+    setSlugMsg(`Listo: tu link ahora es ${SITE_DOMAIN}/${r.slug}`);
+    setTimeout(() => setEditandoSlug(false), 1600);
+  }
+
   async function saveShop() {
     if (!shopId) return;
     setError(""); setSavingKey("shop");
@@ -511,9 +554,44 @@ export default function ConfigPage() {
               </select>
             </div>
           </div>
-          <p className="text-[11px] text-faint">
-            Tu link es <span className="font-mono text-muted">{SITE_DOMAIN}/{slug}</span> y no se puede cambiar (para no romper los links que ya compartiste).
-          </p>
+          {/* El link. Se puede cambiar, pero está cerrado por defecto: es una
+              decisión de una vez cada mucho, no un campo más del formulario. */}
+          {!editandoSlug ? (
+            <p className="text-[11px] text-faint">
+              Tu link es <span className="font-mono text-muted">{SITE_DOMAIN}/{slug}</span>.{" "}
+              <button onClick={() => { setEditandoSlug(true); setNuevoSlug(slug); setSlugMsg(""); }}
+                className="text-accent-ink font-bold underline underline-offset-2">
+                Cambiarlo
+              </button>
+            </p>
+          ) : (
+            <div className="rounded-2xl bg-surface-2 border border-line p-3.5">
+              <label className={miniLabel}>Tu link</label>
+              <div className="flex items-center gap-1.5 mb-2">
+                <span className="text-[13px] font-mono text-faint shrink-0">{SITE_DOMAIN}/</span>
+                <input value={nuevoSlug} inputMode="url" autoCapitalize="off" spellCheck={false}
+                  onChange={(e) => { setNuevoSlug(slugify(e.target.value)); setSlugMsg(""); }}
+                  className="flex-1 min-w-0 rounded-xl bg-surface border border-line px-3 py-2 text-[13px] font-mono outline-none focus:border-accent" />
+              </div>
+              <p className="text-[11px] text-faint leading-relaxed mb-3">
+                El link de ahora, <span className="font-mono">{slug}</span>, va a seguir funcionando:
+                a quien entre por ahí lo mandamos solo a la dirección nueva. Nadie se queda afuera.
+              </p>
+              {slugMsg && (
+                <p className={`text-[11px] mb-2.5 ${slugOk ? "text-accent-ink" : "text-danger"}`}>{slugMsg}</p>
+              )}
+              <div className="flex gap-2">
+                <button onClick={() => setEditandoSlug(false)}
+                  className="flex-1 rounded-full border border-line bg-surface text-[11px] font-bold py-2">
+                  Cancelar
+                </button>
+                <button onClick={guardarSlug} disabled={savingKey === "slug" || nuevoSlug === slug || !nuevoSlug}
+                  className="flex-1 rounded-full bg-accent text-on-accent text-[11px] font-bold py-2 disabled:opacity-30">
+                  {savingKey === "slug" ? "Guardando…" : "Cambiar el link"}
+                </button>
+              </div>
+            </div>
+          )}
         </SectionCard>
 
         {/* SERVICIOS */}

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
-import { SITE_DOMAIN } from "@/lib/site";
+import { SITE_DOMAIN, slugify } from "@/lib/site";
 import { waLink } from "@/lib/contacto";
 import { turnosACsv, descargarCsv, type FilaTurno } from "@/lib/csv";
 import ThemeToggle from "@/components/ThemeToggle";
@@ -456,9 +456,24 @@ export default function PanelPage() {
             <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[11px] text-faint underline">Salir</button>
           </div>
         </motion.div>
-        <button onClick={copyLink} className="text-[11px] font-mono text-muted mb-6">
+        <button onClick={copyLink} className="text-[11px] font-mono text-muted block">
           {SITE_DOMAIN}/{shop.slug} <span className={copied ? "text-accent-ink font-bold" : "text-faint"}>{copied ? "✓ copiado" : "· copiar"}</span>
         </button>
+
+        {/* El link se fija al crear la cuenta y no sigue al nombre: ya está en
+            la bio de Instagram, en estados de WhatsApp y en el historial de los
+            clientes, y cambiarlo los rompería a todos sin aviso.
+            La aclaración aparece SÓLO cuando dejaron de coincidir. Si el local
+            se sigue llamando igual que su link, no hay nada que explicar y una
+            línea fija ahí sería ruido permanente. */}
+        {slugify(shop.name) !== shop.slug && (
+          <p className="text-[10px] text-faint mt-1.5 max-w-sm leading-relaxed">
+            Tu link quedó fijo desde que creaste la cuenta y no cambia con el nombre,
+            para no romper el que ya compartiste con tus clientes.
+          </p>
+        )}
+
+        <div className="mb-6" />
 
         {/* días */}
         <motion.div className="flex gap-2 overflow-x-auto pb-2 mb-6"

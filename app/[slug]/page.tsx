@@ -92,7 +92,20 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
 
   useEffect(() => {
     supabase.rpc("public_shop_info", { shop_slug: slug }).then(({ data, error }) => {
-      if (error || !data) setNotFound(true);
+      if (error || !data) {
+        // Antes de dar por perdido el link, puede ser una dirección vieja: el
+        // local cambió su slug y este es el que sigue circulando en la bio de
+        // Instagram o en un estado de WhatsApp. Ver 0012_cambiar_slug.sql.
+        //
+        // Es un redirect del lado del cliente y no un 301: la página es
+        // "use client", y estas URLs se comparten entre personas, no se
+        // posicionan en Google. Para el cliente que entra el efecto es el mismo.
+        supabase.rpc("public_slug_actual", { viejo: slug }).then(({ data: actual }) => {
+          if (actual) window.location.replace(`/${actual}`);
+          else setNotFound(true);
+        });
+        return;
+      }
       else setShop(data as ShopInfo);
     });
     // Equipo: si el negocio no cargó a nadie, es de una sola agenda y todo
