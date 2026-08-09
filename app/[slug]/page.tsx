@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
 import { EQUIPO, formatPrecio, formatDuracion } from "@/lib/rubros";
 import { SITE_DOMAIN } from "@/lib/site";
+import { waLink } from "@/lib/contacto";
 import ThemeToggle from "@/components/ThemeToggle";
 
 // `staff_ids`: quiénes hacen este servicio. Vacío (o ausente, si todavía no se
@@ -13,13 +14,16 @@ import ThemeToggle from "@/components/ThemeToggle";
 type Service = {
   id: string; name: string; icon: string; duration_min: number; price: number;
   staff_ids?: string[];
+  /** "consulta" = no se reserva online; se manda al WhatsApp de quien lo hace. */
+  booking_mode?: "agenda" | "consulta";
 };
 // staff_id null = turno viejo / negocio de una sola agenda → ocupa a todos.
 type BusySlot = { time: string; duration_min: number; staff_id: string | null };
 // `absences`: días (YYYY-MM-DD) en que esa persona no está.
-type StaffMember = { id: string; name: string; absences: string[] };
+type StaffMember = { id: string; name: string; absences: string[]; whatsapp?: string | null };
 type ShopInfo = {
   name: string; slug: string; slot_minutes: number; min_notice_min: number;
+  whatsapp?: string;
   services: Service[]; hours: OpeningRange[]; closed: ClosedEntry[];
 };
 
@@ -150,6 +154,22 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
     if (memberSel && elegibles.some((s) => s.id === memberSel.id)) return memberSel;
     return null;
   }, [elegibles, memberSel]);
+
+  // Servicios que se conversan en vez de agendarse: un tatuaje se charla antes
+  // (diseño, tamaño, cuántas sesiones), así que acá no hay calendario.
+  const esConsulta = service?.booking_mode === "consulta";
+
+  // A qué WhatsApp mandarlo: al de la persona si lo cargó, si no al del negocio.
+  const waConsulta = useMemo(() => {
+    if (!esConsulta || !shop) return null;
+    const numero = member?.whatsapp?.trim() || shop.whatsapp?.trim();
+    if (!numero) return null;
+    const conQuien = member ? ` con ${member.name}` : "";
+    return waLink(
+      numero,
+      `¡Hola! Te escribo desde ${SITE_DOMAIN}/${shop.slug}. Quería consultar por ${service!.name}${conQuien}.`
+    );
+  }, [esConsulta, shop, member, service]);
 
   // La persona elegida no está ese día → para el cliente es lo mismo que cerrado.
   const staffAbsent = !!member && member.absences.includes(date);
@@ -350,6 +370,32 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                 </>
               )}
 
+              {/* Servicio que se coordina hablando: nada de calendario. El
+                  cliente se va al WhatsApp y el turno lo carga el local después,
+                  desde el panel. */}
+              {esConsulta ? (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl border-[1.5px] border-line bg-surface p-5 mb-6">
+                  <div className="text-sm font-bold text-ink mb-1.5">
+                    Este servicio se coordina por WhatsApp
+                  </div>
+                  <p className="text-sm text-muted leading-relaxed mb-4">
+                    {service!.name} se conversa antes de agendar{member ? `. ${member.name} te` : ". Te"} responde
+                    y arreglan día y hora juntos.
+                  </p>
+                  {waConsulta ? (
+                    <a href={waConsulta} target="_blank" rel="noopener noreferrer"
+                      className="block rounded-full bg-accent text-on-accent font-bold text-sm text-center py-3">
+                      Escribir por WhatsApp
+                    </a>
+                  ) : (
+                    <p className="text-sm text-faint">
+                      Todavía no cargaron un número de contacto para este servicio.
+                    </p>
+                  )}
+                </motion.div>
+              ) : (
+              <>
               <div className={labelCls}>Día</div>
               <motion.div className="flex gap-2 overflow-x-auto pb-2 mb-6" variants={gridStagger} initial="hidden" animate="show">
                 {days.map((d) => {
@@ -408,12 +454,18 @@ export default function BookingPage({ params }: { params: Promise<{ slug: string
                   })}
                 </motion.div>
               )}
+              </>
+              )}
 
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={() => goTo(2)} disabled={!service || !time || (elegibles.length > 0 && !member)}
-                className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
-                Continuar →
-              </motion.button>
+              {/* En modo consulta no hay nada que continuar: el paso siguiente
+                  es el chat de WhatsApp, no un formulario de reserva. */}
+              {!esConsulta && (
+                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
+                  onClick={() => goTo(2)} disabled={!service || !time || (elegibles.length > 0 && !member)}
+                  className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
+                  Continuar →
+                </motion.button>
+              )}
             </motion.div>
           )}
 

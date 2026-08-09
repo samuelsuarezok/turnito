@@ -6,6 +6,7 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
 import { SITE_DOMAIN } from "@/lib/site";
+import { waLink } from "@/lib/contacto";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
@@ -31,13 +32,6 @@ function fmtDate(d: Date) {
 }
 function getNext7Days() {
   return Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
-}
-
-// Convierte "351 234-5678" en link de WhatsApp argentino
-function waLink(phone: string) {
-  const digits = phone.replace(/\D/g, "");
-  const full = digits.startsWith("54") ? digits : `549${digits}`;
-  return `https://wa.me/${full}`;
 }
 
 export default function PanelPage() {

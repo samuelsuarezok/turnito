@@ -19,3 +19,17 @@ export const WHATSAPP_MESSAGE =
 
 export const WHATSAPP_URL =
   `https://wa.me/${WHATSAPP_INTL}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`;
+
+/**
+ * Convierte un teléfono escrito como sea ("351 234-5678", "+54 9 351...") en un
+ * link de WhatsApp. Asume Argentina cuando no viene el código de país, que es
+ * el caso de todos los números que cargan los negocios.
+ *
+ * `texto` es el mensaje que aparece ya escrito al abrir el chat.
+ */
+export function waLink(phone: string, texto?: string) {
+  const digits = phone.replace(/\D/g, "");
+  const full = digits.startsWith("54") ? digits : `549${digits}`;
+  const base = `https://wa.me/${full}`;
+  return texto ? `${base}?text=${encodeURIComponent(texto)}` : base;
+}

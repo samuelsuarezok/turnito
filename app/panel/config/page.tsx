@@ -32,7 +32,12 @@ for (let h = 6; h <= 23; h++) {
   HOUR_OPTS.push(`${String(h).padStart(2, "0")}:30`);
 }
 
-type Svc = { id?: string; name: string; duration_min: number; price: number; _deleted?: boolean };
+// booking_mode: "agenda" = el cliente reserva. "consulta" = no reserva, se lo
+// manda al WhatsApp de quien lo hace. Ver 0010_servicios_por_consulta.sql.
+type Svc = {
+  id?: string; name: string; duration_min: number; price: number;
+  booking_mode: "agenda" | "consulta"; _deleted?: boolean;
+};
 type HourRange = { opens_at: string; closes_at: string };
 type DayHours = { open: boolean; ranges: HourRange[] };
 type Closed = { id: string; date: string; reason: string | null; from_time?: string | null; to_time?: string | null };
@@ -41,7 +46,8 @@ type Absence = { id: string; date: string };
 // `service_ids`: qué servicios hace. VACÍO SIGNIFICA TODOS, igual que en la
 // base — ver 0009_servicios_por_persona.sql. No es "no hace nada".
 type StaffMember = {
-  id?: string; name: string; absences: Absence[]; service_ids: string[]; _deleted?: boolean;
+  id?: string; name: string; whatsapp: string; absences: Absence[]; service_ids: string[];
+  _deleted?: boolean;
 };
 
 const inputCls = "w-full rounded-2xl bg-surface border border-line px-4 py-3 outline-none focus:border-accent transition-colors text-sm";
@@ -133,7 +139,7 @@ export default function ConfigPage() {
 
       const { data: svcs } = await supabase
         .from("services")
-        .select("id, name, duration_min, price")
+        .select("id, name, duration_min, price, booking_mode")
         .eq("business_id", shop.id)
         .eq("active", true)
         .order("sort_order");
@@ -169,7 +175,7 @@ export default function ConfigPage() {
     const today = new Date().toISOString().slice(0, 10);
     const { data: brs } = await supabase
       .from("staff")
-      .select("id, name")
+      .select("id, name, whatsapp")
       .eq("business_id", id)
       .eq("active", true)
       .order("sort_order");
@@ -197,6 +203,7 @@ export default function ConfigPage() {
       (brs ?? []).map((b) => ({
         id: b.id as string,
         name: b.name as string,
+        whatsapp: (b.whatsapp as string | null) ?? "",
         absences: abs.filter((a) => a.staff_id === b.id).map((a) => ({ id: a.id, date: a.date })),
         service_ids: asign.filter((a) => a.staff_id === b.id).map((a) => a.service_id),
       }))
@@ -246,17 +253,17 @@ export default function ConfigPage() {
         await supabase.from("services").update({ active: false }).eq("id", s.id);
       } else if (!s._deleted && s.id) {
         await supabase.from("services")
-          .update({ name: s.name.trim(), duration_min: s.duration_min, price: s.price, sort_order: i })
+          .update({ name: s.name.trim(), duration_min: s.duration_min, price: s.price, booking_mode: s.booking_mode, sort_order: i })
           .eq("id", s.id);
       } else if (!s._deleted && !s.id) {
         await supabase.from("services")
-          .insert({ business_id: shopId, name: s.name.trim(), duration_min: s.duration_min, price: s.price, sort_order: i });
+          .insert({ business_id: shopId, name: s.name.trim(), duration_min: s.duration_min, price: s.price, booking_mode: s.booking_mode, sort_order: i });
       }
     }
 
     // recargar la lista limpia
     const { data: svcs } = await supabase
-      .from("services").select("id, name, duration_min, price")
+      .from("services").select("id, name, duration_min, price, booking_mode")
       .eq("business_id", shopId).eq("active", true).order("sort_order");
     setServices((svcs ?? []) as Svc[]);
 
@@ -302,14 +309,20 @@ export default function ConfigPage() {
         continue;
       }
       if (!b._deleted && b.id) {
-        await supabase.from("staff").update({ name: b.name.trim(), sort_order: i }).eq("id", b.id);
+        await supabase
+          .from("staff")
+          .update({ name: b.name.trim(), whatsapp: b.whatsapp.trim() || null, sort_order: i })
+          .eq("id", b.id);
         await syncServicios(b.id, b.service_ids);
       } else if (!b._deleted && b.name.trim()) {
         // Hace falta el id de vuelta: sin él no se puede vincular a los
         // servicios que se le tildaron antes de existir en la base.
         const { data: nuevo } = await supabase
           .from("staff")
-          .insert({ business_id: shopId, name: b.name.trim(), sort_order: i })
+          .insert({
+            business_id: shopId, name: b.name.trim(),
+            whatsapp: b.whatsapp.trim() || null, sort_order: i,
+          })
           .select("id")
           .single();
         if (nuevo?.id) await syncServicios(nuevo.id as string, b.service_ids);
@@ -523,10 +536,26 @@ export default function ConfigPage() {
                     className="accent-[var(--c-accent)] w-3.5 h-3.5" />
                   Sin precio fijo — mostrar &quot;a consultar&quot;
                 </label>
+                {/* Modo consulta: el cliente no reserva, se va al WhatsApp de
+                    quien hace el servicio. Pensado para trabajos que se
+                    conversan antes (un tatuaje, una extensión larga). */}
+                <label className="flex items-center gap-2 mt-1.5 text-[11px] text-muted cursor-pointer select-none">
+                  <input type="checkbox" checked={svc.booking_mode === "consulta"}
+                    onChange={(e) => setServices(services.map((s, j) => (j === realIndex
+                      ? { ...s, booking_mode: e.target.checked ? "consulta" : "agenda" } : s)))}
+                    className="accent-[var(--c-accent)] w-3.5 h-3.5" />
+                  Se coordina por WhatsApp — sin turno online
+                </label>
+                {svc.booking_mode === "consulta" && (
+                  <p className="text-[10px] text-faint mt-1.5 leading-relaxed">
+                    El cliente no elige día ni hora: lo mandamos al WhatsApp de quien lo hace.
+                    Cuando cierren, cargá el turno vos desde la agenda.
+                  </p>
+                )}
               </div>
             );
           })}
-          <button onClick={() => setServices([...services, { name: "", duration_min: 30, price: 0 }])}
+          <button onClick={() => setServices([...services, { name: "", duration_min: 30, price: 0, booking_mode: "agenda" }])}
             className="w-full rounded-2xl border border-dashed border-line py-3 text-sm text-accent-ink font-bold hover:border-accent transition-colors">
             + Agregar servicio
           </button>
@@ -549,6 +578,32 @@ export default function ConfigPage() {
                   <button onClick={() => setConfirmDelStaff(confirmDelStaff === realIndex ? null : realIndex)}
                     className="text-danger px-2" title="Quitar del equipo">✕</button>
                 </div>
+
+                {/* WhatsApp propio. Sólo hace falta para los servicios en modo
+                    consulta; si no lo carga, esos clientes caen al número del
+                    negocio, que siempre existe. */}
+                {(() => {
+                  const asignados = services.filter(
+                    (s) => s.id && !s._deleted && (brb.service_ids.length === 0 || brb.service_ids.includes(s.id))
+                  );
+                  const haceConsulta = asignados.some((s) => s.booking_mode === "consulta");
+                  if (!haceConsulta) return null;
+                  return (
+                    <div className="mt-2.5">
+                      <label className="block text-[11px] text-faint mb-1.5">
+                        Su WhatsApp — para los servicios que se coordinan hablando
+                      </label>
+                      <input value={brb.whatsapp} placeholder="351 234-5678" inputMode="tel"
+                        onChange={(e) => setStaff(staff.map((b, j) => (j === realIndex ? { ...b, whatsapp: e.target.value } : b)))}
+                        className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-sm outline-none focus:border-accent" />
+                      {!brb.whatsapp.trim() && (
+                        <p className="text-[10px] text-faint mt-1.5">
+                          Sin número, esas consultas van a llegar al WhatsApp del negocio.
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Qué servicios hace. Sólo los que ya existen en la base:
                     uno recién agregado todavía no tiene id para vincular. */}
@@ -635,7 +690,7 @@ export default function ConfigPage() {
             );
           })}
 
-          <button onClick={() => setStaff([...staff, { name: "", absences: [], service_ids: [] }])}
+          <button onClick={() => setStaff([...staff, { name: "", whatsapp: "", absences: [], service_ids: [] }])}
             className="w-full rounded-2xl border border-dashed border-line py-3 text-sm text-accent-ink font-bold hover:border-accent transition-colors">
             {EQUIPO.agregar}
           </button>
