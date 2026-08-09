@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { LogoMark } from "@/components/Logo";
 import { SITE_DOMAIN } from "@/lib/site";
 import { waLink } from "@/lib/contacto";
+import { turnosACsv, descargarCsv, type FilaTurno } from "@/lib/csv";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
@@ -182,15 +183,9 @@ export default function PanelPage() {
     if (shop) loadAppts(shop.id, date);
   }
 
-  // ── DESCARGAR LOS ÚLTIMOS 30 DÍAS ────────────────────────────────────────
-  // Se genera CSV y no .xlsx a propósito: Excel lo abre con doble clic igual, y
-  // un .xlsx de verdad obliga a sumar una librería (unos 400 kB) al bundle del
-  // panel para algo que se usa una vez por mes.
-  //
-  // Dos detalles para que Excel en español no lo arruine: separador ";" (con
-  // coma, la configuración regional de Argentina mete todo en una columna) y
-  // BOM al principio (sin él, los acentos salen como "MartÃ­n").
-  async function descargarCsv() {
+  // Atajo: los últimos 30 días sin salir del panel. El armado del archivo vive
+  // en lib/csv.ts, compartido con la pantalla de números.
+  async function bajarUltimos30() {
     if (!shop || bajando) return;
     setBajando(true);
     try {
@@ -206,31 +201,10 @@ export default function PanelPage() {
         .lte("date", fmtDate(hasta))
         .order("date").order("time");
 
-      const ESTADOS: Record<string, string> = {
-        confirmed: "Confirmado", done: "Atendido", no_show: "No vino",
-        cancelled_by_client: "Cancelado por el cliente",
-        cancelled_by_shop: "Cancelado por el local",
-      };
-      // Comillas dobles adentro se escapan duplicándolas: es el estándar CSV.
-      const celda = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-
-      const filas = (data ?? []).map((a) => [
-        a.date, String(a.time).slice(0, 5), ESTADOS[a.status] ?? a.status,
-        a.client_name, a.client_phone, a.service_name ?? "",
-        staffName(a.staff_id) ?? "", a.price ?? "",
-      ]);
-
-      const csv = "﻿" + [
-        ["Fecha", "Hora", "Estado", "Cliente", "Teléfono", "Servicio", "Atiende", "Precio"],
-        ...filas,
-      ].map((f) => f.map(celda).join(";")).join("\r\n");
-
-      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `turnito-${shop.slug}-${fmtDate(desde)}-a-${fmtDate(hasta)}.csv`;
-      a.click();
-      URL.revokeObjectURL(url);
+      descargarCsv(
+        turnosACsv((data ?? []) as FilaTurno[], staffName),
+        `turnito-${shop.slug}-${fmtDate(desde)}-a-${fmtDate(hasta)}.csv`
+      );
     } finally {
       setBajando(false);
     }
@@ -477,6 +451,7 @@ export default function PanelPage() {
           <div className="flex items-center gap-2.5"><LogoMark size={22} /><h1 className="text-lg font-extrabold text-ink tracking-tight">{shop.name}</h1></div>
           <div className="flex items-center">
             <ThemeToggle className="mr-2.5" />
+            <Link href="/panel/stats" className="text-[11px] text-accent-ink font-bold mr-3">📊 Números</Link>
             <Link href="/panel/config" className="text-[11px] text-accent-ink font-bold mr-3">⚙ Config</Link>
             <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[11px] text-faint underline">Salir</button>
           </div>
@@ -644,7 +619,7 @@ export default function PanelPage() {
 
         {/* Descarga: acción de una vez por mes. Va al pie y en gris para que no
             le compita a la tarjeta del turno que viene, que se mira todo el día. */}
-        <button onClick={descargarCsv} disabled={bajando}
+        <button onClick={bajarUltimos30} disabled={bajando}
           className="w-full rounded-2xl border border-line bg-surface text-[11px] font-bold text-muted py-2.5 mt-1 mb-5 transition-colors hover:border-accent hover:text-accent-ink disabled:opacity-50">
           {bajando ? "Preparando…" : "↓ Descargar los últimos 30 días"}
         </button>
