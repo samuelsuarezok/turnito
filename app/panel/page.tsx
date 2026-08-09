@@ -18,6 +18,10 @@ type Appt = {
   id: string; client_name: string; client_phone: string;
   date: string; time: string; status: string;
   staff_id: string | null;
+  // Congelados al reservar: la plata se cuenta con ESTO y no con services.price,
+  // que cambia cuando el negocio actualiza la lista. Ver 0008_precio_en_turno.
+  price: number | null;
+  service_name: string | null;
   services: { name: string; duration_min: number } | null;
 };
 // Datos de agenda para reprogramar (mismos que usa la reserva pública).
@@ -105,7 +109,7 @@ export default function PanelPage() {
   async function loadAppts(shopId: string, onDate: string) {
     const { data } = await supabase
       .from("appointments")
-      .select("id, client_name, client_phone, date, time, status, staff_id, services(name, duration_min)")
+      .select("id, client_name, client_phone, date, time, status, staff_id, price, service_name, services(name, duration_min)")
       .eq("business_id", shopId).eq("date", onDate).order("time");
     setAppts((data as unknown as Appt[]) ?? []);
   }
@@ -225,6 +229,24 @@ export default function PanelPage() {
 
   const active = shownAppts.filter((a) => a.status === "confirmed");
   const done = shownAppts.filter((a) => a.status === "done");
+
+  // Números del día. Salen de `shownAppts`, así que respetan el filtro por
+  // persona: si el dueño filtra por un barbero, ve lo que hizo ese barbero.
+  // Y como el panel ya refresca cada 5s, se mueven solos: marcás un corte como
+  // atendido y la plata sube en el acto, sin recargar nada.
+  const resumen = useMemo(() => {
+    const cobrado = done.reduce((t, a) => t + (a.price ?? 0), 0);
+    const porCobrar = active.reduce((t, a) => t + (a.price ?? 0), 0);
+    // Turnos anteriores a la migración del precio: no los contamos como $0
+    // callados, avisamos que el total les queda corto.
+    const sinPrecio = done.filter((a) => a.price == null).length;
+    return {
+      cobrado, porCobrar, sinPrecio,
+      ausencias: shownAppts.filter((a) => a.status === "no_show").length,
+    };
+  }, [done, active, shownAppts]);
+
+  const fmtPesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
   const current = active[0] ?? null;
   const rest = active.slice(1);
 
@@ -315,10 +337,48 @@ export default function PanelPage() {
           </div>
         )}
 
-        <div className="flex justify-between items-baseline mb-4">
+        <div className="flex justify-between items-baseline mb-3">
           <span className="text-sm font-bold text-ink">{date === today ? "Hoy" : date}</span>
           <span className="text-[11px] text-faint">{done.length} atendidos · {active.length} en cola</span>
         </div>
+
+        {/* Números del día. El de la izquierda es el que importa: se mueve en el
+            momento en que marcás un turno como atendido. */}
+        <div className="grid grid-cols-3 gap-2 mb-5">
+          <div className="rounded-2xl bg-surface border border-line p-3">
+            <div className="text-[9px] uppercase font-bold tracking-widest text-faint mb-1">Cobrado</div>
+            <motion.div key={resumen.cobrado}
+              initial={{ scale: 0.88, opacity: 0.5 }} animate={{ scale: 1, opacity: 1 }}
+              transition={{ type: "spring", stiffness: 400, damping: 22 }}
+              className="text-lg font-extrabold text-ink tabular-nums leading-none">
+              {fmtPesos(resumen.cobrado)}
+            </motion.div>
+            <div className="text-[10px] text-faint mt-1">{done.length} atendidos</div>
+          </div>
+
+          <div className="rounded-2xl bg-surface border border-line p-3">
+            <div className="text-[9px] uppercase font-bold tracking-widest text-faint mb-1">Por cobrar</div>
+            <div className="text-lg font-extrabold text-muted tabular-nums leading-none">
+              {fmtPesos(resumen.porCobrar)}
+            </div>
+            <div className="text-[10px] text-faint mt-1">{active.length} en cola</div>
+          </div>
+
+          <div className="rounded-2xl bg-surface border border-line p-3">
+            <div className="text-[9px] uppercase font-bold tracking-widest text-faint mb-1">Ausencias</div>
+            <div className={`text-lg font-extrabold tabular-nums leading-none ${resumen.ausencias > 0 ? "text-danger" : "text-muted"}`}>
+              {resumen.ausencias}
+            </div>
+            <div className="text-[10px] text-faint mt-1">no vinieron</div>
+          </div>
+        </div>
+
+        {resumen.sinPrecio > 0 && (
+          <p className="text-[10px] text-faint -mt-3 mb-5">
+            {resumen.sinPrecio === 1 ? "Hay 1 turno atendido sin" : `Hay ${resumen.sinPrecio} turnos atendidos sin`}{" "}
+            precio guardado, así que el total les queda corto.
+          </p>
+        )}
 
         {/* SIGUIENTE */}
         <AnimatePresence mode="wait">
