@@ -430,7 +430,7 @@ export default function ConfigPage() {
           </motion.div>
         )}
       </AnimatePresence>
-      <div className="max-w-md mx-auto pb-16">
+      <div className="max-w-md lg:max-w-5xl mx-auto pb-16">
         {/* header */}
         <motion.div className="flex items-center justify-between pt-2 mb-6"
           initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
@@ -447,6 +447,11 @@ export default function ConfigPage() {
         {error && (
           <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-sm text-danger mb-4">{error}</motion.p>
         )}
+
+        {/* Dos columnas desde lg. Las tarjetas son independientes entre si,
+            asi que columnas de altura despareja no molestan: cada una arranca
+            arriba y crece lo que necesite. */}
+        <div className="lg:grid lg:grid-cols-2 lg:gap-x-5 lg:items-start">
 
         {/* DATOS */}
         <SectionCard title="Datos del local" onSave={saveShop} saving={savingKey === "shop"} saved={savedKey === "shop"}>
@@ -863,6 +868,8 @@ export default function ConfigPage() {
             ))
           )}
         </motion.div>
+
+        </div>{/* fin grid de tarjetas */}
       </div>
     </main>
   );

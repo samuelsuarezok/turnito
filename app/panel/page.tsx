@@ -50,6 +50,7 @@ export default function PanelPage() {
   const [staffFilter, setStaffFilter] = useState<string | null>(null); // null = todos
   const [date, setDate] = useState(fmtDate(new Date()));
   const [copied, setCopied] = useState(false);
+  const [bajando, setBajando] = useState(false);
   const [loadErr, setLoadErr] = useState(false);
 
   // Reprogramar turno ("mover")
@@ -146,6 +147,60 @@ export default function PanelPage() {
   async function setStatus(id: string, status: string) {
     await supabase.from("appointments").update({ status }).eq("id", id);
     if (shop) loadAppts(shop.id, date);
+  }
+
+  // ── DESCARGAR LOS ÚLTIMOS 30 DÍAS ────────────────────────────────────────
+  // Se genera CSV y no .xlsx a propósito: Excel lo abre con doble clic igual, y
+  // un .xlsx de verdad obliga a sumar una librería (unos 400 kB) al bundle del
+  // panel para algo que se usa una vez por mes.
+  //
+  // Dos detalles para que Excel en español no lo arruine: separador ";" (con
+  // coma, la configuración regional de Argentina mete todo en una columna) y
+  // BOM al principio (sin él, los acentos salen como "MartÃ­n").
+  async function descargarCsv() {
+    if (!shop || bajando) return;
+    setBajando(true);
+    try {
+      const hasta = new Date();
+      const desde = new Date();
+      desde.setDate(desde.getDate() - 30);
+
+      const { data } = await supabase
+        .from("appointments")
+        .select("date, time, status, client_name, client_phone, service_name, price, staff_id")
+        .eq("business_id", shop.id)
+        .gte("date", fmtDate(desde))
+        .lte("date", fmtDate(hasta))
+        .order("date").order("time");
+
+      const ESTADOS: Record<string, string> = {
+        confirmed: "Confirmado", done: "Atendido", no_show: "No vino",
+        cancelled_by_client: "Cancelado por el cliente",
+        cancelled_by_shop: "Cancelado por el local",
+      };
+      // Comillas dobles adentro se escapan duplicándolas: es el estándar CSV.
+      const celda = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+
+      const filas = (data ?? []).map((a) => [
+        a.date, String(a.time).slice(0, 5), ESTADOS[a.status] ?? a.status,
+        a.client_name, a.client_phone, a.service_name ?? "",
+        staffName(a.staff_id) ?? "", a.price ?? "",
+      ]);
+
+      const csv = "﻿" + [
+        ["Fecha", "Hora", "Estado", "Cliente", "Teléfono", "Servicio", "Atiende", "Precio"],
+        ...filas,
+      ].map((f) => f.map(celda).join(";")).join("\r\n");
+
+      const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `turnito-${shop.slug}-${fmtDate(desde)}-a-${fmtDate(hasta)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } finally {
+      setBajando(false);
+    }
   }
 
   function copyLink() {
@@ -247,8 +302,12 @@ export default function PanelPage() {
   }, [done, active, shownAppts]);
 
   const fmtPesos = (n: number) => `$${n.toLocaleString("es-AR")}`;
+
   const current = active[0] ?? null;
   const rest = active.slice(1);
+
+  // ¿Hay algo para poner en la segunda columna? Si no, no la abrimos.
+  const hayCola = rest.length > 0 || done.length > 0;
 
   if (loadErr)
     return (
@@ -266,8 +325,8 @@ export default function PanelPage() {
 
   if (!shop)
     return (
-      <main className="min-h-screen bg-canvas p-5">
-        <div className="max-w-md mx-auto pb-16 animate-pulse">
+      <main className="min-h-screen bg-canvas p-5 lg:p-8">
+        <div className="max-w-md lg:max-w-6xl mx-auto pb-16 animate-pulse">
           <div className="flex items-center justify-between pt-2 mb-6">
             <div className="h-6 w-40 rounded-lg bg-surface" />
             <div className="h-4 w-16 rounded bg-line" />
@@ -283,8 +342,8 @@ export default function PanelPage() {
     );
 
   return (
-    <main className="min-h-screen bg-canvas text-body p-5">
-      <div className="max-w-md mx-auto pb-16">
+    <main className="min-h-screen bg-canvas text-body p-5 lg:p-8">
+      <div className="max-w-md lg:max-w-6xl mx-auto pb-16">
         {/* header */}
         <motion.div className="flex items-center justify-between pt-2 mb-1"
           initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
@@ -337,6 +396,18 @@ export default function PanelPage() {
           </div>
         )}
 
+        {/* Dos columnas desde lg. En un monitor de local, lo que se mira de
+            lejos es el turno que viene; la cola se escanea de cerca. Por eso el
+            "siguiente" queda fijo a la izquierda y la lista scrollea al lado.
+            En mobile el grid no aplica y el orden es el de siempre.
+            Sin cola no abrimos la segunda columna: media pantalla vacía al lado
+            de una tarjeta suelta se lee como que algo se rompió, no como un día
+            tranquilo. Ahí volvemos a una sola columna centrada. */}
+        <div className={hayCola
+          ? "lg:grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-7 lg:items-start"
+          : "lg:max-w-md lg:mx-auto"}>
+        <div className={hayCola ? "lg:sticky lg:top-6" : ""}>
+
         <div className="flex justify-between items-baseline mb-3">
           <span className="text-sm font-bold text-ink">{date === today ? "Hoy" : date}</span>
           <span className="text-[11px] text-faint">{done.length} atendidos · {active.length} en cola</span>
@@ -372,6 +443,7 @@ export default function PanelPage() {
             <div className="text-[10px] text-faint mt-1">no vinieron</div>
           </div>
         </div>
+
 
         {resumen.sinPrecio > 0 && (
           <p className="text-[10px] text-faint -mt-3 mb-5">
@@ -438,6 +510,16 @@ export default function PanelPage() {
           )}
         </AnimatePresence>
 
+        {/* Descarga: acción de una vez por mes. Va al pie y en gris para que no
+            le compita a la tarjeta del turno que viene, que se mira todo el día. */}
+        <button onClick={descargarCsv} disabled={bajando}
+          className="w-full rounded-2xl border border-line bg-surface text-[11px] font-bold text-muted py-2.5 mt-1 mb-5 transition-colors hover:border-accent hover:text-accent-ink disabled:opacity-50">
+          {bajando ? "Preparando…" : "↓ Descargar los últimos 30 días"}
+        </button>
+
+        </div>{/* fin columna izquierda */}
+        <div>
+
         {/* SIGUEN DESPUÉS */}
         {rest.length > 0 && (
           <>
@@ -485,6 +567,9 @@ export default function PanelPage() {
             ))}
           </>
         )}
+
+        </div>{/* fin columna derecha */}
+        </div>{/* fin grid */}
       </div>
 
       {/* MODAL REPROGRAMAR TURNO */}
