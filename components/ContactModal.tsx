@@ -33,20 +33,35 @@ export default function ContactModal({
 
   const firstField = useRef<HTMLInputElement>(null);
 
-  // Escape cierra, y al abrir el foco cae en el primer campo.
+  // El foco va al primer campo SÓLO al abrir, y el fondo no scrollea mientras
+  // esté abierto. Depende de `open` y de NADA más.
+  //
+  // Acá estaba un bug feo: esto vivía junto con el listener de Escape, en un
+  // efecto que dependía también de `onClose`. La landing le pasa una función
+  // nueva en cada render (`onClose={() => setContactOpen(false)}`) y rota su
+  // mockup con un setInterval cada 3,4 segundos. Resultado: cada 3,4 segundos
+  // cambiaba la identidad de `onClose`, se re-ejecutaba el efecto y el foco
+  // volvía al campo "nombre" — mientras el visitante estaba escribiendo su mail
+  // o su consulta. Separar los dos efectos lo corta de raíz, sin depender de
+  // que el padre memorice la función.
+  useEffect(() => {
+    if (!open) return;
+    const t = setTimeout(() => firstField.current?.focus(), 120);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      clearTimeout(t);
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  // Escape cierra. Este sí depende de `onClose`, y está bien: re-suscribir un
+  // listener de teclado es barato y así siempre llama a la última versión.
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", onKey);
-    const t = setTimeout(() => firstField.current?.focus(), 120);
-    // Con el modal abierto el fondo no scrollea.
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      clearTimeout(t);
-      document.body.style.overflow = prev;
-    };
+    return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
   async function send() {

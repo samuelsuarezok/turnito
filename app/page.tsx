@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
 import ContactModal from "@/components/ContactModal";
@@ -250,6 +250,12 @@ export default function LandingPage() {
     const id = setInterval(() => setMock((m) => (m + 1) % MOCKS.length), 3400);
     return () => clearInterval(id);
   }, []);
+
+  // Estable entre renders. El intervalo de acá arriba re-renderiza la landing
+  // cada 3,4 segundos: si esto fuera una arrow suelta, cada rotación le pasaría
+  // una función nueva al modal. ContactModal ya no se rompe por eso, pero no
+  // tiene sentido hacerlo trabajar de más.
+  const cerrarContacto = useCallback(() => setContactOpen(false), []);
 
   const m = MOCKS[mock];
 
@@ -543,7 +549,7 @@ export default function LandingPage() {
 
     {/* Fuera del .ld: ese scope tiene un `* { margin:0; padding:0 }` que le
         gana por especificidad a las utilidades de Tailwind del modal. */}
-    <ContactModal open={contactOpen} onClose={() => setContactOpen(false)} />
+    <ContactModal open={contactOpen} onClose={cerrarContacto} />
     </>
   );
 }

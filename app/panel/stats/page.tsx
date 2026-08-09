@@ -108,7 +108,19 @@ export default function StatsPage() {
     const { data, error: e } = await supabase.rpc("stats_negocio", {
       desde: rango.desde, hasta: rango.hasta,
     });
-    if (e) return setError("No pudimos traer los números. Probá de nuevo.");
+    if (e) {
+      // El error real al log: sin esto, cualquier falla se ve igual y no hay
+      // por dónde empezar a buscar.
+      console.error("stats_negocio:", e.code, e.message);
+      // PGRST202 = la función no está en la base. Pasa si se deployó el código
+      // sin correr 0011_stats_negocio.sql. Decirlo así evita mandar a alguien a
+      // "probar de nuevo" con algo que no se arregla reintentando.
+      return setError(
+        e.code === "PGRST202"
+          ? "Esta pantalla todavía no está habilitada en la base. Falta correr la migración 0011_stats_negocio.sql."
+          : "No pudimos traer los números. Revisá la conexión y probá de nuevo."
+      );
+    }
     setError("");
     setStats(data as Stats);
   }, [supabase, rango]);
