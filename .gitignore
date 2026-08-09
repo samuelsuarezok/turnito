@@ -42,3 +42,12 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# skills de agentes instaladas con `npx skills add`
+# Son documentación de terceros para asistentes, no código del producto: se
+# reinstalan con el comando y no tienen por qué versionarse acá.
+.agents/
+skills-lock.json
+
+# config local del asistente (permisos de la máquina de cada uno)
+.claude/settings.local.json

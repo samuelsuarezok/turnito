@@ -772,7 +772,10 @@ export default function ConfigPage() {
                 <div className="flex items-center gap-3">
                   <button onClick={() => setDay({ open: !h.open })}
                     className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${h.open ? "bg-accent" : "bg-line"}`}>
-                    <span className={`absolute top-[3px] w-3.5 h-3.5 rounded-full transition-all bg-surface ${h.open ? "left-[20px]" : "left-[3px]"}`} />
+                    {/* Se mueve con transform y no con `left`: `left` recalcula
+                        layout en cada cuadro, el transform va por GPU. Y se
+                        anima sólo esa propiedad, no `all`. */}
+                    <span className={`absolute top-[3px] left-[3px] w-3.5 h-3.5 rounded-full bg-surface transition-transform duration-200 ease-out ${h.open ? "translate-x-[17px]" : "translate-x-0"}`} />
                   </button>
                   <span className="text-xs font-bold text-ink">{d.label}</span>
                   {!h.open && <span className="ml-auto text-[11px] text-faint">Cerrado</span>}

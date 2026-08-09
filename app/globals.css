@@ -172,6 +172,20 @@ body {
   background: var(--c-accent);
 }
 
+/* Movimiento reducido.
+ *
+ * Lo de framer-motion lo resuelve <MotionConfig reducedMotion="user"> en
+ * app/template.tsx. Acá va lo que framer no ve: los keyframes de CSS y el
+ * scroll suave.
+ *
+ * A propósito NO se matan todas las transiciones. "Movimiento reducido" no es
+ * "sin animación": las de color y opacidad ayudan a entender qué cambió y no
+ * marean a nadie. Lo que molesta es el desplazamiento, y eso ya está cubierto. */
 @media (prefers-reduced-motion: reduce) {
-  body { transition: none; }
+  html { scroll-behavior: auto; }
+
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
