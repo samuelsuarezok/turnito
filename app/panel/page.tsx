@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
@@ -14,6 +14,13 @@ import { formatDuracion } from "@/lib/rubros";
 
 type Shop = { id: string; name: string; slug: string };
 type StaffMember = { id: string; name: string };
+// Para cargar turnos a mano desde el panel. staff_ids vacío = lo hace todo el
+// equipo (0009). El booking_mode NO filtra acá: cargar a mano un tatuaje que se
+// coordinó por WhatsApp es justamente para lo que existe esta pantalla.
+type Svc = {
+  id: string; name: string; duration_min: number; price: number;
+  staff_ids: string[];
+};
 type Appt = {
   id: string; client_name: string; client_phone: string;
   date: string; time: string; status: string;
@@ -51,6 +58,20 @@ export default function PanelPage() {
   const [date, setDate] = useState(fmtDate(new Date()));
   const [copied, setCopied] = useState(false);
   const [bajando, setBajando] = useState(false);
+
+  // Cargar un turno a mano (el que se cerró por teléfono, al mostrador o por
+  // WhatsApp). Sin esto, esos turnos no existen y no entran en ningún número.
+  const [services, setServices] = useState<Svc[]>([]);
+  const [nuevo, setNuevo] = useState(false);
+  const [nvSvc, setNvSvc] = useState<Svc | null>(null);
+  const [nvStaff, setNvStaff] = useState<string | null>(null);
+  const [nvFecha, setNvFecha] = useState("");
+  const [nvHora, setNvHora] = useState<string | null>(null);
+  const [nvNombre, setNvNombre] = useState("");
+  const [nvTel, setNvTel] = useState("");
+  const [nvBusy, setNvBusy] = useState<MoveBusy[]>([]);
+  const [nvSaving, setNvSaving] = useState(false);
+  const [nvError, setNvError] = useState("");
   const [loadErr, setLoadErr] = useState(false);
 
   // Reprogramar turno ("mover")
@@ -90,6 +111,18 @@ export default function PanelPage() {
             .gte("date", fmtDate(new Date()));
           setAbsences(new Set((abs ?? []).map((a) => `${a.staff_id}|${a.date}`)));
         }
+
+        // Servicios + quién hace cada uno, para el alta manual de turnos.
+        const { data: svcs } = await supabase
+          .from("services").select("id, name, duration_min, price")
+          .eq("business_id", data.id).eq("active", true).order("sort_order");
+        const { data: asign } = await supabase
+          .from("service_staff").select("service_id, staff_id");
+        setServices((svcs ?? []).map((s) => ({
+          id: s.id as string, name: s.name as string,
+          duration_min: s.duration_min as number, price: s.price as number,
+          staff_ids: (asign ?? []).filter((a) => a.service_id === s.id).map((a) => a.staff_id as string),
+        })));
 
         // Marcar como atendidos los turnos confirmados de días pasados
         await supabase
@@ -239,29 +272,66 @@ export default function PanelPage() {
   const moveDayBlocked = (ds: string) =>
     moveFullDayClosed.has(ds) || (!!moving?.staff_id && absences.has(`${moving.staff_id}|${ds}`));
 
-  // Horarios libres del día destino, con la duración del turno que se mueve.
-  const moveSlots = useMemo(() => {
-    if (!moving || !schedInfo) return { grid: [] as string[], availability: {} as Record<string, boolean> };
-    if (moveFullDayClosed.has(moveDate)) return { grid: [], availability: {} };
-    if (moving.staff_id && absences.has(`${moving.staff_id}|${moveDate}`)) return { grid: [], availability: {} };
-    const [y, m, d] = moveDate.split("-").map(Number);
+  // Horarios libres de un día para UNA agenda.
+  //
+  // Estaba escrito adentro de "mover turno". Se factorizó al sumar el alta
+  // manual: son dos pantallas que eligen horario y tienen que aplicar la misma
+  // regla de solapamiento. Dos copias divergen, y el día que diverjan van a
+  // aparecer turnos pisados que nadie entiende de dónde salieron.
+  const calcularSlots = useCallback((o: {
+    fecha: string;
+    staffId: string | null;
+    duracion: number;
+    ocupados: MoveBusy[];
+    /** El turno que se está moviendo: no compite consigo mismo. */
+    excluirId?: string;
+  }) => {
+    const vacio = { grid: [] as string[], availability: {} as Record<string, boolean> };
+    if (!schedInfo) return vacio;
+    if (moveFullDayClosed.has(o.fecha)) return vacio;
+    if (o.staffId && absences.has(`${o.staffId}|${o.fecha}`)) return vacio;
+    const [y, m, d] = o.fecha.split("-").map(Number);
     const weekday = new Date(y, m - 1, d).getDay();
-    const dur = moving.services?.duration_min ?? schedInfo.slot_minutes;
-    // Excluimos el propio turno del chequeo (si no, chocaría consigo mismo) y,
-    // con varias agendas, sólo compiten los turnos de la misma persona.
-    const busyIntervals = moveBusy
-      .filter((a) => a.id !== moving.id)
-      .filter((a) => !moving.staff_id || a.staff_id === null || a.staff_id === moving.staff_id)
+    // Con varias agendas sólo compiten los turnos de la misma persona; los de
+    // staff_id null son de la época de un solo sillón y ocupan a todos.
+    const busyIntervals = o.ocupados
+      .filter((a) => a.id !== o.excluirId)
+      .filter((a) => !o.staffId || a.staff_id === null || a.staff_id === o.staffId)
       .map((a) => { const s = toMin(a.time); return [s, s + (a.services?.duration_min ?? schedInfo.slot_minutes)] as [number, number]; });
-    // Desde el panel NO hay anticipación mínima; sólo no se puede mover al pasado (hoy).
+    // Desde el panel NO hay anticipación mínima: el local puede anotar algo que
+    // pasa en diez minutos. Lo único que no se permite es el pasado.
     let minStartMin: number | undefined;
-    if (moveDate === today) { const now = new Date(); minStartMin = now.getHours() * 60 + now.getMinutes(); }
+    if (o.fecha === today) { const now = new Date(); minStartMin = now.getHours() * 60 + now.getMinutes(); }
     return computeSlots({
-      hours: schedInfo.hours, weekday, date: moveDate,
-      slotMinutes: schedInfo.slot_minutes, durationMin: dur,
+      hours: schedInfo.hours, weekday, date: o.fecha,
+      slotMinutes: schedInfo.slot_minutes, durationMin: o.duracion,
       closedBlocks: normalizeClosed(schedInfo.closed), busyIntervals, minStartMin,
     });
-  }, [moving, schedInfo, moveDate, moveBusy, moveFullDayClosed, absences, today]);
+  }, [schedInfo, moveFullDayClosed, absences, today]);
+
+  const moveSlots = useMemo(() => {
+    if (!moving || !schedInfo) return { grid: [] as string[], availability: {} as Record<string, boolean> };
+    return calcularSlots({
+      fecha: moveDate,
+      staffId: moving.staff_id,
+      duracion: moving.services?.duration_min ?? schedInfo.slot_minutes,
+      ocupados: moveBusy,
+      excluirId: moving.id,
+    });
+  }, [moving, schedInfo, moveDate, moveBusy, calcularSlots]);
+
+  const nvSlots = useMemo(() => {
+    if (!nvSvc) return { grid: [] as string[], availability: {} as Record<string, boolean> };
+    return calcularSlots({
+      fecha: nvFecha, staffId: nvStaff, duracion: nvSvc.duration_min, ocupados: nvBusy,
+    });
+  }, [nvSvc, nvFecha, nvStaff, nvBusy, calcularSlots]);
+
+  // Quiénes pueden atender el servicio elegido. Misma regla que la web pública.
+  const nvElegibles = useMemo(() => {
+    if (!nvSvc || nvSvc.staff_ids.length === 0) return staff;
+    return staff.filter((b) => nvSvc.staff_ids.includes(b.id));
+  }, [nvSvc, staff]);
 
   async function confirmMove() {
     if (!moving || !moveTime) return;
@@ -275,6 +345,63 @@ export default function PanelPage() {
     }
     setMoving(null); setMoveTime(null);
     if (shop) loadAppts(shop.id, date);
+  }
+
+  // ── CARGAR TURNO A MANO ───────────────────────────────────────────────────
+  function abrirNuevo() {
+    setNuevo(true); setNvError(""); setNvHora(null);
+    setNvNombre(""); setNvTel(""); setNvSvc(null); setNvStaff(null);
+    setNvFecha(date);
+    if (!schedInfo && shop) {
+      supabase.rpc("public_shop_info", { shop_slug: shop.slug })
+        .then(({ data }) => { if (data) setSchedInfo(data as SchedInfo); });
+    }
+  }
+
+  // Ocupados del día elegido, para que la grilla no ofrezca horarios pisados.
+  useEffect(() => {
+    if (!nuevo || !shop || !nvFecha) return;
+    supabase.from("appointments")
+      .select("id, time, staff_id, services(duration_min)")
+      .eq("business_id", shop.id).eq("date", nvFecha).in("status", ["confirmed", "done"])
+      .then(({ data }) => setNvBusy((data as unknown as MoveBusy[]) ?? []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [nuevo, shop, nvFecha]);
+
+  async function guardarNuevo() {
+    if (!shop || !nvSvc || !nvHora) return;
+    if (nvNombre.trim().length < 3) return setNvError("Escribí el nombre del cliente.");
+    if (nvTel.trim().length < 7) return setNvError("Falta el teléfono.");
+    if (nvElegibles.length > 0 && !nvStaff) return setNvError("Elegí quién lo atiende.");
+
+    setNvSaving(true); setNvError("");
+    // Precio y nombre congelados, igual que en /api/book: si mañana sube la
+    // lista, este turno tiene que seguir valiendo lo de hoy.
+    const { error } = await supabase.from("appointments").insert({
+      business_id: shop.id,
+      service_id: nvSvc.id,
+      ...(nvStaff ? { staff_id: nvStaff } : {}),
+      date: nvFecha,
+      time: nvHora,
+      client_name: nvNombre.trim(),
+      client_phone: nvTel.trim(),
+      price: nvSvc.price,
+      service_name: nvSvc.name,
+    });
+    setNvSaving(false);
+
+    if (error) {
+      if (error.code === "23505") return setNvError("Ese horario se acaba de ocupar. Elegí otro.");
+      // El cupo por negocio lo levanta el trigger de 0006. Es rarísimo que un
+      // local lo toque cargando a mano, pero si pasa hay que decirlo claro.
+      if (error.message.includes("BOOKING_CAP")) {
+        return setNvError("Llegaste al tope de turnos del día. Escribinos si necesitás más.");
+      }
+      return setNvError("No se pudo guardar. Probá de nuevo.");
+    }
+    setNuevo(false);
+    setDate(nvFecha);
+    loadAppts(shop.id, nvFecha);
   }
 
   const staffName = (id: string | null) => staff.find((b) => b.id === id)?.name ?? null;
@@ -412,6 +539,11 @@ export default function PanelPage() {
           <span className="text-sm font-bold text-ink">{date === today ? "Hoy" : date}</span>
           <span className="text-[11px] text-faint">{done.length} atendidos · {active.length} en cola</span>
         </div>
+
+        <motion.button whileTap={{ scale: 0.97 }} onClick={abrirNuevo}
+          className="w-full rounded-2xl border-[1.5px] border-dashed border-line text-sm font-bold text-accent-ink py-3 mb-4 transition-colors hover:border-accent">
+          + Cargar un turno
+        </motion.button>
 
         {/* Números del día. El de la izquierda es el que importa: se mueve en el
             momento en que marcás un turno como atendido. */}
@@ -571,6 +703,114 @@ export default function PanelPage() {
         </div>{/* fin columna derecha */}
         </div>{/* fin grid */}
       </div>
+
+      {/* MODAL CARGAR TURNO A MANO */}
+      <AnimatePresence>
+        {nuevo && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={() => setNuevo(false)}
+            className="fixed inset-0 z-50 bg-black/45 flex items-end lg:items-center justify-center">
+            <motion.div
+              initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+              transition={{ type: "spring", stiffness: 320, damping: 34 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-md bg-surface rounded-t-3xl lg:rounded-3xl p-5 max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-extrabold text-ink">Cargar un turno</h2>
+                <button onClick={() => setNuevo(false)} className="text-faint text-lg leading-none px-1">✕</button>
+              </div>
+              <p className="text-[11px] text-faint mb-4">
+                Para lo que se cerró por teléfono, al mostrador o por WhatsApp. Queda igual
+                que un turno reservado por la web y suma en los números del día.
+              </p>
+
+              <SectionLabel>Servicio</SectionLabel>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {services.map((s) => (
+                  <button key={s.id}
+                    onClick={() => { setNvSvc(s); setNvHora(null); setNvStaff(null); }}
+                    className={`rounded-2xl border-[1.5px] p-2.5 text-center transition-colors ${
+                      nvSvc?.id === s.id ? "border-accent bg-accent-soft" : "border-line bg-canvas"
+                    }`}>
+                    <div className="text-[11px] font-bold text-ink truncate">{s.name}</div>
+                    <div className="text-[10px] text-faint mt-0.5">{formatDuracion(s.duration_min)}</div>
+                  </button>
+                ))}
+              </div>
+
+              {nvSvc && nvElegibles.length > 0 && (
+                <>
+                  <SectionLabel>Quién atiende</SectionLabel>
+                  <div className="grid grid-cols-3 gap-2 mb-4">
+                    {nvElegibles.map((b) => (
+                      <button key={b.id} onClick={() => { setNvStaff(b.id); setNvHora(null); }}
+                        className={`rounded-2xl border-[1.5px] p-2.5 text-center transition-colors ${
+                          nvStaff === b.id ? "border-accent bg-accent-soft" : "border-line bg-canvas"
+                        }`}>
+                        <div className="text-[11px] font-bold text-ink truncate">{b.name}</div>
+                      </button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              <SectionLabel>Día</SectionLabel>
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
+                {days.map((d) => {
+                  const ds = fmtDate(d);
+                  const on = nvFecha === ds;
+                  return (
+                    <button key={ds} onClick={() => { setNvFecha(ds); setNvHora(null); }}
+                      className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
+                        on ? "border-accent bg-accent-soft" : "border-line bg-canvas"}`}>
+                      <div className={`text-[8px] uppercase font-semibold ${on ? "text-accent-ink" : "text-faint"}`}>
+                        {ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
+                      </div>
+                      <div className={`text-sm font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              <SectionLabel>Horario</SectionLabel>
+              {!nvSvc ? (
+                <p className="text-xs text-faint mb-4">Elegí primero el servicio.</p>
+              ) : nvElegibles.length > 0 && !nvStaff ? (
+                <p className="text-xs text-faint mb-4">Elegí quién lo atiende para ver sus horarios.</p>
+              ) : nvSlots.grid.length === 0 ? (
+                <p className="text-xs text-faint mb-4">No hay horarios ese día. Probá con otro.</p>
+              ) : (
+                <div className="grid grid-cols-4 gap-2 mb-4">
+                  {nvSlots.grid.map((s) => {
+                    const libre = nvSlots.availability[s];
+                    return (
+                      <button key={s} disabled={!libre} onClick={() => setNvHora(s)}
+                        className={`rounded-xl border-[1.5px] py-2 text-[11px] font-bold transition-colors ${
+                          !libre ? "border-dashed border-line text-faint line-through"
+                            : nvHora === s ? "border-accent bg-accent text-on-accent"
+                            : "border-line bg-canvas text-body"}`}>{s}</button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <SectionLabel>Cliente</SectionLabel>
+              <input value={nvNombre} onChange={(e) => setNvNombre(e.target.value)} placeholder="Nombre y apellido"
+                className="w-full rounded-2xl bg-canvas border border-line px-4 py-3 text-sm outline-none focus:border-accent mb-2" />
+              <input value={nvTel} onChange={(e) => setNvTel(e.target.value)} placeholder="351 234-5678" type="tel"
+                className="w-full rounded-2xl bg-canvas border border-line px-4 py-3 text-sm outline-none focus:border-accent mb-4" />
+
+              {nvError && <p className="text-sm text-danger mb-3 text-center">{nvError}</p>}
+
+              <motion.button whileTap={{ scale: 0.97 }} onClick={guardarNuevo}
+                disabled={!nvHora || nvSaving}
+                className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
+                {nvSaving ? "Guardando…" : "Guardar turno"}
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* MODAL REPROGRAMAR TURNO */}
       <AnimatePresence>
