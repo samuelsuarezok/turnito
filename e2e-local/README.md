@@ -63,7 +63,9 @@ npx playwright test --config e2e-local/playwright.config.ts e2e-local/polling.sp
 | `tasks.spec.ts` | Guard del onboarding (usuario con negocio → `/panel`) y agregar franja horaria en Config |
 | `polling.spec.ts` | Un turno nuevo aparece solo en el panel, sin recargar |
 | `polling-otro-dia.spec.ts` | Lo mismo, pero parado en un día que no es hoy |
-| `reschedule.spec.ts` | Mover un turno a otro horario desde el panel |
+| `reschedule.spec.ts` | Mover un turno, y que ofrezca avisarle al cliente por WhatsApp |
+| `cancel.spec.ts` | Cancelar: que pida confirmación, que "Mejor no" no toque nada, y el aviso |
+| `reminder.spec.ts` | Recordatorio por WhatsApp desde las dos tarjetas del panel |
 | `shots.spec.ts` | Screenshots a 360px (genera `shots/`, no assert) |
 
 Y dos scripts que no son specs:
@@ -106,7 +108,15 @@ Ese mismo spec hacía `data!.id` sin mirar `error`, así que el fallo aparecía 
 un `TypeError: Cannot read properties of null` dos líneas después, sin decir qué
 había pasado. Tirá un error con contexto.
 
-**4. Asegurate de que el test toque SOLO lo suyo. Esta es la importante.**
+**4. La suite corre EN SERIE (`workers: 1`), no la paralelices.**
+Todos los specs le pegan a la misma base real. Cuando corrían en paralelo, tres
+buscaban "el primer día libre" a la vez, elegían el mismo y chocaban contra el
+índice único `appointments_slot_unique`. Darle a cada spec horarios distintos es
+un parche: el próximo que alguien escriba vuelve a chocar. Con estado compartido
+y mutable, la respuesta correcta es no paralelizar. El día que haya una base de
+test por worker, se puede revisar.
+
+**5. Asegurate de que el test toque SOLO lo suyo. Esta es la importante.**
 El botón "Mover a otro horario" existe **solo en la tarjeta del turno actual**
 (el primer confirmado del día). `reschedule.spec.ts` hacía
 `getByText("Mover a otro horario").click()` asumiendo que era el suyo — y cuando

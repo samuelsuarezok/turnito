@@ -15,6 +15,21 @@ export default defineConfig({
   testMatch: /.*\.spec\.ts/,
   outputDir: "./test-results",
   timeout: 30000,
+
+  // SERIAL, y no es por lentitud: todos los specs le pegan a la MISMA base real.
+  //
+  // `fullyParallel: false` solo serializa dentro de un archivo — los archivos
+  // distintos igual corren en paralelo, en workers separados. Eso rompía: tres
+  // specs buscaban "el primer día libre" al mismo tiempo, elegían el mismo, y
+  // chocaban contra el índice único appointments_slot_unique.
+  //
+  // Se podría dar a cada spec horarios distintos, pero es un parche: el próximo
+  // spec que alguien escriba vuelve a chocar. Con estado compartido y mutable,
+  // la única respuesta correcta es no correrlos en paralelo.
+  //
+  // Cuesta unos segundos más. Con una base de test por worker se podría volver
+  // a paralelizar, pero hoy no la hay.
+  workers: 1,
   fullyParallel: false,
   use: {
     baseURL: "http://localhost:3000",

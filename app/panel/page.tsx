@@ -24,7 +24,7 @@ type Svc = {
 };
 type Appt = {
   id: string; client_name: string; client_phone: string;
-  date: string; time: string; status: string;
+  date: string; time: string; status: string; token: string;
   staff_id: string | null;
   // Congelados al reservar: la plata se cuenta con ESTO y no con services.price,
   // que cambia cuando el negocio actualiza la lista. Ver 0008_precio_en_turno.
@@ -44,6 +44,75 @@ function fmtDate(d: Date) {
 }
 function getNext7Days() {
   return Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
+}
+
+// "2026-08-12" → "el martes 12". Para hoy y mañana usa la palabra, que se lee
+// mejor y no obliga al cliente a mirar el calendario.
+const DIAS_LARGOS = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];
+
+function cuando(ds: string) {
+  const hoy = fmtDate(new Date());
+  const manana = fmtDate(new Date(Date.now() + 86400000));
+  if (ds === hoy) return "hoy";
+  if (ds === manana) return "mañana";
+  const [y, m, d] = ds.split("-").map(Number);
+  return `el ${DIAS_LARGOS[new Date(y, m - 1, d).getDay()]} ${d}`;
+}
+
+// Igual que cuando(), pero con la preposición contraída: "de hoy" pero "DEL
+// martes 11". Sin esto salía "de el martes 11".
+function deCuando(ds: string) {
+  const c = cuando(ds);
+  return c.startsWith("el ") ? `del ${c.slice(3)}` : `de ${c}`;
+}
+
+// Avisos al cliente por WhatsApp. El dueño toca y solo aprieta enviar: wa.me NO
+// puede mandar solo, siempre hay una persona apretando. Para el cliente el
+// mensaje llega del número del local, no de un bot.
+export type Aviso = {
+  tipo: "movido" | "cancelado";
+  clientName: string; clientPhone: string; serviceName: string;
+  date: string; time: string; token: string; slug: string;
+};
+
+function waAviso(a: Aviso) {
+  const pila = a.clientName.trim().split(/\s+/)[0];
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+
+  // El link cambia según el caso, y no es un detalle:
+  //   movido    → al turno, para que lo cambie o cancele si no le sirve.
+  //   cancelado → a la reserva, porque su turno ya no existe y lo que necesita
+  //               es sacar otro.
+  const texto =
+    a.tipo === "movido"
+      ? `Hola ${pila}! Te muevo el turno de ${a.serviceName} para ${cuando(a.date)} a las ${a.time}.
+
+` +
+        `Si no te sirve, avisame o cambialo acá: ${origin}/t/${a.token}`
+      : `Hola ${pila}! Tengo que cancelar tu turno de ${a.serviceName} ${deCuando(a.date)} a las ${a.time}. Perdón por el inconveniente.
+
+` +
+        `Cuando quieras sacás otro acá: ${origin}/${a.slug}`;
+
+  return waLink(a.clientPhone, texto);
+}
+
+// Recordatorio. El cierre —"así libero el horario"— no es cortesía: es lo que
+// hace que el cliente CANCELE en vez de faltar. Un horario liberado se revende;
+// un no-show es plata perdida y el sillón vacío.
+function waRecordatorio(a: {
+  client_name: string; client_phone: string; date: string; time: string; token: string;
+  services: { name: string } | null;
+}) {
+  const pila = a.client_name.trim().split(/\s+/)[0];
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  return waLink(
+    a.client_phone,
+    `Hola ${pila}! Te recuerdo tu turno de ${a.services?.name ?? "siempre"} ${deCuando(a.date)} a las ${a.time.slice(0, 5)}.
+
+` +
+      `Si no podés venir, avisame así libero el horario: ${origin}/t/${a.token}`
+  );
 }
 
 export default function PanelPage() {
@@ -83,6 +152,18 @@ export default function PanelPage() {
   const [moveBusy, setMoveBusy] = useState<MoveBusy[]>([]);
   const [moveSaving, setMoveSaving] = useState(false);
   const [moveError, setMoveError] = useState("");
+
+  // Datos del turno recién movido o cancelado, para el paso "avisale al
+  // cliente". Mientras esto está seteado el sheet muestra ese paso: mover o
+  // cancelar sin avisar deja al cliente viajando al pedo, así que el aviso no
+  // puede ser algo que se cierre de casualidad.
+  const [avisar, setAvisar] = useState<Aviso | null>(null);
+
+  // Turno que el dueño quiere cancelar, esperando confirmación. Antes el ✕
+  // cancelaba de una: un toque mal dado borraba el turno de un cliente, sin
+  // vuelta atrás y sin que nadie se enterara.
+  const [cancelando, setCancelando] = useState<Appt | null>(null);
+  const [cancelSaving, setCancelSaving] = useState(false);
 
   const days = useMemo(() => getNext7Days(), []);
   const today = fmtDate(new Date());
@@ -144,7 +225,7 @@ export default function PanelPage() {
   async function loadAppts(shopId: string, onDate: string) {
     const { data } = await supabase
       .from("appointments")
-      .select("id, client_name, client_phone, date, time, status, staff_id, price, service_name, services(name, duration_min)")
+      .select("id, client_name, client_phone, date, time, status, token, staff_id, price, service_name, services(name, duration_min)")
       .eq("business_id", shopId).eq("date", onDate).order("time");
     setAppts((data as unknown as Appt[]) ?? []);
   }
@@ -225,7 +306,32 @@ export default function PanelPage() {
       if (data) setSchedInfo(data as SchedInfo);
     }
   }
-  function closeMove() { setMoving(null); setMoveTime(null); }
+  function closeSheet() { setMoving(null); setMoveTime(null); setAvisar(null); setCancelando(null); }
+  const closeMove = closeSheet;
+
+  // Cancelar de verdad, ya confirmado. Igual que al mover: no cierra, pasa al
+  // paso de avisarle.
+  async function confirmCancel() {
+    if (!cancelando || !shop) return;
+    setCancelSaving(true);
+    const { error } = await supabase.from("appointments")
+      .update({ status: "cancelled_by_shop" }).eq("id", cancelando.id);
+    setCancelSaving(false);
+    if (error) return;
+
+    setAvisar({
+      tipo: "cancelado",
+      clientName: cancelando.client_name,
+      clientPhone: cancelando.client_phone,
+      serviceName: cancelando.service_name ?? cancelando.services?.name ?? "tu turno",
+      date: cancelando.date,
+      time: cancelando.time.slice(0, 5),
+      token: cancelando.token,
+      slug: shop.slug,
+    });
+    setCancelando(null);
+    loadAppts(shop.id, date);
+  }
 
   // Turnos ocupados del día destino (para validar solapamiento)
   useEffect(() => {
@@ -317,7 +423,19 @@ export default function PanelPage() {
       setMoveError(error.code === "23505" ? "Ese horario se acaba de ocupar. Elegí otro." : "No se pudo mover. Probá de nuevo.");
       return;
     }
-    setMoving(null); setMoveTime(null);
+    // NO cerramos: pasamos al paso de avisarle al cliente. Antes esto cerraba el
+    // sheet y el cliente nunca se enteraba de que le movieron el turno.
+    setAvisar({
+      tipo: "movido",
+      clientName: moving.client_name,
+      clientPhone: moving.client_phone,
+      serviceName: moving.service_name ?? moving.services?.name ?? "tu turno",
+      date: moveDate,
+      time: moveTime,
+      token: moving.token,
+      slug: shop?.slug ?? "",
+    });
+    setMoveTime(null);
     if (shop) loadAppts(shop.id, date);
   }
 
@@ -603,6 +721,10 @@ export default function PanelPage() {
                 <motion.button whileTap={{ scale: 0.96 }} onClick={() => setStatus(current.id, "no_show")}
                   className="rounded-full border-[1.5px] border-black/25 text-on-highlight text-xs font-bold px-5">No vino</motion.button>
               </div>
+              <a href={waRecordatorio(current)} target="_blank" rel="noopener noreferrer"
+                className="block w-full text-center text-[11px] font-bold text-on-highlight/55 mt-2.5 underline underline-offset-2">
+                🔔 Recordarle
+              </a>
               <button onClick={() => openMove(current)}
                 className="w-full text-center text-[11px] font-bold text-on-highlight/55 mt-2.5 underline underline-offset-2">
                 🕐 Mover a otro horario
@@ -666,8 +788,10 @@ export default function PanelPage() {
                         </a>
                       </div>
                     </div>
+                    <a href={waRecordatorio(a)} target="_blank" rel="noopener noreferrer"
+                      className="text-faint hover:text-accent-ink text-sm px-1" title="Recordarle el turno">🔔</a>
                     <button onClick={() => openMove(a)} className="text-faint hover:text-accent-ink text-sm px-1" title="Mover turno">🕐</button>
-                    <button onClick={() => setStatus(a.id, "cancelled_by_shop")} className="text-faint hover:text-danger text-sm px-1" title="Cancelar turno">✕</button>
+                    <button onClick={() => setCancelando(a)} className="text-faint hover:text-danger text-sm px-1" title="Cancelar turno">✕</button>
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -802,9 +926,10 @@ export default function PanelPage() {
         )}
       </AnimatePresence>
 
-      {/* MODAL REPROGRAMAR TURNO */}
+      {/* SHEET: mover · cancelar · avisar. Uno solo para los tres pasos, así el
+          aviso al cliente se ve igual venga de donde venga. */}
       <AnimatePresence>
-        {moving && (
+        {(moving || cancelando || avisar) && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={closeMove}
             className="fixed inset-0 z-50 bg-black/45 flex items-end justify-center">
@@ -813,15 +938,59 @@ export default function PanelPage() {
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-md bg-surface rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="text-base font-extrabold text-ink">Mover turno</h2>
-                <button onClick={closeMove} className="text-faint text-lg leading-none px-1">✕</button>
+                <h2 className="text-base font-extrabold text-ink">
+                  {avisar ? (avisar.tipo === "movido" ? "Turno movido" : "Turno cancelado")
+                    : cancelando ? "¿Cancelar el turno?" : "Mover turno"}
+                </h2>
+                <button onClick={closeSheet} className="text-faint text-lg leading-none px-1">✕</button>
               </div>
               <p className="text-xs text-muted mb-4">
-                {moving.client_name} · {moving.services?.name} ({formatDuracion(moving.services?.duration_min ?? 0)})
-                {staffName(moving.staff_id) ? ` · con ${staffName(moving.staff_id)}` : ""}
+                {(() => {
+                  const a = moving ?? cancelando;
+                  if (a) return `${a.client_name} · ${a.services?.name} (${formatDuracion(a.services?.duration_min ?? 0)})${staffName(a.staff_id) ? ` · con ${staffName(a.staff_id)}` : ""}`;
+                  return `${avisar?.clientName} · ${avisar?.serviceName}`;
+                })()}
               </p>
 
-              {!schedInfo ? (
+              {cancelando ? (
+                /* Paso 1 del cancelar: confirmar. El ✕ cancelaba de una. */
+                <div className="py-2">
+                  <p className="text-sm text-ink mb-1">
+                    {cuando(cancelando.date)} a las <span className="font-bold">{cancelando.time.slice(0, 5)}</span>
+                  </p>
+                  <p className="text-xs text-muted mb-5">
+                    El horario queda libre y se lo vas a poder avisar al cliente en el paso siguiente.
+                  </p>
+                  <motion.button whileTap={{ scale: 0.97 }} onClick={confirmCancel} disabled={cancelSaving}
+                    className="w-full rounded-full bg-danger text-white font-bold py-3.5 disabled:opacity-40 mb-3">
+                    {cancelSaving ? "Cancelando…" : "Sí, cancelar el turno"}
+                  </motion.button>
+                  <button onClick={closeSheet} className="block w-full text-center text-xs text-faint py-2">
+                    Mejor no
+                  </button>
+                </div>
+              ) : avisar ? (
+                /* Paso 2: avisarle al cliente. El cambio YA está en la base;
+                   esto es lo que evita que se presente en el horario viejo. */
+                <div className="py-2">
+                  {avisar.tipo === "movido" && (
+                    <p className="text-sm text-ink mb-1">
+                      Quedó {cuando(avisar.date)} a las <span className="font-bold">{avisar.time}</span>.
+                    </p>
+                  )}
+                  <p className="text-xs text-muted mb-5">
+                    {avisar.clientName.trim().split(/\s+/)[0]} todavía no lo sabe.
+                    {avisar.tipo === "movido" ? " Avisale así no viene al horario viejo." : " Avisale así no viene al pedo."}
+                  </p>
+                  <a href={waAviso(avisar)} target="_blank" rel="noopener noreferrer" onClick={closeSheet}
+                    className="block w-full rounded-full bg-[#25D366] text-white font-bold py-3.5 text-center mb-3">
+                    Avisarle por WhatsApp
+                  </a>
+                  <button onClick={closeSheet} className="block w-full text-center text-xs text-faint py-2">
+                    Ya le avisé por otro lado
+                  </button>
+                </div>
+              ) : !schedInfo ? (
                 <p className="text-sm text-faint py-6 text-center">Cargando horarios…</p>
               ) : (
                 <>
@@ -844,7 +1013,7 @@ export default function PanelPage() {
                   {/* horarios libres */}
                   {moveSlots.grid.length === 0 ? (
                     <p className="text-sm text-faint py-4 text-center">
-                      {moving.staff_id && absences.has(`${moving.staff_id}|${moveDate}`)
+                      {moving?.staff_id && absences.has(`${moving.staff_id}|${moveDate}`)
                         ? `${staffName(moving.staff_id)} no está ese día. Elegí otro.`
                         : "Cerrado ese día. Elegí otro."}
                     </p>

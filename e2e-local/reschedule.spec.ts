@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "fs";
 import path from "path";
 import { createClient } from "@supabase/supabase-js";
+import { getNegocio } from "./negocio";
 
 const cookies = JSON.parse(readFileSync(path.resolve(__dirname, ".auth.json"), "utf8"));
 const shot = (n: string) => path.resolve(__dirname, "shots", n);
@@ -24,8 +25,8 @@ test.use({ viewport: { width: 360, height: 780 } });
 let dayIndex = -1;
 
 test.beforeAll(async () => {
-  const { data: shop } = await admin.from("businesses").select("id").eq("slug", "barberia-samuel").single();
-  const { data: svc } = await admin.from("services").select("id").eq("business_id", shop!.id).eq("active", true).limit(1).single();
+  const shop = await getNegocio(admin);
+  const { data: svc } = await admin.from("services").select("id").eq("business_id", shop.id).eq("active", true).limit(1).single();
 
   // ATENCIÓN — POR QUÉ ESTE TEST NO USA HOY.
   //
@@ -39,7 +40,7 @@ test.beforeAll(async () => {
   // VACÍO. Ahí el turno de prueba es el único, así que es siempre el actual y no
   // hay forma de tocar nada que no sea nuestro.
   const { data: prox } = await admin.from("appointments")
-    .select("date").eq("business_id", shop!.id).gte("date", TODAY);
+    .select("date").eq("business_id", shop.id).gte("date", TODAY);
   const conTurnos = new Set((prox ?? []).map((a) => String(a.date)));
 
   for (let i = 1; i < 7; i++) {                      // desde 1: hoy nunca
@@ -51,7 +52,7 @@ test.beforeAll(async () => {
   const targetDate = fmt(new Date(Date.now() + dayIndex * 86400000));
 
   const { data, error } = await admin.from("appointments")
-    .insert({ business_id: shop!.id, service_id: svc!.id, date: targetDate, time: "12:00", client_name: "TEST reprogramar", client_phone: "000" })
+    .insert({ business_id: shop.id, service_id: svc!.id, date: targetDate, time: "12:00", client_name: "TEST reprogramar", client_phone: "000" })
     .select("id").single();
   // El error se chequea explícitamente: antes se ignoraba y el fallo salía como
   // un TypeError críptico dos líneas después, sin decir qué había pasado.
@@ -102,10 +103,32 @@ test("Tarea 5: mover un turno a otro día desde el panel", async ({ context, pag
   await freeSlots.first().click();
   await sheet.getByRole("button", { name: /Mover a/ }).click();
 
-  // El modal se cierra
-  await expect(page.locator(".rounded-t-3xl")).toHaveCount(0, { timeout: 10000 });
+  // El modal NO se cierra: pasa al paso de avisarle al cliente.
+  //
+  // Esto es lo importante del cambio, no un detalle de UI: antes el modal se
+  // cerraba y el cliente nunca se enteraba de que le habían movido el turno, así
+  // que se presentaba en el horario viejo. El aviso no puede depender de que el
+  // dueño se acuerde.
+  await expect(sheet.getByRole("heading", { name: "Turno movido" })).toBeVisible({ timeout: 10000 });
+
+  const waBtn = sheet.getByRole("link", { name: "Avisarle por WhatsApp" });
+  await expect(waBtn).toBeVisible();
+
+  // El link tiene que llevar el mensaje ya escrito y el link del turno, si no el
+  // dueño tiene que redactarlo a mano y no lo va a hacer.
+  const href = await waBtn.getAttribute("href");
+  expect(href).toContain("wa.me/");
+  expect(href).toContain("text=");
+  expect(decodeURIComponent(href ?? "")).toContain("/t/");   // link para cambiar el turno
+  expect(decodeURIComponent(href ?? "")).toContain(chosen!); // el horario nuevo
+
+  await sheet.screenshot({ path: shot("reschedule-aviso.png") });
 
   // Verificar en la base que el turno se movió al horario elegido
   const { data: moved } = await admin.from("appointments").select("date, time").eq("id", apptId).single();
   expect(moved!.time.slice(0, 5)).toBe(chosen);
+
+  // Y que se puede cerrar sin mandar nada (el dueño puede haber avisado por otro lado)
+  await sheet.getByRole("button", { name: "Ya le avisé por otro lado" }).click();
+  await expect(page.locator(".rounded-t-3xl")).toHaveCount(0, { timeout: 10000 });
 });
