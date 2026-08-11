@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { readFileSync } from "fs";
 import path from "path";
 import { createClient } from "@supabase/supabase-js";
+import { getNegocio } from "./negocio";
 
 const cookies = JSON.parse(readFileSync(path.resolve(__dirname, ".auth.json"), "utf8"));
 for (const line of readFileSync(path.resolve(__dirname, "../.env"), "utf8").split(/\r?\n/)) {
@@ -33,10 +34,10 @@ test("polling parado en OTRO día (no hoy)", async ({ context, page }) => {
   await expect(page.getByText("POLLING-OTRODIA")).toHaveCount(0);
 
   // Insertar turno para ESE día (sin recargar)
-  const { data: shop } = await admin.from("businesses").select("id").eq("slug", "barberia-samuel").single();
-  const { data: svc } = await admin.from("services").select("id").eq("business_id", shop!.id).eq("active", true).limit(1).single();
+  const shop = await getNegocio(admin);
+  const { data: svc } = await admin.from("services").select("id").eq("business_id", shop.id).eq("active", true).limit(1).single();
   const { data } = await admin.from("appointments")
-    .insert({ business_id: shop!.id, service_id: svc!.id, date: TARGET_DATE, time: "10:00", client_name: "POLLING-OTRODIA", client_phone: "000" })
+    .insert({ business_id: shop.id, service_id: svc!.id, date: TARGET_DATE, time: "10:00", client_name: "POLLING-OTRODIA", client_phone: "000" })
     .select("id").single();
   apptId = data!.id;
   console.log("Insertado para", TARGET_DATE, "(offset", offset + ")");
