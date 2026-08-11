@@ -15,10 +15,30 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+// `metadataBase` es lo que convierte "/og-image.png" en una URL absoluta. Sin
+// eso, WhatsApp y Twitter reciben una ruta relativa, no saben resolverla y no
+// muestran nada.
 export const metadata: Metadata = {
+  metadataBase: new URL("https://turnito.site"),
   title: "Turnito — Turnos online para tu negocio",
   description:
     "Barbería, uñas, pestañas, tatuajes o peluquería: tus clientes reservan solos desde un link. Sin apps, sin cuentas. 30 días gratis.",
+  openGraph: {
+    title: "Turnito — Turnos online para tu negocio",
+    description:
+      "Tus clientes reservan solos desde un link. Sin apps, sin cuentas. 30 días gratis.",
+    url: "https://turnito.site",
+    siteName: "Turnito",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+    locale: "es_AR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Turnito — Turnos online para tu negocio",
+    description: "Tus clientes reservan solos desde un link. 30 días gratis.",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({
