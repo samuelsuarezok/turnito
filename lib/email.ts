@@ -184,6 +184,25 @@ export function fmtFechaLarga(date: string): string {
 }
 
 /** Arma el mail de confirmación de turno. */
+// "351 234-5678" → link de WhatsApp argentino.
+function waHref(phone: string) {
+  const d = phone.replace(/\D/g, "");
+  return `https://wa.me/${d.startsWith("54") ? d : `549${d}`}`;
+}
+
+/**
+ * Confirmación al cliente.
+ *
+ * OJO con el canal de respuesta: el dominio NO tiene registros MX, así que si el
+ * cliente le da "Responder" a este mail, la respuesta REBOTA. No llega a ningún
+ * lado.
+ *
+ * Se evaluó poner replyTo con el mail del dueño y se descartó: ese mail es su
+ * usuario de login, y no corresponde repartirlo a cada cliente que reserva.
+ *
+ * En vez de eso le damos el canal que un cliente de barbería va a usar igual:
+ * el WhatsApp del local. Sale del campo `whatsapp` de businesses.
+ */
 export function appointmentEmail(a: {
   shopName: string;
   clientName: string;
@@ -192,6 +211,8 @@ export function appointmentEmail(a: {
   date: string;
   time: string;
   manageUrl: string;
+  /** WhatsApp del local. Es el canal de respuesta del cliente — ver abajo. */
+  shopWhatsapp?: string | null;
 }) {
   const fecha = fmtFechaLarga(a.date);
   const hora = a.time.slice(0, 5);
@@ -211,6 +232,12 @@ export function appointmentEmail(a: {
     a.manageUrl,
     ``,
     `Guardá este link: es tu comprobante.`,
+    // También en texto plano, no solo en el HTML: hay clientes de correo que
+    // bloquean el HTML, y si el canal de respuesta vive solo ahí, esa gente se
+    // queda sin forma de contestar (el dominio no tiene MX: responder rebota).
+    ...(a.shopWhatsapp
+      ? [``, `¿Necesitás cambiar algo? Escribinos por WhatsApp: ${waHref(a.shopWhatsapp)}`]
+      : []),
   ].join("\n");
 
   const html = shell(
@@ -221,7 +248,12 @@ ${rows([
       ["Hora", `${esc(hora)} hs`],
     ])}
     <p style="margin:16px 0 0;">Podés <a href="${esc(a.manageUrl)}" style="color:#014cff;">ver o cancelar tu turno acá</a>.</p>
-    <p style="margin:8px 0 0;font-size:14px;color:#6b7280;">Guardá este mail: ese link es tu comprobante.</p>`,
+    <p style="margin:8px 0 0;font-size:14px;color:#6b7280;">Guardá este mail: ese link es tu comprobante.</p>${
+      a.shopWhatsapp
+        ? `
+    <p style="margin:16px 0 0;">¿Necesitás cambiar algo? <a href="${esc(waHref(a.shopWhatsapp))}" style="color:#014cff;">Escribinos por WhatsApp</a>.</p>`
+        : ""
+    }`,
     `Recibís este mail porque dejaste tu dirección al reservar un turno en ${esc(a.shopName)}.`
   );
 

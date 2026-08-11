@@ -87,7 +87,7 @@ export async function POST(req: Request) {
   // 1. Negocio activo (traemos también la anticipación mínima)
   const { data: shop } = await supabase
     .from("businesses")
-    .select("id, name, owner_id, subscription_status, min_notice_min, timezone")
+    .select("id, name, owner_id, whatsapp, subscription_status, min_notice_min, timezone")
     .eq("slug", slug)
     .maybeSingle();
 
@@ -314,7 +314,7 @@ export async function POST(req: Request) {
     email
       ? sendEmail({
           to: email,
-          ...appointmentEmail({ ...datos, manageUrl: `${origin}/t/${appt.token}` }),
+          ...appointmentEmail({ ...datos, manageUrl: `${origin}/t/${appt.token}`, shopWhatsapp: shop.whatsapp }),
         })
       : Promise.resolve(null),
     ownerEmail
