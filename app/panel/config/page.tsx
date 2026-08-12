@@ -34,9 +34,18 @@ for (let h = 6; h <= 23; h++) {
 
 // booking_mode: "agenda" = el cliente reserva. "consulta" = no reserva, se lo
 // manda al WhatsApp de quien lo hace. Ver 0010_servicios_por_consulta.sql.
+// `_aConsultar` es estado de EDICIÓN, no va a la base (igual que `_deleted`).
+//
+// En la base "a consultar" se guarda como price = 0, y eso está bien. El
+// problema era usar esa misma regla mientras se escribe: `Number("")` es 0, así
+// que borrar el campo para corregir un precio se interpretaba como "elegí no
+// poner precio", se marcaba el checkbox solo y el input quedaba deshabilitado a
+// mitad de tipear. Una clienta lo reportó y tenía razón.
+//
+// Separando las dos cosas, el campo vacío es sólo un campo vacío.
 type Svc = {
   id?: string; name: string; duration_min: number; price: number;
-  booking_mode: "agenda" | "consulta"; _deleted?: boolean;
+  booking_mode: "agenda" | "consulta"; _deleted?: boolean; _aConsultar?: boolean;
 };
 type HourRange = { opens_at: string; closes_at: string };
 type DayHours = { open: boolean; ranges: HourRange[] };
@@ -149,7 +158,8 @@ export default function ConfigPage() {
         .eq("business_id", shop.id)
         .eq("active", true)
         .order("sort_order");
-      setServices((svcs ?? []) as Svc[]);
+      // price 0 en la base = a consultar. Se traduce UNA vez, al cargar.
+      setServices((svcs ?? []).map((x) => ({ ...x, _aConsultar: x.price === 0 })) as Svc[]);
 
       const { data: hrs } = await supabase
         .from("opening_hours")
@@ -308,7 +318,8 @@ export default function ConfigPage() {
     const { data: svcs } = await supabase
       .from("services").select("id, name, duration_min, price, booking_mode")
       .eq("business_id", shopId).eq("active", true).order("sort_order");
-    setServices((svcs ?? []) as Svc[]);
+    // price 0 en la base = a consultar. Se traduce UNA vez, al cargar.
+      setServices((svcs ?? []).map((x) => ({ ...x, _aConsultar: x.price === 0 })) as Svc[]);
 
     // Los chips de "quién lo hace" viven en esta sección pero escriben la misma
     // relación que Equipo. Sin esto, tocarlos acá y apretar Guardar no guardaría
@@ -598,7 +609,11 @@ export default function ConfigPage() {
         <SectionCard title="Servicios" onSave={saveServices} saving={savingKey === "svc"} saved={savedKey === "svc"}>
           {visibleServices.map((svc) => {
             const realIndex = services.indexOf(svc);
-            const aConsultar = svc.price === 0;
+            // Lo que decidió el dueño, no lo que quedó en el campo mientras escribe.
+            const aConsultar = !!svc._aConsultar;
+            // Campo vacío sin haber elegido "a consultar": se va a publicar como
+            // "a consultar" igual, así que se avisa en vez de sorprender después.
+            const vacioSinElegir = !aConsultar && !svc.price;
             return (
               <div key={svc.id ?? `new-${realIndex}`} className="rounded-2xl bg-surface-2 border border-line p-3 mb-2">
                 <div className="flex gap-2 mb-2">
@@ -616,16 +631,26 @@ export default function ConfigPage() {
                     className={`${selectCls} flex-1 py-2`}>
                     {DURACION_OPTS.map((d) => (<option key={d} value={d}>{formatDuracion(d)}</option>))}
                   </select>
-                  <input type="number" value={svc.price || ""} placeholder={aConsultar ? "A consultar" : "Precio"} disabled={aConsultar}
+                  <input type="number" inputMode="numeric" min={0}
+                    value={svc.price || ""} placeholder={aConsultar ? "A consultar" : "Precio"} disabled={aConsultar}
                     onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, price: Number(e.target.value) } : s)))}
                     className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-sm outline-none focus:border-accent disabled:text-faint disabled:italic" />
                 </div>
                 <label className="flex items-center gap-2 mt-2 text-[11px] text-muted cursor-pointer select-none">
+                  {/* Al destildar NO se rellena con un número inventado: se deja
+                      el campo vacío y listo para escribir. Antes ponía 1000 y
+                      había que borrarlo primero. */}
                   <input type="checkbox" checked={aConsultar}
-                    onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, price: e.target.checked ? 0 : 1000 } : s)))}
+                    onChange={(e) => setServices(services.map((s, j) => (j === realIndex
+                      ? { ...s, _aConsultar: e.target.checked, price: 0 } : s)))}
                     className="accent-[var(--c-accent)] w-3.5 h-3.5" />
                   Sin precio fijo — mostrar &quot;a consultar&quot;
                 </label>
+                {vacioSinElegir && (
+                  <p className="text-[10px] text-faint mt-1 leading-relaxed">
+                    Sin precio se va a mostrar como &quot;a consultar&quot;.
+                  </p>
+                )}
                 {/* Modo consulta: el cliente no reserva, se va al WhatsApp de
                     quien hace el servicio. Pensado para trabajos que se
                     conversan antes (un tatuaje, una extensión larga). */}
