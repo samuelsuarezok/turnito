@@ -17,18 +17,18 @@ export default function LegalesPage() {
           <Logo size={26} />
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Link href="/" className="text-[13px] text-accent-ink font-bold">← Inicio</Link>
+            <Link href="/" className="text-[14px] text-accent-ink font-bold">← Inicio</Link>
           </div>
         </motion.div>
 
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-3xl font-extrabold text-ink mb-2 tracking-tight">Términos y Privacidad</h1>
-          <p className="text-base text-faint mb-10">Última actualización: {UPDATED}</p>
+          <h1 className="text-[33px] font-extrabold text-ink mb-2 tracking-tight">Términos y Privacidad</h1>
+          <p className="text-lg text-faint mb-10">Última actualización: {UPDATED}</p>
 
           {/* índice */}
           <div className="rounded-2xl bg-surface border border-line p-5 mb-10">
-            <p className="text-[12px] font-bold uppercase tracking-widest text-faint mb-3">Contenido</p>
-            <ul className="space-y-1.5 text-base">
+            <p className="text-[13px] font-bold uppercase tracking-widest text-faint mb-3">Contenido</p>
+            <ul className="space-y-1.5 text-lg">
               <li><a href="#terminos" className="text-accent-ink font-semibold hover:underline">1. Términos y Condiciones de Uso</a></li>
               <li><a href="#privacidad" className="text-accent-ink font-semibold hover:underline">2. Política de Privacidad</a></li>
             </ul>
@@ -36,7 +36,7 @@ export default function LegalesPage() {
 
           {/* ══ TÉRMINOS ══ */}
           <section id="terminos" className="mb-12">
-            <h2 className="text-2xl font-extrabold text-ink mb-6">1. Términos y Condiciones de Uso</h2>
+            <h2 className="text-[26px] font-extrabold text-ink mb-6">1. Términos y Condiciones de Uso</h2>
 
             <Block title="1.1 Qué es Turnito">
               Turnito es una plataforma de software que permite a negocios que trabajan con turnos —barberías,
@@ -118,7 +118,7 @@ export default function LegalesPage() {
 
           {/* ══ PRIVACIDAD ══ */}
           <section id="privacidad" className="mb-12">
-            <h2 className="text-2xl font-extrabold text-ink mb-6">2. Política de Privacidad</h2>
+            <h2 className="text-[26px] font-extrabold text-ink mb-6">2. Política de Privacidad</h2>
 
             <Block title="2.1 Responsable">
               El responsable del tratamiento de los datos es Turnito. Para consultas sobre tus datos, escribinos
@@ -186,8 +186,8 @@ export default function LegalesPage() {
 
           {/* contacto */}
           <div className="rounded-2xl bg-surface border border-line p-5">
-            <p className="text-[12px] font-bold uppercase tracking-widest text-faint mb-2">Contacto</p>
-            <p className="text-base text-muted">
+            <p className="text-[13px] font-bold uppercase tracking-widest text-faint mb-2">Contacto</p>
+            <p className="text-lg text-muted">
               Para consultas sobre estos términos o tus datos personales, escribinos a{" "}
               <a href={`mailto:${CONTACT_TO}`} className="text-accent-ink font-semibold underline">
                 {CONTACT_TO}
@@ -195,7 +195,7 @@ export default function LegalesPage() {
             </p>
           </div>
 
-          <p className="text-[13px] text-faint text-center mt-10">
+          <p className="text-[14px] text-faint text-center mt-10">
             © 2026 Turnito · Córdoba, Argentina
           </p>
         </motion.div>
@@ -207,8 +207,8 @@ export default function LegalesPage() {
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-6">
-      <h3 className="text-lg font-bold text-ink mb-2">{title}</h3>
-      <p className="text-base text-muted leading-relaxed">{children}</p>
+      <h3 className="text-xl font-bold text-ink mb-2">{title}</h3>
+      <p className="text-lg text-muted leading-relaxed">{children}</p>
     </div>
   );
 }

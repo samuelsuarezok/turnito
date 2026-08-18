@@ -22,14 +22,14 @@ export default function NotFound() {
           404
         </motion.div>
 
-        <h1 className="text-2xl font-extrabold text-ink mb-2">Esta página no existe</h1>
-        <p className="text-base text-muted mb-8">
+        <h1 className="text-[26px] font-extrabold text-ink mb-2">Esta página no existe</h1>
+        <p className="text-lg text-muted mb-8">
           Puede que el link esté mal escrito o que el negocio que buscás ya no esté disponible.
         </p>
 
         <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="inline-block">
           <Link href="/"
-            className="inline-block rounded-full bg-accent text-on-accent font-bold text-base px-8 py-3.5">
+            className="inline-block rounded-full bg-accent text-on-accent font-bold text-lg px-8 py-3.5">
             Ir al inicio →
           </Link>
         </motion.div>

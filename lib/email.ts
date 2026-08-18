@@ -147,11 +147,11 @@ const esc = (s: string) =>
 function shell(inner: string, footer: string) {
   return `<!doctype html>
 <html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:24px 20px;background:#ffffff;color:#1a1c20;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:17px;line-height:1.55;">
+<body style="margin:0;padding:24px 20px;background:#ffffff;color:#1a1c20;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:19px;line-height:1.55;">
   <div style="max-width:520px;margin:0 auto;">
-    <p style="margin:0 0 20px;font-size:15px;font-weight:700;color:#6b7280;">Turnito</p>
+    <p style="margin:0 0 20px;font-size:17px;font-weight:700;color:#6b7280;">Turnito</p>
 ${inner}
-    <p style="margin:26px 0 0;padding-top:14px;border-top:1px solid #ececec;font-size:14px;color:#8a8f98;">${footer}</p>
+    <p style="margin:26px 0 0;padding-top:14px;border-top:1px solid #ececec;font-size:15px;color:#8a8f98;">${footer}</p>
   </div>
 </body></html>`;
 }
@@ -162,8 +162,8 @@ ${inner}
  */
 function rows(pairs: [string, string][]) {
   const tr = ([k, v]: [string, string]) => `      <tr>
-        <td style="padding:7px 0;border-bottom:1px solid #f2f2f2;color:#6b7280;font-size:16px;white-space:nowrap;">${esc(k)}</td>
-        <td style="padding:7px 0;border-bottom:1px solid #f2f2f2;color:#1a1c20;font-size:16px;font-weight:600;text-align:right;">${v}</td>
+        <td style="padding:7px 0;border-bottom:1px solid #f2f2f2;color:#6b7280;font-size:18px;white-space:nowrap;">${esc(k)}</td>
+        <td style="padding:7px 0;border-bottom:1px solid #f2f2f2;color:#1a1c20;font-size:18px;font-weight:600;text-align:right;">${v}</td>
       </tr>`;
   return `    <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="margin:16px 0;border-collapse:collapse;">
 ${pairs.map(tr).join("\n")}
@@ -248,7 +248,7 @@ ${rows([
       ["Hora", `${esc(hora)} hs`],
     ])}
     <p style="margin:16px 0 0;">Podés <a href="${esc(a.manageUrl)}" style="color:#014cff;">ver o cancelar tu turno acá</a>.</p>
-    <p style="margin:8px 0 0;font-size:16px;color:#6b7280;">Guardá este mail: ese link es tu comprobante.</p>${
+    <p style="margin:8px 0 0;font-size:18px;color:#6b7280;">Guardá este mail: ese link es tu comprobante.</p>${
       a.shopWhatsapp
         ? `
     <p style="margin:16px 0 0;">¿Necesitás cambiar algo? <a href="${esc(waHref(a.shopWhatsapp))}" style="color:#014cff;">Escribinos por WhatsApp</a>.</p>`

@@ -42,7 +42,7 @@ function getNext7Days() {
   return Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
 }
 
-const labelCls = "text-[12px] font-bold uppercase tracking-widest text-faint mb-2";
+const labelCls = "text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
 const inputCls = "w-full rounded-2xl bg-surface border border-line px-4 py-3.5 outline-none focus:border-accent transition-colors";
 
 const stepVariants = {
@@ -295,33 +295,33 @@ export default function BookingClient({ slug }: { slug: string }) {
           <motion.div
             initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }}
             transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.15 }}
-            className="w-16 h-16 rounded-full bg-highlight text-on-highlight flex items-center justify-center text-2xl font-bold mx-auto mb-5">
+            className="w-16 h-16 rounded-full bg-highlight text-on-highlight flex items-center justify-center text-[26px] font-bold mx-auto mb-5">
             ✓
           </motion.div>
-          <h1 className="text-2xl font-extrabold text-ink mb-1 tracking-tight">¡Turno confirmado!</h1>
-          <p className="text-base text-muted mb-6">
+          <h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight">¡Turno confirmado!</h1>
+          <p className="text-lg text-muted mb-6">
             {date === today ? "Hoy" : date} · {time} hs · {shop.name}
             {member ? ` · con ${member.name}` : ""}
           </p>
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, ease: EASE }}
-            className="rounded-3xl bg-surface border border-line p-5 text-left text-base mb-4">
+            className="rounded-3xl bg-surface border border-line p-5 text-left text-lg mb-4">
             <p className="text-muted mb-2">Guardá este link para ver o cancelar tu turno:</p>
-            <a href={`/t/${token}`} className="font-mono text-sm text-accent-ink font-semibold underline break-all">
+            <a href={`/t/${token}`} className="font-mono text-[15px] text-accent-ink font-semibold underline break-all">
               {typeof window !== "undefined" ? window.location.origin : ""}/t/{token}
             </a>
           </motion.div>
           {emailSent ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}
               className="rounded-2xl border border-line bg-surface px-4 py-3">
-              <p className="text-sm text-body">
+              <p className="text-[15px] text-body">
                 📧 Te mandamos la confirmación a <span className="font-bold">{email.trim()}</span>.
               </p>
-              <p className="text-[13px] text-faint mt-1">
+              <p className="text-[14px] text-faint mt-1">
                 Si no la ves en unos minutos, <span className="text-accent-ink font-bold">revisá la carpeta de spam</span> o correo no deseado.
               </p>
             </motion.div>
           ) : (
-            <p className="text-sm text-faint">Guardá este link: es tu comprobante del turno.</p>
+            <p className="text-[15px] text-faint">Guardá este link: es tu comprobante del turno.</p>
           )}
         </motion.div>
       </Center>
@@ -333,13 +333,13 @@ export default function BookingClient({ slug }: { slug: string }) {
         <motion.div className="flex items-center justify-between mb-7"
           initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
           <div>
-            <h1 className="text-xl font-extrabold text-ink tracking-tight">{shop.name}</h1>
-            <p className="text-[13px] text-faint font-mono">{SITE_DOMAIN}/{shop.slug}</p>
+            <h1 className="text-[22px] font-extrabold text-ink tracking-tight">{shop.name}</h1>
+            <p className="text-[14px] text-faint font-mono">{SITE_DOMAIN}/{shop.slug}</p>
           </div>
           <div className="flex items-center gap-2.5">
             <ThemeToggle />
             <motion.span animate={{ opacity: [1, 0.55, 1] }} transition={{ duration: 2, repeat: Infinity }}
-            className="bg-highlight text-on-highlight text-[11px] font-extrabold tracking-widest px-3 py-1.5 rounded-full">
+            className="bg-highlight text-on-highlight text-[12px] font-extrabold tracking-widest px-3 py-1.5 rounded-full">
             ONLINE
           </motion.span>
           </div>
@@ -355,9 +355,9 @@ export default function BookingClient({ slug }: { slug: string }) {
                     className={`rounded-2xl border-[1.5px] p-3 text-center transition-colors ${
                       service?.id === s.id ? "border-accent bg-accent-soft" : "border-line bg-surface"
                     }`}>
-                    <div className="text-sm font-bold text-ink">{s.name}</div>
-                    <div className="text-[13px] text-accent-ink font-bold mt-1">{formatPrecio(s.price)}</div>
-                    <div className="text-[12px] text-faint mt-0.5">{formatDuracion(s.duration_min)}</div>
+                    <div className="text-[15px] font-bold text-ink">{s.name}</div>
+                    <div className="text-[14px] text-accent-ink font-bold mt-1">{formatPrecio(s.price)}</div>
+                    <div className="text-[13px] text-faint mt-0.5">{formatDuracion(s.duration_min)}</div>
                   </motion.button>
                 ))}
               </motion.div>
@@ -375,9 +375,9 @@ export default function BookingClient({ slug }: { slug: string }) {
                         className={`rounded-2xl border-[1.5px] p-3 text-center transition-colors ${
                           member?.id === b.id ? "border-accent bg-accent-soft" : "border-line bg-surface"
                         }`}>
-                        <div className="text-sm font-bold truncate text-ink">{b.name}</div>
+                        <div className="text-[15px] font-bold truncate text-ink">{b.name}</div>
                         {b.absences.includes(date) && (
-                          <div className="text-[12px] text-faint mt-0.5">no está ese día</div>
+                          <div className="text-[13px] text-faint mt-0.5">no está ese día</div>
                         )}
                       </motion.button>
                     ))}
@@ -391,20 +391,20 @@ export default function BookingClient({ slug }: { slug: string }) {
               {esConsulta ? (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                   className="rounded-2xl border-[1.5px] border-line bg-surface p-5 mb-6">
-                  <div className="text-base font-bold text-ink mb-1.5">
+                  <div className="text-lg font-bold text-ink mb-1.5">
                     Este servicio se coordina por WhatsApp
                   </div>
-                  <p className="text-base text-muted leading-relaxed mb-4">
+                  <p className="text-lg text-muted leading-relaxed mb-4">
                     {service!.name} se conversa antes de agendar{member ? `. ${member.name} te` : ". Te"} responde
                     y arreglan día y hora juntos.
                   </p>
                   {waConsulta ? (
                     <a href={waConsulta} target="_blank" rel="noopener noreferrer"
-                      className="block rounded-full bg-accent text-on-accent font-bold text-base text-center py-3">
+                      className="block rounded-full bg-accent text-on-accent font-bold text-lg text-center py-3">
                       Escribir por WhatsApp
                     </a>
                   ) : (
-                    <p className="text-base text-faint">
+                    <p className="text-lg text-faint">
                       Todavía no cargaron un número de contacto para este servicio.
                     </p>
                   )}
@@ -427,10 +427,10 @@ export default function BookingClient({ slug }: { slug: string }) {
                         isClosed ? "border-line bg-line opacity-45 cursor-not-allowed"
                           : on ? "border-accent bg-accent-soft" : "border-line bg-surface"
                       }`}>
-                      <div className={`text-[10px] uppercase font-semibold ${on && !isClosed ? "text-accent-ink" : "text-faint"}`}>
+                      <div className={`text-[11px] uppercase font-semibold ${on && !isClosed ? "text-accent-ink" : "text-faint"}`}>
                         {ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
                       </div>
-                      <div className={`text-base font-bold ${isClosed ? "line-through text-faint" : on ? "text-accent-ink" : "text-ink"}`}>
+                      <div className={`text-lg font-bold ${isClosed ? "line-through text-faint" : on ? "text-accent-ink" : "text-ink"}`}>
                         {d.getDate()}
                       </div>
                     </motion.button>
@@ -443,11 +443,11 @@ export default function BookingClient({ slug }: { slug: string }) {
                 {member ? ` · con ${member.name}` : ""}
               </div>
               {!service ? (
-                <p className="text-base text-faint mb-6">Primero elegí un servicio para ver los horarios disponibles.</p>
+                <p className="text-lg text-faint mb-6">Primero elegí un servicio para ver los horarios disponibles.</p>
               ) : elegibles.length > 0 && !member ? (
-                <p className="text-base text-faint mb-6">Elegí con quién querés reservar para ver sus horarios.</p>
+                <p className="text-lg text-faint mb-6">Elegí con quién querés reservar para ver sus horarios.</p>
               ) : dayIsClosed || staffAbsent || grid.length === 0 ? (
-                <p className="text-base text-faint mb-6">
+                <p className="text-lg text-faint mb-6">
                   {staffAbsent
                     ? `${member!.name} no atiende ese día. Elegí otro día u otra persona.`
                     : dayIsClosed ? "Está cerrado ese día. Elegí otro." : "Cerrado este día. Elegí otro."}
@@ -460,7 +460,7 @@ export default function BookingClient({ slug }: { slug: string }) {
                     return (
                       <motion.button key={s} variants={gridItem} whileTap={free ? { scale: 0.92 } : {}}
                         disabled={!free} onClick={() => setTime(s)}
-                        className={`rounded-xl border-[1.5px] py-2 text-[13px] font-bold transition-colors ${
+                        className={`rounded-xl border-[1.5px] py-2 text-[14px] font-bold transition-colors ${
                           !free ? "border-dashed border-line bg-transparent text-faint line-through"
                             : on ? "border-accent bg-accent text-on-accent"
                             : "border-line bg-surface text-body"
@@ -486,8 +486,8 @@ export default function BookingClient({ slug }: { slug: string }) {
 
           {step === 2 && (
             <motion.div key="s2" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <button onClick={() => goTo(1)} className="text-base text-muted mb-4 hover:text-accent-ink transition-colors">← Atrás</button>
-              <div className="rounded-2xl bg-surface border border-line px-4 py-3 text-base text-muted mb-6">
+              <button onClick={() => goTo(1)} className="text-lg text-muted mb-4 hover:text-accent-ink transition-colors">← Atrás</button>
+              <div className="rounded-2xl bg-surface border border-line px-4 py-3 text-lg text-muted mb-6">
                 <span className="text-ink font-bold">{service?.name}</span> · {date === today ? "hoy" : date} ·{" "}
                 <span className="text-accent-ink font-bold">{time} hs</span>
                 {member && <> · con <span className="text-ink font-bold">{member.name}</span></>}
@@ -509,12 +509,12 @@ export default function BookingClient({ slug }: { slug: string }) {
                   <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="juan@gmail.com"
                     type="email" inputMode="email" autoComplete="email"
                     className={`${inputCls} mb-2`} />
-                  <p className="text-sm text-faint mb-1">
+                  <p className="text-[15px] text-faint mb-1">
                     Si lo dejás, te mandamos la confirmación por mail. Podés saltearlo y reservar igual.
                   </p>
                 </>
               )}
-              <p className="text-sm text-faint mb-7">Solo usamos tus datos para tu turno. No creamos ninguna cuenta.</p>
+              <p className="text-[15px] text-faint mb-7">Solo usamos tus datos para tu turno. No creamos ninguna cuenta.</p>
 
               {/* Honeypot: invisible para humanos, irresistible para bots.
                   Lo sacamos de pantalla en vez de usar display:none porque
@@ -533,7 +533,7 @@ export default function BookingClient({ slug }: { slug: string }) {
               />
 
               {error && (
-                <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-base text-danger mb-4">{error}</motion.p>
+                <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-lg text-danger mb-4">{error}</motion.p>
               )}
 
               <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
@@ -541,7 +541,7 @@ export default function BookingClient({ slug }: { slug: string }) {
                 className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
                 {saving ? "Reservando…" : "Confirmar turno →"}
               </motion.button>
-              <p className="text-[12px] text-faint text-center mt-4 leading-relaxed">
+              <p className="text-[13px] text-faint text-center mt-4 leading-relaxed">
                 Al reservar aceptás los{" "}
                 <a href="/legales" target="_blank" className="underline hover:text-accent-ink transition-colors">
                   Términos y la Política de Privacidad

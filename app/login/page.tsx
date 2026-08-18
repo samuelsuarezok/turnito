@@ -32,7 +32,7 @@ export default function LoginPage() {
 
   const inputCls =
     "w-full rounded-2xl bg-surface-2 border border-line px-4 py-3.5 outline-none focus:border-accent transition-colors";
-  const labelCls = "block text-[12px] font-bold uppercase tracking-widest text-faint mb-2";
+  const labelCls = "block text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
 
   return (
     <main className="min-h-screen bg-canvas text-body flex items-center justify-center p-6">
@@ -45,10 +45,10 @@ export default function LoginPage() {
         </motion.div>
 
         <motion.div className="bg-surface border border-line rounded-3xl p-7" variants={scaleIn}>
-          <motion.h1 className="text-2xl font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
+          <motion.h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
             {mode === "register" ? "Creá tu cuenta" : "Ingresá a tu panel"}
           </motion.h1>
-          <motion.p className="text-base text-muted mb-7" variants={fadeUp}>
+          <motion.p className="text-lg text-muted mb-7" variants={fadeUp}>
             {mode === "register" ? (
               <><span className="text-accent-ink font-bold">30 días gratis</span> · sin tarjeta</>
             ) : ("Bienvenido de nuevo")}
@@ -67,7 +67,7 @@ export default function LoginPage() {
           </motion.div>
 
           {error && (
-            <motion.p className="text-base text-danger mb-4" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}>
+            <motion.p className="text-lg text-danger mb-4" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}>
               {error}
             </motion.p>
           )}
@@ -85,14 +85,14 @@ export default function LoginPage() {
           {/* ¿Olvidaste tu contraseña? — solo en modo login */}
           {mode === "login" && (
             <motion.p className="text-center mt-4" variants={fadeUp}>
-              <Link href="/recuperar" className="text-sm text-faint underline hover:text-accent-ink transition-colors">
+              <Link href="/recuperar" className="text-[15px] text-faint underline hover:text-accent-ink transition-colors">
                 ¿Olvidaste tu contraseña?
               </Link>
             </motion.p>
           )}
         </motion.div>
 
-        <motion.p className="text-base text-muted mt-6 text-center" variants={fadeUp}>
+        <motion.p className="text-lg text-muted mt-6 text-center" variants={fadeUp}>
           {mode === "register" ? "¿Ya tenés cuenta?" : "¿No tenés cuenta?"}{" "}
           <button onClick={() => setMode(mode === "register" ? "login" : "register")} className="text-accent-ink font-bold">
             {mode === "register" ? "Ingresá" : "Registrate gratis"}
@@ -102,7 +102,7 @@ export default function LoginPage() {
         {/* Fuera del botón de arriba: antes estaba anidado adentro y tocar
             "Términos" alternaba el modo en vez de abrir el link. */}
         {mode === "register" && (
-          <motion.p className="text-[12px] text-faint text-center mt-4 leading-relaxed" variants={fadeUp}>
+          <motion.p className="text-[13px] text-faint text-center mt-4 leading-relaxed" variants={fadeUp}>
             Al crear tu cuenta aceptás los{" "}
             <Link href="/legales" className="underline hover:text-accent-ink transition-colors">
               Términos y la Política de Privacidad
