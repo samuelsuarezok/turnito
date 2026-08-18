@@ -53,7 +53,7 @@ export default function RecuperarPage() {
 
   const inputCls =
     "w-full rounded-2xl bg-surface-2 border border-line px-4 py-3.5 outline-none focus:border-accent transition-colors";
-  const labelCls = "block text-[10px] font-bold uppercase tracking-widest text-faint mb-2";
+  const labelCls = "block text-[12px] font-bold uppercase tracking-widest text-faint mb-2";
 
   return (
     <main className="min-h-screen bg-canvas text-body flex items-center justify-center p-6">
@@ -69,11 +69,11 @@ export default function RecuperarPage() {
               <motion.h1 className="text-2xl font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
                 Revisá tu mail
               </motion.h1>
-              <motion.p className="text-sm text-muted mb-2" variants={fadeUp}>
+              <motion.p className="text-base text-muted mb-2" variants={fadeUp}>
                 Si <span className="text-ink font-bold">{email.trim()}</span> tiene una cuenta, te
                 mandamos un link para poner una contraseña nueva.
               </motion.p>
-              <motion.p className="text-xs text-faint mb-6" variants={fadeUp}>
+              <motion.p className="text-sm text-faint mb-6" variants={fadeUp}>
                 Puede tardar un minuto. Fijate también en spam.
               </motion.p>
               <motion.div variants={fadeUp}>
@@ -88,7 +88,7 @@ export default function RecuperarPage() {
               <motion.h1 className="text-2xl font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
                 Recuperar contraseña
               </motion.h1>
-              <motion.p className="text-sm text-muted mb-7" variants={fadeUp}>
+              <motion.p className="text-base text-muted mb-7" variants={fadeUp}>
                 Poné tu mail y te mandamos un link para crear una nueva.
               </motion.p>
 
@@ -100,7 +100,7 @@ export default function RecuperarPage() {
               </motion.div>
 
               {error && (
-                <motion.p className="text-sm text-danger mb-4"
+                <motion.p className="text-base text-danger mb-4"
                   initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}>
                   {error}
                 </motion.p>
@@ -119,7 +119,7 @@ export default function RecuperarPage() {
           )}
         </motion.div>
 
-        <motion.p className="text-sm text-muted mt-6 text-center" variants={fadeUp}>
+        <motion.p className="text-base text-muted mt-6 text-center" variants={fadeUp}>
           ¿Te acordaste?{" "}
           <Link href="/login" className="text-accent-ink font-bold">Ingresá</Link>
         </motion.p>

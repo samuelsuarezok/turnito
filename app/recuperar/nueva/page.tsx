@@ -61,7 +61,7 @@ export default function NuevaPasswordPage() {
 
   const inputCls =
     "w-full rounded-2xl bg-surface-2 border border-line px-4 py-3.5 outline-none focus:border-accent transition-colors";
-  const labelCls = "block text-[10px] font-bold uppercase tracking-widest text-faint mb-2";
+  const labelCls = "block text-[12px] font-bold uppercase tracking-widest text-faint mb-2";
 
   return (
     <main className="min-h-screen bg-canvas text-body flex items-center justify-center p-6">
@@ -73,7 +73,7 @@ export default function NuevaPasswordPage() {
 
         <motion.div className="bg-surface border border-line rounded-3xl p-7" variants={scaleIn}>
           {estado === "verificando" && (
-            <p className="text-sm text-faint py-6 text-center">Verificando el link…</p>
+            <p className="text-base text-faint py-6 text-center">Verificando el link…</p>
           )}
 
           {estado === "sin-sesion" && (
@@ -81,7 +81,7 @@ export default function NuevaPasswordPage() {
               <motion.h1 className="text-2xl font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
                 Este link no sirve
               </motion.h1>
-              <motion.p className="text-sm text-muted mb-6" variants={fadeUp}>
+              <motion.p className="text-base text-muted mb-6" variants={fadeUp}>
                 Puede haber vencido o ya haberse usado. Los links de recuperación
                 duran un rato y son de un solo uso — pedí uno nuevo.
               </motion.p>
@@ -99,7 +99,7 @@ export default function NuevaPasswordPage() {
               <motion.h1 className="text-2xl font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
                 Listo ✓
               </motion.h1>
-              <motion.p className="text-sm text-muted" variants={fadeUp}>
+              <motion.p className="text-base text-muted" variants={fadeUp}>
                 Cambiamos tu contraseña. Te llevamos al panel…
               </motion.p>
             </>
@@ -110,7 +110,7 @@ export default function NuevaPasswordPage() {
               <motion.h1 className="text-2xl font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
                 Nueva contraseña
               </motion.h1>
-              <motion.p className="text-sm text-muted mb-7" variants={fadeUp}>
+              <motion.p className="text-base text-muted mb-7" variants={fadeUp}>
                 Elegí una que puedas recordar. Mínimo 6 caracteres.
               </motion.p>
 
@@ -128,7 +128,7 @@ export default function NuevaPasswordPage() {
               </motion.div>
 
               {error && (
-                <motion.p className="text-sm text-danger mb-4"
+                <motion.p className="text-base text-danger mb-4"
                   initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}>
                   {error}
                 </motion.p>

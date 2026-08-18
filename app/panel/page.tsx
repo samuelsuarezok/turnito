@@ -532,10 +532,10 @@ export default function PanelPage() {
     return (
       <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
         <div className="text-center max-w-xs">
-          <p className="text-sm font-bold text-ink">No pudimos cargar tu panel</p>
-          <p className="text-xs text-muted mt-1 mb-5">Puede ser un problema de conexión. Probá de nuevo.</p>
+          <p className="text-base font-bold text-ink">No pudimos cargar tu panel</p>
+          <p className="text-sm text-muted mt-1 mb-5">Puede ser un problema de conexión. Probá de nuevo.</p>
           <button onClick={() => window.location.reload()}
-            className="rounded-full bg-accent text-on-accent font-bold text-sm px-6 py-3">
+            className="rounded-full bg-accent text-on-accent font-bold text-base px-6 py-3">
             Reintentar
           </button>
         </div>
@@ -566,15 +566,15 @@ export default function PanelPage() {
         {/* header */}
         <motion.div className="flex items-center justify-between pt-2 mb-1"
           initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
-          <div className="flex items-center gap-2.5"><LogoMark size={22} /><h1 className="text-lg font-extrabold text-ink tracking-tight">{shop.name}</h1></div>
+          <div className="flex items-center gap-2.5"><LogoMark size={22} /><h1 className="text-xl font-extrabold text-ink tracking-tight">{shop.name}</h1></div>
           <div className="flex items-center">
             <ThemeToggle className="mr-2.5" />
-            <Link href="/panel/stats" className="text-[11px] text-accent-ink font-bold mr-3">📊 Números</Link>
-            <Link href="/panel/config" className="text-[11px] text-accent-ink font-bold mr-3">⚙ Config</Link>
-            <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[11px] text-faint underline">Salir</button>
+            <Link href="/panel/stats" className="text-[13px] text-accent-ink font-bold mr-3">📊 Números</Link>
+            <Link href="/panel/config" className="text-[13px] text-accent-ink font-bold mr-3">⚙ Config</Link>
+            <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[13px] text-faint underline">Salir</button>
           </div>
         </motion.div>
-        <button onClick={copyLink} className="text-[11px] font-mono text-muted block">
+        <button onClick={copyLink} className="text-[13px] font-mono text-muted block">
           {SITE_DOMAIN}/{shop.slug} <span className={copied ? "text-accent-ink font-bold" : "text-faint"}>{copied ? "✓ copiado" : "· copiar"}</span>
         </button>
 
@@ -585,7 +585,7 @@ export default function PanelPage() {
             se sigue llamando igual que su link, no hay nada que explicar y una
             línea fija ahí sería ruido permanente. */}
         {slugify(shop.name) !== shop.slug && (
-          <p className="text-[10px] text-faint mt-1.5 max-w-sm leading-relaxed">
+          <p className="text-[12px] text-faint mt-1.5 max-w-sm leading-relaxed">
             Tu link quedó fijo desde que creaste la cuenta y no cambia con el nombre,
             para no romper el que ya compartiste con tus clientes.
           </p>
@@ -603,8 +603,8 @@ export default function PanelPage() {
                 variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
                 whileTap={{ scale: 0.92 }}
                 className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${on ? "border-accent bg-accent-soft" : "border-line bg-surface"}`}>
-                <div className={`text-[8px] uppercase font-semibold ${on ? "text-accent-ink" : "text-faint"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
-                <div className={`text-sm font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
+                <div className={`text-[10px] uppercase font-semibold ${on ? "text-accent-ink" : "text-faint"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
+                <div className={`text-base font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
               </motion.button>
             );
           })}
@@ -614,7 +614,7 @@ export default function PanelPage() {
         {staff.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
             <button onClick={() => setStaffFilter(null)}
-              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors ${
+              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-bold transition-colors ${
                 staffFilter === null ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
               Todos
             </button>
@@ -622,7 +622,7 @@ export default function PanelPage() {
               const off = absences.has(`${b.id}|${date}`);
               return (
                 <button key={b.id} onClick={() => setStaffFilter(b.id)}
-                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-bold transition-colors ${
+                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[13px] font-bold transition-colors ${
                     staffFilter === b.id ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
                   {b.name}{off ? " · libre" : ""}
                 </button>
@@ -644,12 +644,12 @@ export default function PanelPage() {
         <div className={hayCola ? "lg:sticky lg:top-6" : ""}>
 
         <div className="flex justify-between items-baseline mb-3">
-          <span className="text-sm font-bold text-ink">{date === today ? "Hoy" : date}</span>
-          <span className="text-[11px] text-faint">{done.length} atendidos · {active.length} en cola</span>
+          <span className="text-base font-bold text-ink">{date === today ? "Hoy" : date}</span>
+          <span className="text-[13px] text-faint">{done.length} atendidos · {active.length} en cola</span>
         </div>
 
         <motion.button whileTap={{ scale: 0.97 }} onClick={abrirNuevo}
-          className="w-full rounded-2xl border-[1.5px] border-dashed border-line text-sm font-bold text-accent-ink py-3 mb-4 transition-colors hover:border-accent">
+          className="w-full rounded-2xl border-[1.5px] border-dashed border-line text-base font-bold text-accent-ink py-3 mb-4 transition-colors hover:border-accent">
           + Cargar un turno
         </motion.button>
 
@@ -657,36 +657,36 @@ export default function PanelPage() {
             momento en que marcás un turno como atendido. */}
         <div className="grid grid-cols-3 gap-2 mb-5">
           <div className="rounded-2xl bg-surface border border-line p-3">
-            <div className="text-[9px] uppercase font-bold tracking-widest text-faint mb-1">Cobrado</div>
+            <div className="text-[11px] uppercase font-bold tracking-widest text-faint mb-1">Cobrado</div>
             <motion.div key={resumen.cobrado}
               initial={{ scale: 0.88, opacity: 0.5 }} animate={{ scale: 1, opacity: 1 }}
               transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              className="text-lg font-extrabold text-ink tabular-nums leading-none">
+              className="text-xl font-extrabold text-ink tabular-nums leading-none">
               {fmtPesos(resumen.cobrado)}
             </motion.div>
-            <div className="text-[10px] text-faint mt-1">{done.length} atendidos</div>
+            <div className="text-[12px] text-faint mt-1">{done.length} atendidos</div>
           </div>
 
           <div className="rounded-2xl bg-surface border border-line p-3">
-            <div className="text-[9px] uppercase font-bold tracking-widest text-faint mb-1">Por cobrar</div>
-            <div className="text-lg font-extrabold text-muted tabular-nums leading-none">
+            <div className="text-[11px] uppercase font-bold tracking-widest text-faint mb-1">Por cobrar</div>
+            <div className="text-xl font-extrabold text-muted tabular-nums leading-none">
               {fmtPesos(resumen.porCobrar)}
             </div>
-            <div className="text-[10px] text-faint mt-1">{active.length} en cola</div>
+            <div className="text-[12px] text-faint mt-1">{active.length} en cola</div>
           </div>
 
           <div className="rounded-2xl bg-surface border border-line p-3">
-            <div className="text-[9px] uppercase font-bold tracking-widest text-faint mb-1">Ausencias</div>
-            <div className={`text-lg font-extrabold tabular-nums leading-none ${resumen.ausencias > 0 ? "text-danger" : "text-muted"}`}>
+            <div className="text-[11px] uppercase font-bold tracking-widest text-faint mb-1">Ausencias</div>
+            <div className={`text-xl font-extrabold tabular-nums leading-none ${resumen.ausencias > 0 ? "text-danger" : "text-muted"}`}>
               {resumen.ausencias}
             </div>
-            <div className="text-[10px] text-faint mt-1">no vinieron</div>
+            <div className="text-[12px] text-faint mt-1">no vinieron</div>
           </div>
         </div>
 
 
         {resumen.sinPrecio > 0 && (
-          <p className="text-[10px] text-faint -mt-3 mb-5">
+          <p className="text-[12px] text-faint -mt-3 mb-5">
             {resumen.sinPrecio === 1 ? "Hay 1 turno atendido sin" : `Hay ${resumen.sinPrecio} turnos atendidos sin`}{" "}
             precio guardado, así que el total les queda corto.
           </p>
@@ -699,12 +699,12 @@ export default function PanelPage() {
               initial={{ opacity: 0, scale: 0.94, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.94, y: -12 }} transition={{ type: "spring", stiffness: 260, damping: 24 }}
               className="rounded-3xl bg-highlight text-on-highlight p-5 mb-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-black text-highlight text-[8px] font-black tracking-[0.15em] px-3.5 py-1.5 rounded-bl-2xl">SIGUIENTE</div>
+              <div className="absolute top-0 right-0 bg-black text-highlight text-[10px] font-black tracking-[0.15em] px-3.5 py-1.5 rounded-bl-2xl">SIGUIENTE</div>
               <div className="flex items-center gap-4">
                 <div className="text-3xl font-extrabold tracking-tight">{current.time.slice(0, 5)}</div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-lg font-bold truncate">{current.client_name}</div>
-                  <div className="text-xs opacity-75 mt-0.5">
+                  <div className="text-xl font-bold truncate">{current.client_name}</div>
+                  <div className="text-sm opacity-75 mt-0.5">
                     {current.services?.name} · {formatDuracion(current.services?.duration_min ?? 0)}
                     {staffName(current.staff_id) ? ` · con ${staffName(current.staff_id)}` : ""} ·{" "}
                     {/* Teléfono → abre WhatsApp */}
@@ -717,16 +717,16 @@ export default function PanelPage() {
               </div>
               <div className="flex gap-2 mt-4">
                 <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} onClick={() => setStatus(current.id, "done")}
-                  className="flex-1 rounded-full bg-black text-white font-bold text-sm py-3">✓ Listo, siguiente</motion.button>
+                  className="flex-1 rounded-full bg-black text-white font-bold text-base py-3">✓ Listo, siguiente</motion.button>
                 <motion.button whileTap={{ scale: 0.96 }} onClick={() => setStatus(current.id, "no_show")}
-                  className="rounded-full border-[1.5px] border-black/25 text-on-highlight text-xs font-bold px-5">No vino</motion.button>
+                  className="rounded-full border-[1.5px] border-black/25 text-on-highlight text-sm font-bold px-5">No vino</motion.button>
               </div>
               <a href={waRecordatorio(current)} target="_blank" rel="noopener noreferrer"
-                className="block w-full text-center text-[11px] font-bold text-on-highlight/55 mt-2.5 underline underline-offset-2">
+                className="block w-full text-center text-[13px] font-bold text-on-highlight/55 mt-2.5 underline underline-offset-2">
                 🔔 Recordarle
               </a>
               <button onClick={() => openMove(current)}
-                className="w-full text-center text-[11px] font-bold text-on-highlight/55 mt-2.5 underline underline-offset-2">
+                className="w-full text-center text-[13px] font-bold text-on-highlight/55 mt-2.5 underline underline-offset-2">
                 🕐 Mover a otro horario
               </button>
             </motion.div>
@@ -736,18 +736,18 @@ export default function PanelPage() {
               {shownAppts.length === 0 ? (
                 <>
                   <div className="text-3xl mb-3">📅</div>
-                  <p className="text-sm font-bold text-ink">Todavía no hay turnos este día</p>
-                  <p className="text-xs text-faint mt-1 mb-5">Compartí tu link para recibir el primero</p>
+                  <p className="text-base font-bold text-ink">Todavía no hay turnos este día</p>
+                  <p className="text-sm text-faint mt-1 mb-5">Compartí tu link para recibir el primero</p>
                   <motion.button whileTap={{ scale: 0.96 }} onClick={copyLink}
-                    className="rounded-full bg-accent text-on-accent font-bold text-sm px-6 py-2.5">
+                    className="rounded-full bg-accent text-on-accent font-bold text-base px-6 py-2.5">
                     {copied ? "✓ Link copiado" : "Copiar mi link"}
                   </motion.button>
                 </>
               ) : (
                 <>
                   <div className="text-3xl mb-3">🎉</div>
-                  <p className="text-sm font-bold text-ink">¡Día completado!</p>
-                  <p className="text-xs text-faint mt-1">Atendiste todos los turnos. Bien ahí.</p>
+                  <p className="text-base font-bold text-ink">¡Día completado!</p>
+                  <p className="text-sm text-faint mt-1">Atendiste todos los turnos. Bien ahí.</p>
                 </>
               )}
             </motion.div>
@@ -757,7 +757,7 @@ export default function PanelPage() {
         {/* Descarga: acción de una vez por mes. Va al pie y en gris para que no
             le compita a la tarjeta del turno que viene, que se mira todo el día. */}
         <button onClick={bajarUltimos30} disabled={bajando}
-          className="w-full rounded-2xl border border-line bg-surface text-[11px] font-bold text-muted py-2.5 mt-1 mb-5 transition-colors hover:border-accent hover:text-accent-ink disabled:opacity-50">
+          className="w-full rounded-2xl border border-line bg-surface text-[13px] font-bold text-muted py-2.5 mt-1 mb-5 transition-colors hover:border-accent hover:text-accent-ink disabled:opacity-50">
           {bajando ? "Preparando…" : "↓ Descargar los últimos 30 días"}
         </button>
 
@@ -775,11 +775,11 @@ export default function PanelPage() {
                     variants={{ hidden: { opacity: 0, x: 20 }, show: { opacity: 1, x: 0 } }}
                     exit={{ opacity: 0, x: -20 }}
                     className="flex items-center gap-3 rounded-2xl bg-surface border border-line px-4 py-3 mb-2">
-                    <div className="w-6 h-6 rounded-full bg-canvas border border-line text-muted text-[10px] font-bold flex items-center justify-center shrink-0">{i + 2}</div>
-                    <div className="font-mono text-sm font-bold w-11 text-accent-ink">{a.time.slice(0, 5)}</div>
+                    <div className="w-6 h-6 rounded-full bg-canvas border border-line text-muted text-[12px] font-bold flex items-center justify-center shrink-0">{i + 2}</div>
+                    <div className="font-mono text-base font-bold w-14 text-accent-ink">{a.time.slice(0, 5)}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm font-bold truncate text-ink">{a.client_name}</div>
-                      <div className="text-[10px] text-faint">
+                      <div className="text-base font-bold truncate text-ink">{a.client_name}</div>
+                      <div className="text-[12px] text-faint">
                         {a.services?.name}
                         {staffName(a.staff_id) ? ` · ${staffName(a.staff_id)}` : ""} ·{" "}
                         <a href={waLink(a.client_phone)} target="_blank" rel="noopener noreferrer"
@@ -789,9 +789,9 @@ export default function PanelPage() {
                       </div>
                     </div>
                     <a href={waRecordatorio(a)} target="_blank" rel="noopener noreferrer"
-                      className="text-faint hover:text-accent-ink text-sm px-1" title="Recordarle el turno">🔔</a>
-                    <button onClick={() => openMove(a)} className="text-faint hover:text-accent-ink text-sm px-1" title="Mover turno">🕐</button>
-                    <button onClick={() => setCancelando(a)} className="text-faint hover:text-danger text-sm px-1" title="Cancelar turno">✕</button>
+                      className="text-faint hover:text-accent-ink text-base px-1" title="Recordarle el turno">🔔</a>
+                    <button onClick={() => openMove(a)} className="text-faint hover:text-accent-ink text-base px-1" title="Mover turno">🕐</button>
+                    <button onClick={() => setCancelando(a)} className="text-faint hover:text-danger text-base px-1" title="Cancelar turno">✕</button>
                   </motion.div>
                 ))}
               </AnimatePresence>
@@ -806,9 +806,9 @@ export default function PanelPage() {
             {done.map((a) => (
               <motion.div key={a.id} layout initial={{ opacity: 0 }} animate={{ opacity: 0.5 }}
                 className="flex items-center gap-3 px-4 py-2">
-                <span className="text-accent-ink text-sm">✓</span>
-                <span className="font-mono text-xs w-11">{a.time.slice(0, 5)}</span>
-                <span className="text-sm line-through">{a.client_name}</span>
+                <span className="text-accent-ink text-base">✓</span>
+                <span className="font-mono text-sm w-14">{a.time.slice(0, 5)}</span>
+                <span className="text-base line-through">{a.client_name}</span>
               </motion.div>
             ))}
           </>
@@ -830,10 +830,10 @@ export default function PanelPage() {
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-md bg-surface rounded-t-3xl lg:rounded-3xl p-5 max-h-[85vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-base font-extrabold text-ink">Cargar un turno</h2>
-                <button onClick={() => setNuevo(false)} className="text-faint text-lg leading-none px-1">✕</button>
+                <h2 className="text-lg font-extrabold text-ink">Cargar un turno</h2>
+                <button onClick={() => setNuevo(false)} className="text-faint text-xl leading-none px-1">✕</button>
               </div>
-              <p className="text-[11px] text-faint mb-4">
+              <p className="text-[13px] text-faint mb-4">
                 Para lo que se cerró por teléfono, al mostrador o por WhatsApp. Queda igual
                 que un turno reservado por la web y suma en los números del día.
               </p>
@@ -846,8 +846,8 @@ export default function PanelPage() {
                     className={`rounded-2xl border-[1.5px] p-2.5 text-center transition-colors ${
                       nvSvc?.id === s.id ? "border-accent bg-accent-soft" : "border-line bg-canvas"
                     }`}>
-                    <div className="text-[11px] font-bold text-ink truncate">{s.name}</div>
-                    <div className="text-[10px] text-faint mt-0.5">{formatDuracion(s.duration_min)}</div>
+                    <div className="text-[13px] font-bold text-ink truncate">{s.name}</div>
+                    <div className="text-[12px] text-faint mt-0.5">{formatDuracion(s.duration_min)}</div>
                   </button>
                 ))}
               </div>
@@ -861,7 +861,7 @@ export default function PanelPage() {
                         className={`rounded-2xl border-[1.5px] p-2.5 text-center transition-colors ${
                           nvStaff === b.id ? "border-accent bg-accent-soft" : "border-line bg-canvas"
                         }`}>
-                        <div className="text-[11px] font-bold text-ink truncate">{b.name}</div>
+                        <div className="text-[13px] font-bold text-ink truncate">{b.name}</div>
                       </button>
                     ))}
                   </div>
@@ -877,10 +877,10 @@ export default function PanelPage() {
                     <button key={ds} onClick={() => { setNvFecha(ds); setNvHora(null); }}
                       className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
                         on ? "border-accent bg-accent-soft" : "border-line bg-canvas"}`}>
-                      <div className={`text-[8px] uppercase font-semibold ${on ? "text-accent-ink" : "text-faint"}`}>
+                      <div className={`text-[10px] uppercase font-semibold ${on ? "text-accent-ink" : "text-faint"}`}>
                         {ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
                       </div>
-                      <div className={`text-sm font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
+                      <div className={`text-base font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
                     </button>
                   );
                 })}
@@ -888,18 +888,18 @@ export default function PanelPage() {
 
               <SectionLabel>Horario</SectionLabel>
               {!nvSvc ? (
-                <p className="text-xs text-faint mb-4">Elegí primero el servicio.</p>
+                <p className="text-sm text-faint mb-4">Elegí primero el servicio.</p>
               ) : nvElegibles.length > 0 && !nvStaff ? (
-                <p className="text-xs text-faint mb-4">Elegí quién lo atiende para ver sus horarios.</p>
+                <p className="text-sm text-faint mb-4">Elegí quién lo atiende para ver sus horarios.</p>
               ) : nvSlots.grid.length === 0 ? (
-                <p className="text-xs text-faint mb-4">No hay horarios ese día. Probá con otro.</p>
+                <p className="text-sm text-faint mb-4">No hay horarios ese día. Probá con otro.</p>
               ) : (
                 <div className="grid grid-cols-4 gap-2 mb-4">
                   {nvSlots.grid.map((s) => {
                     const libre = nvSlots.availability[s];
                     return (
                       <button key={s} disabled={!libre} onClick={() => setNvHora(s)}
-                        className={`rounded-xl border-[1.5px] py-2 text-[11px] font-bold transition-colors ${
+                        className={`rounded-xl border-[1.5px] py-2 text-[13px] font-bold transition-colors ${
                           !libre ? "border-dashed border-line text-faint line-through"
                             : nvHora === s ? "border-accent bg-accent text-on-accent"
                             : "border-line bg-canvas text-body"}`}>{s}</button>
@@ -910,11 +910,11 @@ export default function PanelPage() {
 
               <SectionLabel>Cliente</SectionLabel>
               <input value={nvNombre} onChange={(e) => setNvNombre(e.target.value)} placeholder="Nombre y apellido"
-                className="w-full rounded-2xl bg-canvas border border-line px-4 py-3 text-sm outline-none focus:border-accent mb-2" />
+                className="w-full rounded-2xl bg-canvas border border-line px-4 py-3 text-base outline-none focus:border-accent mb-2" />
               <input value={nvTel} onChange={(e) => setNvTel(e.target.value)} placeholder="351 234-5678" type="tel"
-                className="w-full rounded-2xl bg-canvas border border-line px-4 py-3 text-sm outline-none focus:border-accent mb-4" />
+                className="w-full rounded-2xl bg-canvas border border-line px-4 py-3 text-base outline-none focus:border-accent mb-4" />
 
-              {nvError && <p className="text-sm text-danger mb-3 text-center">{nvError}</p>}
+              {nvError && <p className="text-base text-danger mb-3 text-center">{nvError}</p>}
 
               <motion.button whileTap={{ scale: 0.97 }} onClick={guardarNuevo}
                 disabled={!nvHora || nvSaving}
@@ -938,13 +938,13 @@ export default function PanelPage() {
               onClick={(e) => e.stopPropagation()}
               className="w-full max-w-md bg-surface rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="text-base font-extrabold text-ink">
+                <h2 className="text-lg font-extrabold text-ink">
                   {avisar ? (avisar.tipo === "movido" ? "Turno movido" : "Turno cancelado")
                     : cancelando ? "¿Cancelar el turno?" : "Mover turno"}
                 </h2>
-                <button onClick={closeSheet} className="text-faint text-lg leading-none px-1">✕</button>
+                <button onClick={closeSheet} className="text-faint text-xl leading-none px-1">✕</button>
               </div>
-              <p className="text-xs text-muted mb-4">
+              <p className="text-sm text-muted mb-4">
                 {(() => {
                   const a = moving ?? cancelando;
                   if (a) return `${a.client_name} · ${a.services?.name} (${formatDuracion(a.services?.duration_min ?? 0)})${staffName(a.staff_id) ? ` · con ${staffName(a.staff_id)}` : ""}`;
@@ -955,17 +955,17 @@ export default function PanelPage() {
               {cancelando ? (
                 /* Paso 1 del cancelar: confirmar. El ✕ cancelaba de una. */
                 <div className="py-2">
-                  <p className="text-sm text-ink mb-1">
+                  <p className="text-base text-ink mb-1">
                     {cuando(cancelando.date)} a las <span className="font-bold">{cancelando.time.slice(0, 5)}</span>
                   </p>
-                  <p className="text-xs text-muted mb-5">
+                  <p className="text-sm text-muted mb-5">
                     El horario queda libre y se lo vas a poder avisar al cliente en el paso siguiente.
                   </p>
                   <motion.button whileTap={{ scale: 0.97 }} onClick={confirmCancel} disabled={cancelSaving}
                     className="w-full rounded-full bg-danger text-white font-bold py-3.5 disabled:opacity-40 mb-3">
                     {cancelSaving ? "Cancelando…" : "Sí, cancelar el turno"}
                   </motion.button>
-                  <button onClick={closeSheet} className="block w-full text-center text-xs text-faint py-2">
+                  <button onClick={closeSheet} className="block w-full text-center text-sm text-faint py-2">
                     Mejor no
                   </button>
                 </div>
@@ -974,11 +974,11 @@ export default function PanelPage() {
                    esto es lo que evita que se presente en el horario viejo. */
                 <div className="py-2">
                   {avisar.tipo === "movido" && (
-                    <p className="text-sm text-ink mb-1">
+                    <p className="text-base text-ink mb-1">
                       Quedó {cuando(avisar.date)} a las <span className="font-bold">{avisar.time}</span>.
                     </p>
                   )}
-                  <p className="text-xs text-muted mb-5">
+                  <p className="text-sm text-muted mb-5">
                     {avisar.clientName.trim().split(/\s+/)[0]} todavía no lo sabe.
                     {avisar.tipo === "movido" ? " Avisale así no viene al horario viejo." : " Avisale así no viene al pedo."}
                   </p>
@@ -986,12 +986,12 @@ export default function PanelPage() {
                     className="block w-full rounded-full bg-[#25D366] text-white font-bold py-3.5 text-center mb-3">
                     Avisarle por WhatsApp
                   </a>
-                  <button onClick={closeSheet} className="block w-full text-center text-xs text-faint py-2">
+                  <button onClick={closeSheet} className="block w-full text-center text-sm text-faint py-2">
                     Ya le avisé por otro lado
                   </button>
                 </div>
               ) : !schedInfo ? (
-                <p className="text-sm text-faint py-6 text-center">Cargando horarios…</p>
+                <p className="text-base text-faint py-6 text-center">Cargando horarios…</p>
               ) : (
                 <>
                   {/* día destino */}
@@ -1003,8 +1003,8 @@ export default function PanelPage() {
                           className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
                             closed ? "border-line bg-line opacity-45 cursor-not-allowed"
                               : on ? "border-accent bg-accent-soft" : "border-line bg-surface"}`}>
-                          <div className={`text-[8px] uppercase font-semibold ${on && !closed ? "text-accent-ink" : "text-faint"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
-                          <div className={`text-sm font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
+                          <div className={`text-[10px] uppercase font-semibold ${on && !closed ? "text-accent-ink" : "text-faint"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
+                          <div className={`text-base font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
                         </button>
                       );
                     })}
@@ -1012,7 +1012,7 @@ export default function PanelPage() {
 
                   {/* horarios libres */}
                   {moveSlots.grid.length === 0 ? (
-                    <p className="text-sm text-faint py-4 text-center">
+                    <p className="text-base text-faint py-4 text-center">
                       {moving?.staff_id && absences.has(`${moving.staff_id}|${moveDate}`)
                         ? `${staffName(moving.staff_id)} no está ese día. Elegí otro.`
                         : "Cerrado ese día. Elegí otro."}
@@ -1023,7 +1023,7 @@ export default function PanelPage() {
                         const free = moveSlots.availability[s]; const on = moveTime === s;
                         return (
                           <button key={s} disabled={!free} onClick={() => setMoveTime(s)}
-                            className={`rounded-xl border-[1.5px] py-2 text-[11px] font-bold transition-colors ${
+                            className={`rounded-xl border-[1.5px] py-2 text-[13px] font-bold transition-colors ${
                               !free ? "border-dashed border-line bg-transparent text-faint line-through"
                                 : on ? "border-accent bg-accent text-on-accent"
                                 : "border-line bg-surface text-body"}`}>{s}</button>
@@ -1032,7 +1032,7 @@ export default function PanelPage() {
                     </div>
                   )}
 
-                  {moveError && <p className="text-sm text-danger mb-3 text-center">{moveError}</p>}
+                  {moveError && <p className="text-base text-danger mb-3 text-center">{moveError}</p>}
 
                   <motion.button whileTap={{ scale: 0.97 }} onClick={confirmMove} disabled={!moveTime || moveSaving}
                     className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
@@ -1049,5 +1049,5 @@ export default function PanelPage() {
 }
 
 function SectionLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`text-[10px] font-bold uppercase tracking-widest text-faint mb-2 ${className}`}>{children}</div>;
+  return <div className={`text-[12px] font-bold uppercase tracking-widest text-faint mb-2 ${className}`}>{children}</div>;
 }
