@@ -5,6 +5,7 @@ import Link from "next/link";
 import { LogoMark } from "@/components/Logo";
 import ContactModal from "@/components/ContactModal";
 import ThemeToggle from "@/components/ThemeToggle";
+import WhatsAppFab from "@/components/WhatsAppFab";
 import { SITE_DOMAIN } from "@/lib/site";
 import { WHATSAPP_URL } from "@/lib/contacto";
 import { AnimatePresence } from "framer-motion";
@@ -158,7 +159,9 @@ const css = `
 .ld .wordmark{font-size:clamp(64px,17vw,240px);font-weight:800;letter-spacing:-0.055em;color:var(--c-on-block);line-height:.82;margin-top:44px;user-select:none}
 
 /* footer */
-.ld footer{padding:26px 20px 34px}
+/* El padding de abajo le deja aire al botón flotante de WhatsApp (58px de alto
+   + 24px del borde). Sin esto el FAB se come el final del "© 2026 Turnito". */
+.ld footer{padding:26px 20px 96px}
 .ld .foot-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
 .ld .foot-links{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
 .ld .foot-in span,.ld .foot-links a,.ld .foot-links button{font-size:13.5px;color:var(--c-muted)}
@@ -550,6 +553,7 @@ export default function LandingPage() {
     {/* Fuera del .ld: ese scope tiene un `* { margin:0; padding:0 }` que le
         gana por especificidad a las utilidades de Tailwind del modal. */}
     <ContactModal open={contactOpen} onClose={cerrarContacto} />
+    <WhatsAppFab />
     </>
   );
 }
