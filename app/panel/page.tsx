@@ -69,10 +69,15 @@ function deCuando(ds: string) {
 // Avisos al cliente por WhatsApp. El dueño toca y solo aprieta enviar: wa.me NO
 // puede mandar solo, siempre hay una persona apretando. Para el cliente el
 // mensaje llega del número del local, no de un bot.
+/** Cómo salió el mail automático al cliente. */
+export type EstadoMail = "enviando" | "enviado" | "sin-email" | "fallo";
+
 export type Aviso = {
   tipo: "movido" | "cancelado";
   clientName: string; clientPhone: string; serviceName: string;
   date: string; time: string; token: string; slug: string;
+  /** Sólo aplica a "movido": el cancelado se sigue avisando a mano. */
+  mail?: EstadoMail;
 };
 
 function waAviso(a: Aviso) {
@@ -423,6 +428,12 @@ export default function PanelPage() {
       setMoveError(error.code === "23505" ? "Ese horario se acaba de ocupar. Elegí otro." : "No se pudo mover. Probá de nuevo.");
       return;
     }
+    // De dónde lo sacamos, para que el mail pueda decir qué cambió. Se lee
+    // ANTES de que el sheet se reacomode: `moving` apunta al turno viejo.
+    const apptId = moving.id;
+    const antesDate = moving.date;
+    const antesTime = moving.time;
+
     // NO cerramos: pasamos al paso de avisarle al cliente. Antes esto cerraba el
     // sheet y el cliente nunca se enteraba de que le movieron el turno.
     setAvisar({
@@ -434,9 +445,25 @@ export default function PanelPage() {
       time: moveTime,
       token: moving.token,
       slug: shop?.slug ?? "",
+      mail: "enviando",
     });
     setMoveTime(null);
     if (shop) loadAppts(shop.id, date);
+
+    // El mail va en paralelo y sin await: el dueño no tiene por qué esperar a
+    // Mailjet para poder mandarle el WhatsApp. El turno ya está movido, así que
+    // si esto falla no se pierde nada — se avisa a mano, como hasta ahora.
+    fetch("/api/notify-move", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ appointmentId: apptId, oldDate: antesDate, oldTime: antesTime }),
+    })
+      .then((r) => r.json())
+      .then((r: { sent?: boolean; reason?: string }) => {
+        const estado: EstadoMail = r.sent ? "enviado" : r.reason === "sin-email" ? "sin-email" : "fallo";
+        setAvisar((prev) => (prev ? { ...prev, mail: estado } : prev));
+      })
+      .catch(() => setAvisar((prev) => (prev ? { ...prev, mail: "fallo" } : prev)));
   }
 
   // ── CARGAR TURNO A MANO ───────────────────────────────────────────────────
@@ -978,10 +1005,31 @@ export default function PanelPage() {
                       Quedó {cuando(avisar.date)} a las <span className="font-bold">{avisar.time}</span>.
                     </p>
                   )}
-                  <p className="text-[15px] text-muted mb-5">
-                    {avisar.clientName.trim().split(/\s+/)[0]} todavía no lo sabe.
-                    {avisar.tipo === "movido" ? " Avisale así no viene al horario viejo." : " Avisale así no viene al pedo."}
+                  <p className="text-[15px] text-muted mb-3">
+                    {avisar.mail === "enviado"
+                      ? `Le mandamos el mail con el horario nuevo. Igual conviene el WhatsApp: se lee mucho antes.`
+                      : `${avisar.clientName.trim().split(/\s+/)[0]} todavía no lo sabe.${
+                          avisar.tipo === "movido" ? " Avisale así no viene al horario viejo." : " Avisale así no viene al pedo."
+                        }`}
                   </p>
+
+                  {/* Estado del mail automático. Se muestra siempre que haya
+                      salido el intento: que el dueño sepa si el cliente ya se
+                      enteró por otro lado o si sigue dependiendo de él. */}
+                  {avisar.mail && (
+                    <p className="text-[14px] mb-5">
+                      {avisar.mail === "enviando" ? (
+                        <span className="text-faint">Mandándole el mail…</span>
+                      ) : avisar.mail === "enviado" ? (
+                        <span className="text-accent-ink font-semibold">✓ Mail enviado</span>
+                      ) : avisar.mail === "sin-email" ? (
+                        <span className="text-faint">No dejó email al reservar: por mail no se entera.</span>
+                      ) : (
+                        <span className="text-danger">No se pudo mandar el mail. Avisale por acá.</span>
+                      )}
+                    </p>
+                  )}
+
                   <a href={waAviso(avisar)} target="_blank" rel="noopener noreferrer" onClick={closeSheet}
                     className="block w-full rounded-full bg-[#25D366] text-white font-bold py-3.5 text-center mb-3">
                     Avisarle por WhatsApp

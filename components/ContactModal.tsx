@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { RUBROS_LISTA } from "@/lib/rubros";
-import { CONTACT_TO, WHATSAPP_URL } from "@/lib/contacto";
+import { CONTACT_TO, gmailLink, WHATSAPP_URL } from "@/lib/contacto";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -101,10 +101,13 @@ export default function ContactModal({
   const puedeEnviar =
     name.trim().length >= 2 && email.includes("@") && message.trim().length >= 10;
 
-  // El asunto ya escrito, para la salida por mail directo.
-  const mailtoHref =
-    `mailto:${CONTACT_TO}?subject=${encodeURIComponent("Consulta sobre Turnito")}` +
-    `&body=${encodeURIComponent(message.trim() || "Hola, quería consultarles sobre Turnito.")}`;
+  // Salida por mail cuando el formulario no pudo enviarse. Lo que el visitante
+  // ya escribió viaja en el cuerpo: si tiene que tipear la consulta de nuevo,
+  // no la escribe — se va.
+  const gmailHref = gmailLink(
+    "Consulta sobre Turnito",
+    message.trim() || "Hola, quería consultarles sobre Turnito."
+  );
 
   // El modal se monta con un portal en <body>. NO es un detalle de estilo:
   // app/template.tsx envuelve cada página en un motion.div que anima `y` y
@@ -176,9 +179,9 @@ export default function ContactModal({
                       className="w-full rounded-full bg-highlight text-on-highlight font-bold py-3.5 text-center">
                       Escribirnos por WhatsApp
                     </a>
-                    <a href={mailtoHref}
+                    <a href={gmailHref} target="_blank" rel="noopener noreferrer"
                       className="w-full rounded-full border border-line text-ink font-bold py-3.5 text-center">
-                      Abrir mi mail
+                      Escribirnos por Gmail
                     </a>
                   </div>
                   <p className="text-xs text-faint mt-4 text-center">

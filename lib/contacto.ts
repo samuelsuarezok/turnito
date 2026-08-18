@@ -6,6 +6,41 @@
 /** A dónde llegan las consultas del formulario. */
 export const CONTACT_TO = "labsbebop@gmail.com";
 
+/**
+ * Link para escribirnos por Gmail, ya con asunto y cuerpo cargados.
+ *
+ * Por qué no un `mailto:`: en Windows el mailto se lo queda la app Correo que
+ * viene con el sistema, que casi nadie tiene configurada. El visitante hace
+ * click, se le abre un programa que nunca usó pidiéndole que agregue una
+ * cuenta, y ahí abandona. Mandándolo a la ventana de redacción de Gmail
+ * escribe en la misma sesión que ya tiene abierta.
+ *
+ * La contra, y conviene tenerla presente: al que usa Outlook o Apple Mail lo
+ * mandamos igual a Gmail. Por eso en los dos lugares donde se usa esto la
+ * dirección queda además visible en pantalla para copiarla a mano.
+ *
+ * En el celular, este mismo link lo levanta la app de Gmail si está instalada.
+ */
+export function gmailLink(asunto: string, cuerpo: string) {
+  const q = new URLSearchParams({
+    view: "cm",          // ventana de redacción
+    fs: "1",             // a pantalla completa, no el popup chico
+    to: CONTACT_TO,
+    su: asunto,
+    body: cuerpo,
+  });
+  return `https://mail.google.com/mail/?${q}`;
+}
+
+/** Lo que ya viene escrito en la consulta que sale de la página de legales. */
+export const CONSULTA_LEGALES = {
+  asunto: "Consulta sobre términos y privacidad",
+  cuerpo: `Hola, les escribo desde la página de Términos y Privacidad de Turnito.
+
+Mi consulta es:
+`,
+};
+
 /** Como se escribe en Argentina. */
 export const WHATSAPP_DISPLAY = "351 771-5113";
 

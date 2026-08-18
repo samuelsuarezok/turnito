@@ -261,6 +261,73 @@ ${rows([
 }
 
 /**
+ * Le avisa al cliente que el local le movió el turno.
+ *
+ * Lo que manda este mail es el CAMBIO, no el turno: si sólo dijera "tu turno es
+ * el jueves a las 16", el que ya lo tenía anotado el miércoles a las 10 no tiene
+ * cómo darse cuenta de que le movieron algo. Por eso el horario viejo aparece
+ * tachado al lado del nuevo, y el asunto dice "Te movimos" y no "Turno
+ * confirmado" — en la bandeja de entrada, el asunto es lo único que se lee.
+ *
+ * El link para cancelar va bien visible a propósito: al cliente le cambiaron el
+ * plan sin consultarlo, y puede que el horario nuevo no le sirva.
+ */
+export function appointmentMovedEmail(a: {
+  shopName: string;
+  clientName: string;
+  serviceName: string;
+  staffName: string | null;
+  /** Dónde estaba antes, para que se entienda qué cambió. */
+  oldDate: string;
+  oldTime: string;
+  date: string;
+  time: string;
+  manageUrl: string;
+  shopWhatsapp?: string | null;
+}) {
+  const fecha = fmtFechaLarga(a.date);
+  const hora = a.time.slice(0, 5);
+  const fechaVieja = fmtFechaLarga(a.oldDate);
+  const horaVieja = a.oldTime.slice(0, 5);
+  const conPersona = a.staffName ? ` con ${a.staffName}` : "";
+
+  const subject = `Te movimos el turno — ${a.shopName}, ahora ${fecha} ${hora} hs`;
+
+  const text = [
+    `¡Hola ${a.clientName}! Te movimos el turno en ${a.shopName}.`,
+    ``,
+    `Antes: ${fechaVieja} a las ${horaVieja} hs`,
+    `Ahora: ${fecha} a las ${hora} hs`,
+    ``,
+    `Servicio: ${a.serviceName}${conPersona}`,
+    ``,
+    `Si el horario nuevo no te sirve, podés cancelarlo acá:`,
+    a.manageUrl,
+    ...(a.shopWhatsapp
+      ? [``, `¿Preferís otro horario? Escribinos por WhatsApp: ${waHref(a.shopWhatsapp)}`]
+      : []),
+  ].join("\n");
+
+  const html = shell(
+    `    <p style="margin:0;">Hola ${esc(a.clientName)}, te movimos el turno en <strong>${esc(a.shopName)}</strong>.</p>
+${rows([
+      ["Antes", `<span style="text-decoration:line-through;color:#8a8f98;">${esc(fechaVieja)}, ${esc(horaVieja)} hs</span>`],
+      ["Ahora", `${esc(fecha)}, ${esc(hora)} hs`],
+      ["Servicio", esc(a.serviceName + conPersona)],
+    ])}
+    <p style="margin:16px 0 0;">Si el horario nuevo no te sirve, <a href="${esc(a.manageUrl)}" style="color:#014cff;">podés cancelarlo acá</a>.</p>${
+      a.shopWhatsapp
+        ? `
+    <p style="margin:16px 0 0;">¿Preferís otro horario? <a href="${esc(waHref(a.shopWhatsapp))}" style="color:#014cff;">Escribinos por WhatsApp</a>.</p>`
+        : ""
+    }`,
+    `Recibís este mail porque dejaste tu dirección al reservar un turno en ${esc(a.shopName)}.`
+  );
+
+  return { subject, html, text };
+}
+
+/**
  * Arma el aviso al dueño del local de que le entró un turno.
  *
  * Es otro mail, no el del cliente con el remitente cambiado: acá lo que importa

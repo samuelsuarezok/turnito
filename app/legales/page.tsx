@@ -4,7 +4,7 @@ import Link from "next/link";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion } from "framer-motion";
-import { CONTACT_TO } from "@/lib/contacto";
+import { CONSULTA_LEGALES, CONTACT_TO, gmailLink } from "@/lib/contacto";
 
 const UPDATED = "6 de agosto de 2026";
 
@@ -189,7 +189,12 @@ export default function LegalesPage() {
             <p className="text-[13px] font-bold uppercase tracking-widest text-faint mb-2">Contacto</p>
             <p className="text-lg text-muted">
               Para consultas sobre estos términos o tus datos personales, escribinos a{" "}
-              <a href={`mailto:${CONTACT_TO}`} className="text-accent-ink font-semibold underline">
+              <a
+                href={gmailLink(CONSULTA_LEGALES.asunto, CONSULTA_LEGALES.cuerpo)}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-accent-ink font-semibold underline"
+              >
                 {CONTACT_TO}
               </a>
             </p>
