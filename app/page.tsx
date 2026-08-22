@@ -385,12 +385,12 @@ export default function LandingPage() {
             </motion.div>
 
             <div className="stage-r">
+              <div className="stat-b" style={{ textAlign: "right" }}>
+                <b>24/7</b><span>reservas abiertas</span>
+              </div>
               <div className="qcard lime">
                 <h4>Se agenda solo</h4>
                 <p>El horario se bloquea al instante para todos los demás. Vos no tocás nada.</p>
-              </div>
-              <div className="stat-b" style={{ textAlign: "right" }}>
-                <b>24/7</b><span>reservas abiertas</span>
               </div>
             </div>
           </motion.div>
