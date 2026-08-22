@@ -63,9 +63,6 @@ const css = `
 .ld .qcard{background:var(--c-block-card);border-radius:24px;padding:22px 24px;max-width:260px}
 .ld .qcard h4{font-size:15px;font-weight:700;color:var(--c-block-card-ink);margin-bottom:6px}
 .ld .qcard p{font-size:13.5px;color:var(--c-block-card-muted);line-height:1.55}
-.ld .qcard.lime{background:var(--c-highlight)}
-.ld .qcard.lime h4{color:var(--c-on-highlight)}
-.ld .qcard.lime p{color:rgba(0,0,0,.68)}
 .ld .stat-b{color:var(--c-on-block)}
 .ld .stat-b b{display:block;font-size:44px;font-weight:800;letter-spacing:-0.04em;line-height:1}
 .ld .stat-b span{font-size:13px;color:var(--c-on-block-soft)}
@@ -388,7 +385,7 @@ export default function LandingPage() {
               <div className="stat-b" style={{ textAlign: "right" }}>
                 <b>24/7</b><span>reservas abiertas</span>
               </div>
-              <div className="qcard lime">
+              <div className="qcard">
                 <h4>Se agenda solo</h4>
                 <p>El horario se bloquea al instante para todos los demás. Vos no tocás nada.</p>
               </div>
