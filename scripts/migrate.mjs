@@ -15,7 +15,22 @@ import path from "node:path";
 import { connect, ROOT } from "./db.mjs";
 
 const file = process.argv[2];
-const dry = process.argv.includes("--dry");
+
+// Se mira por los dos lados, y no es por prolijidad:
+//
+//   npm run db:migrate archivo.sql --dry
+//
+// NO le pasa el flag al script. npm se queda con todo lo que empieza con `--`,
+// lo interpreta como config propia (`--dry` lo abrevia a `--dry-run`) y lo deja
+// en `npm_config_dry_run`. O sea que la forma que documentaba el README llegaba
+// acá SIN --dry y APLICABA la migración en producción creyendo que la ensayaba.
+// Pasó de verdad, con la 0013.
+//
+// `node scripts/migrate.mjs archivo.sql --dry` (sin npm) sí llega por argv.
+const dry =
+  process.argv.includes("--dry") ||
+  process.env.npm_config_dry_run === "true" ||
+  process.env.npm_config_dry === "true";
 
 if (!file) {
   console.error("Uso: node scripts/migrate.mjs <archivo.sql> [--dry]");

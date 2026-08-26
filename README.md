@@ -7,6 +7,7 @@ sin apps ni cuentas.
 - **Público**: `/<slug>` — la pantalla de reserva del negocio.
 - **Cliente**: `/t/<token>` — ver o cancelar el turno. El token ES la credencial.
 - **Dueño**: `/panel` y `/panel/config`.
+- **Plataforma**: `/admin` — cuántos usan Turnito y hasta cuándo tiene acceso cada uno.
 
 Next.js 16 (App Router) + Supabase (Postgres + Auth) + Tailwind. Deploy en Vercel.
 
@@ -116,7 +117,29 @@ avisa por consola al arrancar. Config en `lib/sentry-options.ts`.
 Session Replay y `sendDefaultPii` están **apagados a propósito**: el panel muestra
 nombres y teléfonos de clientes reales. No los prendas sin pensarlo.
 
-### 6. El CI solo corre chequeos estáticos
+### 6. `/admin` es la única pantalla que renderiza en el servidor
+
+Ve **todos** los negocios, así que corre con la service role key y por lo tanto
+no puede vivir en el browser como el resto de la app. Los datos bajan resueltos
+desde `app/admin/page.tsx` y los cambios salen por una server action.
+
+Quién entra lo decide `ADMIN_EMAILS` (variable del servidor, sin
+`NEXT_PUBLIC_`). **Sin esa variable `/admin` es 404 para todo el mundo**: falla
+cerrada a propósito. El mail que pongas tiene que ser el de una cuenta que ya
+exista — si no, cualquiera puede registrarla en `/login` y quedar adentro.
+
+Las tres funciones que usa (`admin_resumen`, `admin_negocios`, `admin_acceso`,
+migración `0013`) tienen el `EXECUTE` **revocado de `public`** y concedido sólo a
+`service_role`: desde el browser, con la anon key, devuelven 403.
+
+Lo que hay que saber para operarlo: **hoy nada corta el acceso solo**.
+`public_shop_info()` y `/api/book` filtran por `subscription_status`, no por
+`trial_ends_at`, así que un local con la prueba vencida sigue tomando turnos
+hasta que alguien lo corta desde `/admin`. Es a propósito — apagarle el local a
+un cliente que pagó y todavía no registramos sería peor — y el panel lo muestra
+en rojo arriba de todo para que no se olvide.
+
+### 7. El CI solo corre chequeos estáticos
 
 `.github/workflows/ci.yml` corre `tsc` y `eslint` en cada push y PR. **Los e2e no
 están ahí**: le pegan al Supabase real y correrlos en cada push sería escribir en
@@ -132,9 +155,11 @@ app/
   [slug]/         reserva pública
   t/[token]/      ver / cancelar turno
   panel/          panel del dueño (+ config)
+  admin/          plataforma: quién usa Turnito y hasta cuándo (server-side)
   api/book/       ÚNICO endpoint público que escribe
   api/contact/    formulario de la landing
 lib/
+  admin.ts        quién puede entrar a /admin (ADMIN_EMAILS)
   slots.ts        grilla de horarios y disponibilidad (compartida)
   rate-limit.ts   límite por IP de /api/book
   validate-booking.ts
