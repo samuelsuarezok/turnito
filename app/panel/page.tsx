@@ -42,8 +42,12 @@ const EASE = [0.22, 1, 0.36, 1] as const;
 function fmtDate(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-function getNext7Days() {
-  return Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
+// Los 7 días de la tira, contados desde el día que se le pase y NO desde
+// `new Date()`: así la tira depende del `today` que el panel tiene en estado, y
+// se rearma sola cuando ese estado cambia al cruzar la medianoche.
+function getNext7Days(desde: string) {
+  const [y, m, d] = desde.split("-").map(Number);
+  return Array.from({ length: 7 }, (_, i) => new Date(y, m - 1, d + i));
 }
 
 // "2026-08-12" → "el martes 12". Para hoy y mañana usa la palabra, que se lee
@@ -148,6 +152,10 @@ export default function PanelPage() {
   const [nvSaving, setNvSaving] = useState(false);
   const [nvError, setNvError] = useState("");
   const [loadErr, setLoadErr] = useState(false);
+  // Falla al refrescar la lista del día. Aparte de `loadErr`: ese reemplaza la
+  // pantalla entera, y hacer eso cada 5 segundos por un parpadeo de conexión
+  // sería peor que el problema. Este avisa sin sacar de pantalla lo que ya está.
+  const [apptsErr, setApptsErr] = useState("");
 
   // Reprogramar turno ("mover")
   const [moving, setMoving] = useState<Appt | null>(null);
@@ -170,8 +178,20 @@ export default function PanelPage() {
   const [cancelando, setCancelando] = useState<Appt | null>(null);
   const [cancelSaving, setCancelSaving] = useState(false);
 
-  const days = useMemo(() => getNext7Days(), []);
-  const today = fmtDate(new Date());
+  // ── EL DÍA DE HOY ES ESTADO, NO UNA CONSTANTE ────────────────────────────
+  //
+  // El panel de un local vive abierto: en la tablet del mostrador, o en una
+  // pestaña del teléfono que nadie cierra nunca. Antes `today` se leía del reloj
+  // en cada render pero `date` y `days` quedaban clavados en el día en que se
+  // había abierto la página. O sea que al cruzar la medianoche el panel seguía
+  // pidiendo los turnos de AYER cada 5 segundos, para siempre, y los de hoy no
+  // aparecían jamás. El dueño lo ve exactamente como "mis clientes reservaron
+  // y a mí no me figuran".
+  //
+  // Ahora el cambio de día lo detecta el mismo tick del polling (más abajo) y
+  // lo corrige. La tira de 7 días se rearma sola cuando `today` cambia.
+  const [today, setToday] = useState(() => fmtDate(new Date()));
+  const days = useMemo(() => getNext7Days(today), [today]);
 
   useEffect(() => {
     async function init() {
@@ -228,10 +248,25 @@ export default function PanelPage() {
   }, []);
 
   async function loadAppts(shopId: string, onDate: string) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("appointments")
       .select("id, client_name, client_phone, date, time, status, token, staff_id, price, service_name, services(name, duration_min)")
       .eq("business_id", shopId).eq("date", onDate).order("time");
+
+    // El error se descartaba y se hacía `?? []`. Con eso CUALQUIER falla —un
+    // GRANT que falta, PostgREST caído, el wifi del local— se veía idéntica a un
+    // día sin turnos: "0 en cola", pantalla limpia, cero explicación. El dueño
+    // no tiene manera de distinguir "no reservó nadie" de "no te lo pudimos
+    // mostrar", y lo reporta como que sus clientes sacaron turno y no le figura.
+    //
+    // Tampoco pisamos la lista con [] : que quede lo último que sí cargó es más
+    // útil que vaciar la pantalla por un corte de dos segundos.
+    if (error) {
+      console.error("loadAppts:", error.code, error.message);
+      setApptsErr("No pudimos actualizar la lista. Puede haber turnos que no estás viendo.");
+      return;
+    }
+    setApptsErr("");
     setAppts((data as unknown as Appt[]) ?? []);
   }
 
@@ -255,14 +290,30 @@ export default function PanelPage() {
   // este bloque, sin tocar el resto del panel.
   useEffect(() => {
     if (!shop) return;
-    const tick = () => loadAppts(shop.id, date);
+    const tick = () => {
+      // Cruce de medianoche. El panel puede llevar horas abierto, así que el
+      // "hoy" con el que arrancó puede haber quedado viejo; si no se corrige,
+      // el polling pide para siempre los turnos de un día que ya pasó.
+      const ahora = fmtDate(new Date());
+      if (ahora !== today) {
+        setToday(ahora);
+        // Sólo lo movemos si estaba parado en "hoy". Si eligió mirar otro día
+        // a propósito, cambiarle la vista de abajo de los pies es peor.
+        if (date === today) setDate(ahora);
+        // No hace falta cargar acá: cambiar `date` dispara el efecto de arriba,
+        // y si no cambió, el loadAppts de la línea siguiente hace lo suyo.
+      }
+      loadAppts(shop.id, date);
+    };
     const id = setInterval(tick, 5000); // cada 5s: se siente "vivo" y para un local sobra
-    // Bonus: al volver a la pestaña, refresca al toque.
+    // Bonus: al volver a la pestaña, refresca al toque. Y como el tick también
+    // mira la fecha, volver a la pestaña a la mañana siguiente ya trae el día
+    // correcto en vez del de ayer.
     const onVisible = () => { if (document.visibilityState === "visible") tick(); };
     document.addEventListener("visibilitychange", onVisible);
     return () => { clearInterval(id); document.removeEventListener("visibilitychange", onVisible); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shop, date]);
+  }, [shop, date, today]);
 
   async function setStatus(id: string, status: string) {
     await supabase.from("appointments").update({ status }).eq("id", id);
@@ -674,6 +725,27 @@ export default function PanelPage() {
           <span className="text-lg font-bold text-ink">{date === today ? "Hoy" : date}</span>
           <span className="text-[14px] text-faint">{done.length} atendidos · {active.length} en cola</span>
         </div>
+
+        {apptsErr && (
+          <p className="rounded-2xl bg-danger-soft border border-danger text-danger text-[14px] px-3 py-2 mb-3">
+            {apptsErr}
+          </p>
+        )}
+
+        {/* Filtrando por una persona con la agenda vacía, el día se ve igual que
+            un día sin turnos. Decirlo evita el "mis clientes reservaron y no me
+            figuran" cuando en realidad están, pero con otro del equipo. */}
+        {staffFilter && appts.length > shownAppts.length && (
+          <p className="text-[14px] text-muted mb-3">
+            Estás viendo sólo los de <strong>{staffName(staffFilter)}</strong>. Hay{" "}
+            {appts.length - shownAppts.length} turno{appts.length - shownAppts.length === 1 ? "" : "s"} más
+            {" "}este día con otras personas —{" "}
+            <button onClick={() => setStaffFilter(null)} className="text-accent-ink font-bold underline">
+              ver todos
+            </button>
+            .
+          </p>
+        )}
 
         <motion.button whileTap={{ scale: 0.97 }} onClick={abrirNuevo}
           className="w-full rounded-2xl border-[1.5px] border-dashed border-line text-lg font-bold text-accent-ink py-3 mb-4 transition-colors hover:border-accent">
