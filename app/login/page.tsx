@@ -8,6 +8,8 @@ import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion, stagger, fadeUp, scaleIn } from "@/components/motion";
 
+type Errors = { email?: string; pass?: string; form?: string };
+
 export default function LoginPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -15,24 +17,52 @@ export default function LoginPage() {
   const [mode, setMode] = useState<"register" | "login">("register");
   const [email, setEmail] = useState("");
   const [pass, setPass] = useState("");
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<Errors>({});
   const [loading, setLoading] = useState(false);
 
+  /* El botón nunca se deshabilita por campos vacíos: un botón apagado no
+     explica qué falta. Validamos al enviar y respondemos campo por campo. */
+  function validate(): Errors {
+    const next: Errors = {};
+    const mail = email.trim();
+    if (!mail) next.email = "Ingresá tu email";
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(mail)) next.email = "Ese email no parece válido";
+
+    if (!pass) next.pass = "Ingresá tu contraseña";
+    // El mínimo de 6 es un requisito de registro. Exigirlo al ingresar dejaría
+    // afuera a cuentas viejas con contraseñas más cortas.
+    else if (mode === "register" && pass.length < 6)
+      next.pass = "La contraseña necesita al menos 6 caracteres";
+
+    return next;
+  }
+
   async function handleSubmit() {
-    setError("");
+    const next = validate();
+    setErrors(next);
+    if (next.email || next.pass) return;
+
     setLoading(true);
     const { error } =
       mode === "register"
-        ? await supabase.auth.signUp({ email, password: pass })
-        : await supabase.auth.signInWithPassword({ email, password: pass });
+        ? await supabase.auth.signUp({ email: email.trim(), password: pass })
+        : await supabase.auth.signInWithPassword({ email: email.trim(), password: pass });
     setLoading(false);
-    if (error) return setError(error.message);
+    if (error) return setErrors({ form: error.message });
     router.push(mode === "register" ? "/onboarding" : "/panel");
   }
 
+  function switchMode() {
+    setMode(mode === "register" ? "login" : "register");
+    setErrors({});
+  }
+
   const inputCls =
-    "w-full rounded-2xl bg-surface-2 border border-line px-4 py-3.5 outline-none focus:border-accent transition-colors";
+    "w-full rounded-2xl bg-surface-2 border px-4 py-3.5 outline-none transition-colors";
+  const okCls = "border-line focus:border-accent";
+  const badCls = "border-danger focus:border-danger";
   const labelCls = "block text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
+  const fieldErrCls = "text-[13px] text-danger mt-1.5";
 
   return (
     <main className="min-h-screen bg-canvas text-body flex items-center justify-center p-6">
@@ -54,21 +84,45 @@ export default function LoginPage() {
             ) : ("Bienvenido de nuevo")}
           </motion.p>
 
-          <motion.div variants={fadeUp}>
-            <label className={labelCls}>Email</label>
-            <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="tunombre@gmail.com"
-              className={`${inputCls} mb-4`} />
+          <motion.div className="mb-4" variants={fadeUp}>
+            <label className={labelCls} htmlFor="email">Email</label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (errors.email) setErrors({ ...errors, email: undefined });
+              }}
+              placeholder="tunombre@gmail.com"
+              aria-invalid={!!errors.email}
+              aria-describedby={errors.email ? "email-error" : undefined}
+              className={`${inputCls} ${errors.email ? badCls : okCls}`}
+            />
+            {errors.email && <p id="email-error" className={fieldErrCls}>{errors.email}</p>}
           </motion.div>
 
-          <motion.div variants={fadeUp}>
-            <label className={labelCls}>Contraseña</label>
-            <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} placeholder="Mínimo 6 caracteres"
-              className={`${inputCls} mb-6`} />
+          <motion.div className="mb-6" variants={fadeUp}>
+            <label className={labelCls} htmlFor="pass">Contraseña</label>
+            <input
+              id="pass"
+              type="password"
+              value={pass}
+              onChange={(e) => {
+                setPass(e.target.value);
+                if (errors.pass) setErrors({ ...errors, pass: undefined });
+              }}
+              placeholder={mode === "register" ? "Mínimo 6 caracteres" : "Tu contraseña"}
+              aria-invalid={!!errors.pass}
+              aria-describedby={errors.pass ? "pass-error" : undefined}
+              className={`${inputCls} ${errors.pass ? badCls : okCls}`}
+            />
+            {errors.pass && <p id="pass-error" className={fieldErrCls}>{errors.pass}</p>}
           </motion.div>
 
-          {error && (
-            <motion.p className="text-lg text-danger mb-4" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}>
-              {error}
+          {errors.form && (
+            <motion.p role="alert" className="text-lg text-danger mb-4" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}>
+              {errors.form}
             </motion.p>
           )}
 
@@ -76,7 +130,7 @@ export default function LoginPage() {
             variants={fadeUp}
             whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
             onClick={handleSubmit}
-            disabled={loading || !email.includes("@") || pass.length < 6}
+            disabled={loading}
             className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity"
           >
             {loading ? "…" : mode === "register" ? "Crear cuenta →" : "Ingresar →"}
@@ -94,7 +148,7 @@ export default function LoginPage() {
 
         <motion.p className="text-lg text-muted mt-6 text-center" variants={fadeUp}>
           {mode === "register" ? "¿Ya tenés cuenta?" : "¿No tenés cuenta?"}{" "}
-          <button onClick={() => setMode(mode === "register" ? "login" : "register")} className="text-accent-ink font-bold">
+          <button onClick={switchMode} className="text-accent-ink font-bold">
             {mode === "register" ? "Ingresá" : "Registrate gratis"}
           </button>
         </motion.p>
