@@ -43,7 +43,12 @@ function getNext7Days() {
 }
 
 const labelCls = "text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
-const inputCls = "w-full rounded-2xl bg-surface border border-line px-4 py-3.5 outline-none focus:border-accent transition-colors";
+const inputCls = "w-full rounded-2xl bg-surface border px-4 py-3.5 outline-none transition-colors";
+// Mismo patrón que el login: borde y focus rojos cuando el campo tiene error,
+// así no chocan dos clases focus:border-* con el órden impredecible del CSS.
+const inputOkCls = "border-line focus:border-accent";
+const inputBadCls = "border-danger focus:border-danger";
+const fieldErrCls = "text-[13px] text-danger mt-1.5";
 
 const stepVariants = {
   enter: (dir: number) => ({ opacity: 0, x: dir * 60 }),
@@ -80,6 +85,9 @@ export default function BookingClient({ slug }: { slug: string }) {
   const [email, setEmail] = useState(""); // opcional
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  // Errores por campo del paso 2. Antes el botón se apagaba en silencio
+  // (CP-10): ahora se valida al enviar y se avisa junto al campo que falta.
+  const [fieldErrors, setFieldErrors] = useState<{ name?: string; phone?: string }>({});
   const [token, setToken] = useState<string | null>(null);
   const [emailSent, setEmailSent] = useState(false);
 
@@ -238,7 +246,19 @@ export default function BookingClient({ slug }: { slug: string }) {
   if (time && !availability[time]) setTime(null);
 
   async function book() {
-    setError(""); setSaving(true);
+    setError("");
+    // Validación de lo evidente antes de pegarle al API (las mismas reglas
+    // viven del otro lado en lib/validate-booking.ts, con los mismos
+    // mensajes): nombre de 3+ letras y WhatsApp de 8+ dígitos.
+    const next: { name?: string; phone?: string } = {};
+    if (!name.trim()) next.name = "Ingresá tu nombre";
+    else if (name.trim().length < 3) next.name = "Tu nombre es muy corto";
+    const digitos = phone.replace(/\D/g, "");
+    if (!phone.trim()) next.phone = "Ingresá tu WhatsApp";
+    else if (digitos.length < 8) next.phone = "Ese WhatsApp no parece válido";
+    setFieldErrors(next);
+    if (next.name || next.phone) return;
+    setSaving(true);
     const res = await fetch("/api/book", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -348,10 +368,23 @@ export default function BookingClient({ slug }: { slug: string }) {
         <AnimatePresence mode="wait" custom={dir}>
           {step === 1 && (
             <motion.div key="s1" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
+              {/* Error de reserva que vino del paso 2 (p.ej. SLOT_TAKEN): book()
+                  vuelve al paso 1 para que elija otro horario, pero el mensaje
+                  tiene que verse ACÁ o el cliente nunca se entera de qué pasó.
+                  Se limpia solo al elegir otro día/horario/servicio/persona. */}
+              {error && (
+                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl border-[1.5px] border-danger bg-danger-soft px-4 py-3 mb-6 flex items-start justify-between gap-3">
+                  <p className="text-lg text-danger font-semibold">{error}</p>
+                  <button onClick={() => setError("")} aria-label="Cerrar aviso"
+                    className="shrink-0 text-danger text-xl font-bold leading-none">×</button>
+                </motion.div>
+              )}
+
               <div className={labelCls}>Servicio</div>
               <motion.div className="grid grid-cols-3 gap-2 mb-6" variants={gridStagger} initial="hidden" animate="show">
                 {shop.services.map((s) => (
-                  <motion.button key={s.id} variants={gridItem} whileTap={{ scale: 0.94 }} onClick={() => setService(s)}
+                  <motion.button key={s.id} variants={gridItem} whileTap={{ scale: 0.94 }} onClick={() => { setService(s); setError(""); }}
                     className={`rounded-2xl border-[1.5px] p-3 text-center transition-colors ${
                       service?.id === s.id ? "border-accent bg-accent-soft" : "border-line bg-surface"
                     }`}>
@@ -371,7 +404,7 @@ export default function BookingClient({ slug }: { slug: string }) {
                   <motion.div className="grid grid-cols-3 gap-2 mb-6" variants={gridStagger} initial="hidden" animate="show">
                     {elegibles.map((b) => (
                       <motion.button key={b.id} variants={gridItem} whileTap={{ scale: 0.94 }}
-                        onClick={() => { setMember(b); setTime(null); }}
+                        onClick={() => { setMember(b); setTime(null); setError(""); }}
                         className={`rounded-2xl border-[1.5px] p-3 text-center transition-colors ${
                           member?.id === b.id ? "border-accent bg-accent-soft" : "border-line bg-surface"
                         }`}>
@@ -422,7 +455,7 @@ export default function BookingClient({ slug }: { slug: string }) {
                     <motion.button key={ds} variants={gridItem}
                       whileTap={!isClosed ? { scale: 0.92 } : {}}
                       disabled={isClosed}
-                      onClick={() => { setDate(ds); setTime(null); }}
+                      onClick={() => { setDate(ds); setTime(null); setError(""); }}
                       className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
                         isClosed ? "border-line bg-line opacity-45 cursor-not-allowed"
                           : on ? "border-accent bg-accent-soft" : "border-line bg-surface"
@@ -459,7 +492,7 @@ export default function BookingClient({ slug }: { slug: string }) {
                     const on = time === s;
                     return (
                       <motion.button key={s} variants={gridItem} whileTap={free ? { scale: 0.92 } : {}}
-                        disabled={!free} onClick={() => setTime(s)}
+                        disabled={!free} onClick={() => { setTime(s); setError(""); }}
                         className={`rounded-xl border-[1.5px] py-2 text-[14px] font-bold transition-colors ${
                           !free ? "border-dashed border-line bg-transparent text-faint line-through"
                             : on ? "border-accent bg-accent text-on-accent"
@@ -494,12 +527,20 @@ export default function BookingClient({ slug }: { slug: string }) {
               </div>
 
               <div className={labelCls}>Tu nombre</div>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Juan Pérez"
-                className={`${inputCls} mb-4`} />
+              <input value={name} placeholder="Juan Pérez"
+                onChange={(e) => { setName(e.target.value); if (fieldErrors.name) setFieldErrors({ ...fieldErrors, name: undefined }); }}
+                aria-invalid={!!fieldErrors.name}
+                aria-describedby={fieldErrors.name ? "name-error" : undefined}
+                className={`${inputCls} ${fieldErrors.name ? inputBadCls : inputOkCls} ${fieldErrors.name ? "" : "mb-4"}`} />
+              {fieldErrors.name && <p id="name-error" className={`${fieldErrCls} mb-3`}>{fieldErrors.name}</p>}
 
               <div className={labelCls}>Tu WhatsApp</div>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="351 234-5678" type="tel"
-                className={`${inputCls} ${EMAIL_ENABLED ? "mb-4" : "mb-2"}`} />
+              <input value={phone} placeholder="351 234-5678" type="tel"
+                onChange={(e) => { setPhone(e.target.value); if (fieldErrors.phone) setFieldErrors({ ...fieldErrors, phone: undefined }); }}
+                aria-invalid={!!fieldErrors.phone}
+                aria-describedby={fieldErrors.phone ? "phone-error" : undefined}
+                className={`${inputCls} ${fieldErrors.phone ? inputBadCls : inputOkCls} ${fieldErrors.phone ? "" : EMAIL_ENABLED ? "mb-4" : "mb-2"}`} />
+              {fieldErrors.phone && <p id="phone-error" className={`${fieldErrCls} ${EMAIL_ENABLED ? "mb-3" : "mb-1"}`}>{fieldErrors.phone}</p>}
 
               {EMAIL_ENABLED && (
                 <>
@@ -508,7 +549,7 @@ export default function BookingClient({ slug }: { slug: string }) {
                   </div>
                   <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="juan@gmail.com"
                     type="email" inputMode="email" autoComplete="email"
-                    className={`${inputCls} mb-2`} />
+                    className={`${inputCls} ${inputOkCls} mb-2`} />
                   <p className="text-[15px] text-faint mb-1">
                     Si lo dejás, te mandamos la confirmación por mail. Podés saltearlo y reservar igual.
                   </p>
@@ -536,9 +577,13 @@ export default function BookingClient({ slug }: { slug: string }) {
                 <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-lg text-danger mb-4">{error}</motion.p>
               )}
 
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={book} disabled={saving || name.trim().length < 3 || phone.trim().length < 7}
-                className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
+              {/* El botón solo se apaga mientras se está reservando. Por campos
+                  incompletos NO se deshabilita: validamos al tocar y avisamos
+                  campo por campo (CP-10). Sin "scale" mientras está apagado,
+                  porque animar un botón disabled sugiere que responde. */}
+              <motion.button whileHover={saving ? undefined : { scale: 1.02 }} whileTap={saving ? undefined : { scale: 0.97 }}
+                onClick={book} disabled={saving}
+                className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">
                 {saving ? "Reservando…" : "Confirmar turno →"}
               </motion.button>
               <p className="text-[13px] text-faint text-center mt-4 leading-relaxed">

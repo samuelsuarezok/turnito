@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { traducirErrorAuth } from "@/lib/auth-errors";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion, stagger, fadeUp, scaleIn } from "@/components/motion";
@@ -43,12 +44,15 @@ export default function LoginPage() {
     if (next.email || next.pass) return;
 
     setLoading(true);
+    // Minúsculas SIEMPRE: "Pablo@Gmail.com" y "pablo@gmail.com" son la misma
+    // cuenta; sin normalizar, un typo de mayúscula crea usuarios distintos.
+    const mail = email.trim().toLowerCase();
     const { error } =
       mode === "register"
-        ? await supabase.auth.signUp({ email: email.trim(), password: pass })
-        : await supabase.auth.signInWithPassword({ email: email.trim(), password: pass });
+        ? await supabase.auth.signUp({ email: mail, password: pass })
+        : await supabase.auth.signInWithPassword({ email: mail, password: pass });
     setLoading(false);
-    if (error) return setErrors({ form: error.message });
+    if (error) return setErrors({ form: traducirErrorAuth(error) });
     router.push(mode === "register" ? "/onboarding" : "/panel");
   }
 

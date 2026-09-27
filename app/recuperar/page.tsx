@@ -31,7 +31,7 @@ export default function RecuperarPage() {
     // OJO: Supabase solo respeta este redirectTo si la URL está en la lista de
     // "Redirect URLs" del proyecto. Si no está, lo ignora en silencio y usa el
     // Site URL. Ver el README.
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
       redirectTo: `${window.location.origin}/recuperar/nueva`,
     });
     setLoading(false);

@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
+import { traducirErrorAuth } from "@/lib/auth-errors";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion, stagger, fadeUp, scaleIn } from "@/components/motion";
@@ -52,7 +53,7 @@ export default function NuevaPasswordPage() {
     setLoading(true);
     const { error } = await supabase.auth.updateUser({ password: pass });
     setLoading(false);
-    if (error) return setError(error.message);
+    if (error) return setError(traducirErrorAuth(error));
 
     setEstado("guardado");
     // Con la contraseña cambiada la sesión ya es válida: entra derecho al panel.
