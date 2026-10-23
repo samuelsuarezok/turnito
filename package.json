@@ -14,6 +14,7 @@
     "test:rls": "node --env-file=.env e2e-local/audit-rls.mjs"
   },
   "dependencies": {
+    "@next/third-parties": "^16.2.10",
     "@sentry/nextjs": "^10.69.0",
     "@supabase/ssr": "^0.12.3",
     "@supabase/supabase-js": "^2.110.7",

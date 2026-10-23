@@ -1,7 +1,13 @@
 import type { Metadata } from "next";
 import { Urbanist, Geist_Mono } from "next/font/google";
 import { themeInitScript } from "@/components/ThemeToggle";
+import Analytics from "@/components/Analytics";
 import "./globals.css";
+
+// GA4 solo en producción de Vercel: NODE_ENV también es "production" en los
+// previews, VERCEL_ENV no. Sin ID, no se renderiza nada.
+const gaId =
+  process.env.VERCEL_ENV === "production" ? process.env.NEXT_PUBLIC_GA_ID : undefined;
 
 // Urbanist es variable font: no hace falta declarar weights.
 const urbanist = Urbanist({
@@ -39,6 +45,10 @@ export const metadata: Metadata = {
     description: "Tus clientes reservan solos desde un link. 30 días gratis.",
     images: ["/og-image.png"],
   },
+  // Solo hace falta si Search Console no se verifica por DNS.
+  verification: {
+    google: process.env.NEXT_PUBLIC_GSC_VERIFICATION || undefined,
+  },
 };
 
 export default function RootLayout({
@@ -61,6 +71,7 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
       </head>
       <body className="min-h-full flex flex-col">{children}</body>
+      {gaId && <Analytics gaId={gaId} />}
     </html>
   );
 }
