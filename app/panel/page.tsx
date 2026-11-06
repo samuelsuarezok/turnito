@@ -9,6 +9,7 @@ import { SITE_DOMAIN, slugify } from "@/lib/site";
 import { waLink } from "@/lib/contacto";
 import { turnosACsv, descargarCsv, type FilaTurno } from "@/lib/csv";
 import ThemeToggle from "@/components/ThemeToggle";
+import SoporteWhatsApp from "@/components/SoporteWhatsApp";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
 import { formatDuracion } from "@/lib/rubros";
@@ -915,6 +916,14 @@ export default function PanelPage() {
 
         </div>{/* fin columna derecha */}
         </div>{/* fin grid */}
+
+        {/* Soporte. Dos variantes porque son dos lugares distintos, no el mismo
+            botón movido: en el celular va acá abajo, después de los turnos (un
+            flotante taparía justo lo que el dueño vino a mirar), y en monitor
+            queda anclado al costado, siempre a mano mientras trabaja.
+            La variante `side` sale por un portal — ver el header del componente. */}
+        <SoporteWhatsApp variant="bottom" negocio={shop.name} />
+        <SoporteWhatsApp variant="side" negocio={shop.name} />
       </div>
 
       {/* MODAL CARGAR TURNO A MANO */}
