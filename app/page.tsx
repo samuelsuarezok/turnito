@@ -18,6 +18,7 @@ import {
   scaleIn,
   stagger,
   staggerFast,
+  SplitText,
   EASE,
 } from "@/components/motion";
 
@@ -294,9 +295,19 @@ export default function LandingPage() {
             <motion.div className="eyebrow" variants={fadeUp}>
               <b>30 días gratis</b> Sin tarjeta, sin permanencia
             </motion.div>
-            <motion.h1 className="display" variants={fadeUp}>
-              Tus turnos, <span className="b">solos.</span>
-            </motion.h1>
+            {/* El titular entra palabra por palabra, no de una. Es lo primero
+                que ve un visitante y es donde más rinde: el ojo sigue la
+                cascada hasta "solos.", que es la promesa entera del producto. */}
+            <SplitText
+              as="h1"
+              className="display"
+              delay={0.12}
+              stagger={0.07}
+              highlight="solos."
+              highlightClassName="b"
+            >
+              Tus turnos, solos.
+            </SplitText>
             <motion.div className="hero-sub" variants={fadeUp}>
               <p>
                 Barbería, uñas, pestañas, tatuajes o peluquería: tus clientes reservan
@@ -522,7 +533,12 @@ export default function LandingPage() {
       <div className="final">
         <Reveal variants={scaleIn}>
           <div className="final-card">
-            <h2>Tu próximo turno se reserva solo.</h2>
+            {/* El otro momento del video, además del hero: acá es donde se
+                decide. La cascada se dispara al entrar en viewport, no al
+                montar, porque esta sección vive al fondo de la página. */}
+            <SplitText as="h2" onScroll stagger={0.045}>
+              Tu próximo turno se reserva solo.
+            </SplitText>
             <p>Configurá tu negocio hoy y probalo 30 días con tus clientes reales.</p>
             <motion.div {...hover} style={{ display: "inline-block" }}>
               <Link className="pill lime" href="/login">Crear mi cuenta gratis <span>→</span></Link>
