@@ -53,6 +53,33 @@ export function normalizeClosed(closed: ClosedEntry[] | null | undefined): Close
   );
 }
 
+// ── AUSENCIAS DEL EQUIPO ──────────────────────────────────────────────
+//
+// Desde la 0014 una ausencia puede ser de día completo (from_time null, que es
+// como funcionaba antes) o de un rango de horas.
+//
+// Y una ausencia parcial ES, para el cálculo, lo mismo que un bloqueo parcial
+// del local: un rango que no se puede reservar. Por eso tiene la misma forma
+// que ClosedBlock y entra por el mismo camino — `computeSlots` no se enteró de
+// este cambio y no hizo falta tocarlo. La única diferencia es de alcance: el
+// bloqueo del local aplica a todos, la ausencia sólo a esa persona, y eso lo
+// resuelve quien llama pasando las ausencias de la persona elegida.
+export type Ausencia = ClosedBlock;
+
+/** Acepta el formato viejo (array de fechas) y el nuevo (objetos con horas). */
+export function normalizeAusencias(
+  ausencias: (string | Ausencia)[] | null | undefined
+): Ausencia[] {
+  return (ausencias ?? []).map((a) =>
+    typeof a === "string" ? { date: a, from_time: null, to_time: null } : a
+  );
+}
+
+/** Los días en que la persona no está NINGUNA hora. */
+export function ausenciasDeDiaCompleto(ausencias: Ausencia[]): Set<string> {
+  return new Set(ausencias.filter((a) => !a.from_time).map((a) => a.date));
+}
+
 // Fechas con bloqueo de DÍA COMPLETO (from_time null) → deshabilitan el día entero.
 export function fullDayClosedSet(closedBlocks: ClosedBlock[]): Set<string> {
   return new Set(closedBlocks.filter((c) => !c.from_time).map((c) => c.date));

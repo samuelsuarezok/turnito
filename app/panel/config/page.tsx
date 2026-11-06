@@ -50,7 +50,9 @@ type Svc = {
 type HourRange = { opens_at: string; closes_at: string };
 type DayHours = { open: boolean; ranges: HourRange[] };
 type Closed = { id: string; date: string; reason: string | null; from_time?: string | null; to_time?: string | null };
-type Absence = { id: string; date: string };
+// Un día sin trabajar. from_time/to_time en null = el día completo; con horas,
+// sólo esa franja. Y desde la 0014 puede haber varias franjas la misma fecha.
+type Absence = { id: string; date: string; from_time?: string | null; to_time?: string | null };
 // Persona del equipo. `absences` son los días sueltos en que no está.
 // `service_ids`: qué servicios hace. VACÍO SIGNIFICA TODOS, igual que en la
 // base — ver 0009_servicios_por_persona.sql. No es "no hace nada".
@@ -102,6 +104,8 @@ export default function ConfigPage() {
   // equipo
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [absenceDate, setAbsenceDate] = useState<Record<string, string>>({}); // por persona
+  const [absenceFrom, setAbsenceFrom] = useState<Record<string, string>>({});
+  const [absenceTo, setAbsenceTo] = useState<Record<string, string>>({});
   const [confirmDelStaff, setConfirmDelStaff] = useState<number | null>(null);
 
   // horarios
@@ -197,12 +201,12 @@ export default function ConfigPage() {
       .order("sort_order");
 
     const ids = (brs ?? []).map((b) => b.id as string);
-    let abs: { id: string; staff_id: string; date: string }[] = [];
+    let abs: { id: string; staff_id: string; date: string; from_time: string | null; to_time: string | null }[] = [];
     let asign: { service_id: string; staff_id: string }[] = [];
     if (ids.length > 0) {
       const { data } = await supabase
         .from("staff_absences")
-        .select("id, staff_id, date")
+        .select("id, staff_id, date, from_time, to_time")
         .in("staff_id", ids)
         .gte("date", today)
         .order("date");
@@ -220,7 +224,7 @@ export default function ConfigPage() {
         id: b.id as string,
         name: b.name as string,
         whatsapp: (b.whatsapp as string | null) ?? "",
-        absences: abs.filter((a) => a.staff_id === b.id).map((a) => ({ id: a.id, date: a.date })),
+        absences: abs.filter((a) => a.staff_id === b.id).map((a) => ({ id: a.id, date: a.date, from_time: a.from_time, to_time: a.to_time })),
         service_ids: asign.filter((a) => a.staff_id === b.id).map((a) => a.service_id),
       }))
     );
@@ -402,11 +406,39 @@ export default function ConfigPage() {
     const date = absenceDate[staffId];
     if (!shopId || !date) return;
     setError("");
-    const { error } = await supabase.from("staff_absences").insert({ staff_id: staffId, date });
+
+    const desde = absenceFrom[staffId] ?? "";
+    const hasta = absenceTo[staffId] ?? "";
+
+    // Las dos horas o ninguna. Una sola no significa nada, y dejarla pasar
+    // guardaría el día completo sin que el dueño se entere — que es
+    // exactamente el reporte que originó la 0014.
+    if ((desde && !hasta) || (!desde && hasta)) {
+      return setError("Para bloquear sólo un rato, completá las dos horas. Si querés el día entero, dejá las dos vacías.");
+    }
+    if (desde && hasta && desde >= hasta) {
+      return setError("La hora de inicio tiene que ser menor que la de fin.");
+    }
+
+    const payload: Record<string, unknown> = { staff_id: staffId, date };
+    if (desde && hasta) {
+      payload.from_time = desde;
+      payload.to_time = hasta;
+    }
+
+    const { error } = await supabase.from("staff_absences").insert(payload);
     if (error) {
-      return setError(error.code === "23505" ? "Ese día ya estaba marcado para esa persona." : error.message);
+      return setError(
+        error.code === "23505"
+          ? desde
+            ? "Esa franja ya estaba marcada para esa persona."
+            : "Ese día ya estaba marcado completo para esa persona."
+          : error.message
+      );
     }
     setAbsenceDate({ ...absenceDate, [staffId]: "" });
+    setAbsenceFrom({ ...absenceFrom, [staffId]: "" });
+    setAbsenceTo({ ...absenceTo, [staffId]: "" });
     await loadStaff(shopId);
   }
 
@@ -835,6 +867,31 @@ export default function ConfigPage() {
                         Marcar
                       </button>
                     </div>
+
+                    {/* Las horas son opcionales y por eso van después de la
+                        fecha, no antes: el caso común sigue siendo el día
+                        entero. Antes ESTA era la única opción, y por eso un
+                        local que quería sacar a alguien un rato terminaba
+                        cerrándole el día. */}
+                    <div className="flex items-center gap-2 mb-2">
+                      <select value={absenceFrom[brb.id!] ?? ""}
+                        onChange={(e) => setAbsenceFrom({ ...absenceFrom, [brb.id!]: e.target.value })}
+                        className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-[15px] outline-none focus:border-accent">
+                        <option value="">Desde…</option>
+                        {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
+                      </select>
+                      <span className="text-faint text-[14px]">a</span>
+                      <select value={absenceTo[brb.id!] ?? ""}
+                        onChange={(e) => setAbsenceTo({ ...absenceTo, [brb.id!]: e.target.value })}
+                        className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-[15px] outline-none focus:border-accent">
+                        <option value="">Hasta…</option>
+                        {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
+                      </select>
+                    </div>
+                    <p className="text-[13px] text-faint mb-2.5">
+                      Dejá las dos horas vacías para marcar el <strong>día completo</strong>. Con horas,
+                      sólo se bloquea ese rato y el resto del día sigue disponible.
+                    </p>
                     {brb.absences.length === 0 ? (
                       <p className="text-[14px] text-faint">Trabaja todos los días abiertos del local.</p>
                     ) : (
@@ -842,6 +899,12 @@ export default function ConfigPage() {
                         {brb.absences.map((a) => (
                           <span key={a.id} className="flex items-center gap-1.5 rounded-full bg-surface border border-line pl-2.5 pr-1.5 py-1">
                             <span className="font-mono text-[14px] text-accent-ink font-semibold">{a.date}</span>
+                            {/* Sin esto, una ausencia de 14 a 17 se ve igual que
+                                una de día completo y el dueño no puede saber
+                                cuál cargó. */}
+                            <span className="font-mono text-[13px] text-faint">
+                              {a.from_time ? `${a.from_time.slice(0, 5)}–${a.to_time?.slice(0, 5)}` : "todo el día"}
+                            </span>
                             <button onClick={() => removeAbsence(a.id)} className="text-faint hover:text-danger text-[15px] leading-none">✕</button>
                           </span>
                         ))}

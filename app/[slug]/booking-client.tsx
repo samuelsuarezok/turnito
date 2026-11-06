@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
+import { computeSlots, normalizeClosed, fullDayClosedSet, normalizeAusencias, ausenciasDeDiaCompleto, toMin, type ClosedEntry, type OpeningRange, type Ausencia } from "@/lib/slots";
 import { EQUIPO, formatPrecio, formatDuracion } from "@/lib/rubros";
 import { SITE_DOMAIN } from "@/lib/site";
 import { waLink } from "@/lib/contacto";
@@ -19,8 +19,18 @@ type Service = {
 };
 // staff_id null = turno viejo / negocio de una sola agenda → ocupa a todos.
 type BusySlot = { time: string; duration_min: number; staff_id: string | null };
-// `absences`: días (YYYY-MM-DD) en que esa persona no está.
-type StaffMember = { id: string; name: string; absences: string[]; whatsapp?: string | null };
+// Cuándo NO está esa persona.
+//   `absences`  — formato viejo: sólo los días completos (YYYY-MM-DD).
+//   `ausencias` — desde la 0014: cada ausencia con su franja. from_time null
+//                 sigue queriendo decir día completo.
+// Se leen las dos porque public_shop_staff devuelve ambas: así la migración se
+// pudo aplicar sin tener que coordinarla con el deploy.
+type StaffMember = {
+  id: string; name: string;
+  absences: string[];
+  ausencias?: Ausencia[];
+  whatsapp?: string | null;
+};
 type ShopInfo = {
   name: string; slug: string; slot_minutes: number; min_notice_min: number;
   whatsapp?: string;
@@ -194,8 +204,37 @@ export default function BookingClient({ slug }: { slug: string }) {
     );
   }, [esConsulta, shop, member, service]);
 
-  // La persona elegida no está ese día → para el cliente es lo mismo que cerrado.
-  const staffAbsent = !!member && member.absences.includes(date);
+  // Las ausencias de la persona elegida, ya normalizadas.
+  const ausenciasMember = useMemo(
+    () => normalizeAusencias(member?.ausencias ?? member?.absences),
+    [member]
+  );
+
+  /**
+   * Cómo está una persona un día dado: `"completo"` (no viene), `"parcial"`
+   * (no está algunas horas) o `null` (disponible). Sirve para los dos lugares
+   * donde hay que avisarlo: la tarjeta de cada persona y el selector de días.
+   */
+  const estadoAusencia = (b: StaffMember, ds: string): "completo" | "parcial" | null => {
+    const aus = normalizeAusencias(b.ausencias ?? b.absences);
+    if (ausenciasDeDiaCompleto(aus).has(ds)) return "completo";
+    return aus.some((a) => a.date === ds && a.from_time) ? "parcial" : null;
+  };
+
+  // Sólo cierra el día si la persona no está NINGUNA hora. Una ausencia de
+  // 14 a 17 ya no tacha el día entero: tacha esas horas, y el resto sigue
+  // disponible. Ése era el bug que reportó el local.
+  const staffAbsent = useMemo(
+    () => ausenciasDeDiaCompleto(ausenciasMember).has(date),
+    [ausenciasMember, date]
+  );
+
+  // Las ausencias parciales entran como bloqueos más: mismo formato, mismo
+  // camino. Lo único que cambia es el alcance — éstas son de esta persona.
+  const bloqueosDelDia = useMemo(
+    () => [...closedBlocks, ...ausenciasMember.filter((a) => a.from_time)],
+    [closedBlocks, ausenciasMember]
+  );
 
   // Intervalos ocupados en minutos: [inicio, fin)
   // Con varias agendas, cada una tiene la suya: sólo la ocupan sus propios
@@ -224,11 +263,11 @@ export default function BookingClient({ slug }: { slug: string }) {
       date,
       slotMinutes: shop.slot_minutes,
       durationMin: service?.duration_min ?? shop.slot_minutes,
-      closedBlocks,
+      closedBlocks: bloqueosDelDia,
       busyIntervals,
       minStartMin,
     });
-  }, [shop, weekday, date, today, dayIsClosed, staffAbsent, busyIntervals, closedBlocks, service]);
+  }, [shop, weekday, date, today, dayIsClosed, staffAbsent, busyIntervals, bloqueosDelDia, service]);
 
   // Si cambia el servicio/persona y el horario elegido ya no entra, deseleccionarlo.
   //
@@ -409,8 +448,11 @@ export default function BookingClient({ slug }: { slug: string }) {
                           member?.id === b.id ? "border-accent bg-accent-soft" : "border-line bg-surface"
                         }`}>
                         <div className="text-[15px] font-bold truncate text-ink">{b.name}</div>
-                        {b.absences.includes(date) && (
+                        {estadoAusencia(b, date) === "completo" && (
                           <div className="text-[13px] text-faint mt-0.5">no está ese día</div>
+                        )}
+                        {estadoAusencia(b, date) === "parcial" && (
+                          <div className="text-[13px] text-faint mt-0.5">tiene menos horarios</div>
                         )}
                       </motion.button>
                     ))}
@@ -449,8 +491,11 @@ export default function BookingClient({ slug }: { slug: string }) {
                 {days.map((d) => {
                   const ds = fmtDate(d);
                   const on = date === ds;
-                  // Cerrado el local, o la persona elegida no está: mismo efecto.
-                  const isClosed = fullDayClosed.has(ds) || !!member?.absences.includes(ds);
+                  // Cerrado el local, o la persona elegida no está NINGUNA hora.
+                  // Una ausencia parcial no tacha el día: deja menos horarios,
+                  // y eso se ve al abrirlo.
+                  const isClosed =
+                    fullDayClosed.has(ds) || (!!member && estadoAusencia(member, ds) === "completo");
                   return (
                     <motion.button key={ds} variants={gridItem}
                       whileTap={!isClosed ? { scale: 0.92 } : {}}

@@ -146,16 +146,40 @@ export async function POST(req: Request) {
       );
     }
 
-    // 2.3 Esa persona no está ese día
-    const { data: absent } = await supabase
+    // 2.3 Esa persona no está: el día entero, o justo en esa franja
+    //
+    // Desde la 0014 una ausencia puede ser de un rango de horas y puede haber
+    // VARIAS el mismo día. Por eso acá ya no va `.maybeSingle()`: con dos
+    // franjas cargadas devolvía error en vez de fila, el error se descartaba,
+    // `absent` quedaba null y la validación dejaba pasar el turno. Una ausencia
+    // de más dejaba de bloquear, que es lo contrario de lo que tiene que pasar.
+    const { data: ausencias } = await supabase
       .from("staff_absences")
-      .select("id")
+      .select("from_time, to_time")
       .eq("staff_id", staffId)
-      .eq("date", date)
-      .maybeSingle();
+      .eq("date", date);
 
-    if (absent) {
+    const lista = ausencias ?? [];
+
+    // from_time null = no viene en todo el día (como antes de la 0014).
+    if (lista.some((a) => !a.from_time)) {
       return NextResponse.json({ error: "No atiende ese día. Elegí otro día u otra persona." }, { status: 400 });
+    }
+
+    // Parciales: sólo rechaza si el turno PISA la franja. Se compara contra el
+    // final real del turno (inicio + duración del servicio), no contra el
+    // inicio: un corte de 45 minutos a las 13:30 invade una ausencia que
+    // empieza 14:00, aunque arranque antes.
+    const ini = toMin(time);
+    const fin = ini + service.duration_min;
+    const pisa = lista.some(
+      (a) => a.from_time && a.to_time && ini < toMin(a.to_time) && fin > toMin(a.from_time)
+    );
+    if (pisa) {
+      return NextResponse.json(
+        { error: "No atiende en ese horario. Elegí otro horario u otra persona." },
+        { status: 400 }
+      );
     }
   }
 
