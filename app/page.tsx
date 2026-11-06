@@ -305,6 +305,7 @@ export default function LandingPage() {
               stagger={0.07}
               highlight="solos."
               highlightClassName="b"
+              highlightSpin
             >
               Tus turnos, solos.
             </SplitText>

@@ -184,7 +184,45 @@ type SplitTextProps = {
    */
   highlight?: string;
   highlightClassName?: string;
+  /**
+   * Hace girar la cola resaltada sobre su eje horizontal, en loop: la palabra
+   * sube, se va de canto y vuelve a entrar desde abajo. Arranca DESPUÉS de que
+   * terminó la entrada en cascada, para que las dos animaciones no se pisen.
+   */
+  highlightSpin?: boolean;
 };
+
+/**
+ * La palabra que gira. Va ANIDADA dentro del span que hace la entrada: ese
+ * lleva los `variants` de la cascada y éste su propio `animate`, porque un
+ * mismo elemento no puede estar gobernado por los dos a la vez.
+ *
+ * El giro es un rotateX completo con `backfaceVisibility: hidden`. Entre los
+ * 90° y los 270° se está viendo el dorso, que está oculto: ahí la palabra
+ * literalmente no está en pantalla. Eso es lo que da el "se va y vuelve a
+ * aparecer" sin tener que animar opacidad por separado.
+ *
+ * `repeatDelay` es deliberadamente largo: en un hero, una palabra girando sin
+ * parar le roba la atención al texto que tiene al lado y marea. Gira, descansa
+ * varios segundos y vuelve.
+ *
+ * El MotionConfig reducedMotion="user" de app/template.tsx desactiva los
+ * transforms, así que para quien pidió menos movimiento la palabra queda quieta
+ * y legible.
+ */
+function PalabraGirando({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{ display: "inline-block", perspective: 520 }}>
+      <motion.span
+        style={{ display: "inline-block", backfaceVisibility: "hidden", transformStyle: "preserve-3d" }}
+        animate={{ rotateX: [0, -360] }}
+        transition={{ duration: 1.15, ease: EASE, repeat: Infinity, repeatDelay: 3.6, delay: 1.2 }}
+      >
+        {children}
+      </motion.span>
+    </span>
+  );
+}
 
 const splitPiece: Variants = {
   // El blur es lo que separa esto de un fade cualquiera: el texto "enfoca"
@@ -208,6 +246,7 @@ export function SplitText({
   as = "span",
   highlight,
   highlightClassName = "",
+  highlightSpin = false,
 }: SplitTextProps) {
   const MotionTag = motion[as];
   // Por palabras conservamos el espacio real entre ellas: sin eso el titular
@@ -237,19 +276,22 @@ export function SplitText({
       {...anim}
       aria-label={children}
     >
-      {partes.map((parte, i) => (
-        <motion.span
-          key={`${parte}-${i}`}
-          variants={splitPiece}
-          aria-hidden="true"
-          className={desdeResaltado >= 0 && i >= desdeResaltado ? highlightClassName : undefined}
-          // inline-block es obligatorio: un <span> inline ignora `y`.
-          style={{ display: "inline-block", whiteSpace: "pre" }}
-        >
-          {parte}
-          {by === "word" && i < partes.length - 1 ? " " : ""}
-        </motion.span>
-      ))}
+      {partes.map((parte, i) => {
+        const resaltada = desdeResaltado >= 0 && i >= desdeResaltado;
+        const texto = `${parte}${by === "word" && i < partes.length - 1 ? " " : ""}`;
+        return (
+          <motion.span
+            key={`${parte}-${i}`}
+            variants={splitPiece}
+            aria-hidden="true"
+            className={resaltada ? highlightClassName : undefined}
+            // inline-block es obligatorio: un <span> inline ignora `y`.
+            style={{ display: "inline-block", whiteSpace: "pre" }}
+          >
+            {resaltada && highlightSpin ? <PalabraGirando>{texto}</PalabraGirando> : texto}
+          </motion.span>
+        );
+      })}
     </MotionTag>
   );
 }
