@@ -51,3 +51,7 @@ skills-lock.json
 
 # config local del asistente (permisos de la máquina de cada uno)
 .claude/settings.local.json
+
+# Skills de agentes: se instalan con `npx skills add`, no son codigo del proyecto.
+.agents/
+.claude/skills/

@@ -12,6 +12,13 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+
+    // Skills de agentes (hyperframes y compañía). Es código de terceros que se
+    // instala con `npx skills add` y trae su propio estilo: GSAP minificado,
+    // scripts .cjs con `require`, tests sueltos. Lintearlo metía 87 errores
+    // ajenos y dejaba el CI en rojo sin que hubiera UN solo problema en la app.
+    ".agents/**",
+    ".claude/skills/**",
   ]),
 ]);
 
