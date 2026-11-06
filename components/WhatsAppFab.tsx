@@ -13,16 +13,26 @@
 // El número no se escribe acá: sale de lib/contacto.ts, que es el único lugar
 // donde vive el contacto público de Turnito.
 
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { WHATSAPP_URL } from "@/lib/contacto";
 
 export default function WhatsAppFab() {
-  // En el render del server no hay document. Un portal no aporta nada al árbol
-  // en su lugar de origen, así que devolver null acá y crearlo en el cliente no
-  // le deja a la hidratación ninguna diferencia que reclamar. Mismo criterio que
-  // ContactModal.
-  if (typeof document === "undefined") return null;
+  // El portal se monta DESPUÉS de hidratar, no durante.
+  //
+  // Antes esto era `if (typeof document === "undefined") return null`, que
+  // parece lo mismo y no lo es: el server devolvía null y el primer render del
+  // cliente ya devolvía el botón, así que los dos árboles no coincidían y React
+  // tiraba "Hydration failed… the server rendered HTML didn't match" en la
+  // consola de la landing, regenerando el árbol entero.
+  //
+  // Con un flag de montaje, server y primer render del cliente devuelven los
+  // DOS null —coinciden— y el botón entra recién en el efecto, que corre sólo
+  // en el cliente. Mismo resultado visible, sin el error.
+  const [montado, setMontado] = useState(false);
+  useEffect(() => setMontado(true), []);
+  if (!montado) return null;
 
   return createPortal(
     <motion.a
