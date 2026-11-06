@@ -13,10 +13,10 @@
 // El número no se escribe acá: sale de lib/contacto.ts, que es el único lugar
 // donde vive el contacto público de Turnito.
 
-import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { motion } from "framer-motion";
 import { WHATSAPP_URL } from "@/lib/contacto";
+import { useMontado } from "@/lib/use-montado";
 
 export default function WhatsAppFab() {
   // El portal se monta DESPUÉS de hidratar, no durante.
@@ -27,12 +27,10 @@ export default function WhatsAppFab() {
   // tiraba "Hydration failed… the server rendered HTML didn't match" en la
   // consola de la landing, regenerando el árbol entero.
   //
-  // Con un flag de montaje, server y primer render del cliente devuelven los
-  // DOS null —coinciden— y el botón entra recién en el efecto, que corre sólo
-  // en el cliente. Mismo resultado visible, sin el error.
-  const [montado, setMontado] = useState(false);
-  useEffect(() => setMontado(true), []);
-  if (!montado) return null;
+  // Con `useMontado`, server y primer render del cliente devuelven los DOS
+  // null —coinciden— y el botón aparece recién después. Mismo resultado
+  // visible, sin el error. El cómo está en lib/use-montado.ts.
+  if (!useMontado()) return null;
 
   return createPortal(
     <motion.a

@@ -24,9 +24,9 @@
 // anclarse al viewport y scrollearía con la página. Colgándolo del <body> no
 // pasa. Mismo motivo que WhatsAppFab y ContactModal.
 
-import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { WHATSAPP_INTL } from "@/lib/contacto";
+import { useMontado } from "@/lib/use-montado";
 
 function linkSoporte(negocio?: string) {
   const texto = negocio
@@ -57,8 +57,7 @@ export default function SoporteWhatsApp({
   // null según `typeof document` parece equivalente y no lo es: el server daría
   // null y el primer render del cliente ya daría el botón, y React lo reporta
   // como "Hydration failed". Así los dos primeros renders coinciden en null.
-  const [montado, setMontado] = useState(false);
-  useEffect(() => setMontado(true), []);
+  const montado = useMontado();
 
   const href = linkSoporte(negocio);
 

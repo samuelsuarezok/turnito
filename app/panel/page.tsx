@@ -716,10 +716,18 @@ export default function PanelPage() {
             En mobile el grid no aplica y el orden es el de siempre.
             Sin cola no abrimos la segunda columna: media pantalla vacía al lado
             de una tarjeta suelta se lee como que algo se rompió, no como un día
-            tranquilo. Ahí volvemos a una sola columna centrada. */}
+            tranquilo.
+
+            PERO LA COLUMNA NO SE CENTRA, y eso antes estaba mal. Centrada
+            quedaba despegada del encabezado y de la tira de días, que se
+            alinean al borde izquierdo del contenedor: el panel de un día vacío
+            se veía partido, con un hueco muerto en el medio. Ahora conserva el
+            ancho exacto de la primera columna del grid (400px), así el
+            contenido ARRANCA SIEMPRE EN EL MISMO LUGAR — con turnos o sin
+            ellos — y cambiar de día no mueve nada de lugar. */}
         <div className={hayCola
           ? "lg:grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-7 lg:items-start"
-          : "lg:max-w-md lg:mx-auto"}>
+          : "lg:max-w-[400px]"}>
         <div className={hayCola ? "lg:sticky lg:top-6" : ""}>
 
         <div className="flex justify-between items-baseline mb-3">
@@ -835,7 +843,7 @@ export default function PanelPage() {
               className="rounded-3xl border border-line bg-surface p-8 text-center mb-4">
               {shownAppts.length === 0 ? (
                 <>
-                  <div className="text-[33px] mb-3">📅</div>
+                  <IconoVacio />
                   <p className="text-lg font-bold text-ink">Todavía no hay turnos este día</p>
                   <p className="text-[15px] text-faint mt-1 mb-5">Compartí tu link para recibir el primero</p>
                   <motion.button whileTap={{ scale: 0.96 }} onClick={copyLink}
@@ -845,7 +853,7 @@ export default function PanelPage() {
                 </>
               ) : (
                 <>
-                  <div className="text-[33px] mb-3">🎉</div>
+                  <IconoListo />
                   <p className="text-lg font-bold text-ink">¡Día completado!</p>
                   <p className="text-[15px] text-faint mt-1">Atendiste todos los turnos. Bien ahí.</p>
                 </>
@@ -1179,4 +1187,31 @@ export default function PanelPage() {
 
 function SectionLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`text-[13px] font-bold uppercase tracking-widest text-faint mb-2 ${className}`}>{children}</div>;
+}
+
+// Los estados vacíos usaban 📅 y 🎉 sueltos. Un emoji lo dibuja la fuente del
+// sistema: cambia de forma y de color entre Windows, Android e iOS, no toma los
+// tokens del tema (en modo noche quedaba un calendario celeste chillón sobre el
+// negro) y un lector de pantalla lo lee en voz alta como "calendario". Un SVG
+// hereda `currentColor`, se ve igual en todos lados y va `aria-hidden` porque el
+// texto de al lado ya dice lo mismo.
+
+function IconoVacio() {
+  return (
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mx-auto mb-3 text-faint">
+      <rect x="3" y="5" width="18" height="16" rx="3" />
+      <path d="M3 10h18M8 3v4M16 3v4" />
+    </svg>
+  );
+}
+
+function IconoListo() {
+  return (
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mx-auto mb-3 text-accent-ink">
+      <circle cx="12" cy="12" r="9" />
+      <path d="m8.5 12.4 2.4 2.4 4.6-5" />
+    </svg>
+  );
 }

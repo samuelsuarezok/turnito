@@ -110,7 +110,15 @@
   --c-ink: #ffffff;
   --c-body: #ededea;
   --c-muted: #8a8a82;
-  --c-faint: #5a5a54;
+  /* Era #5a5a54 y daba 2.65:1 sobre `surface` — la mitad del 4.5:1 que pide
+     AA. Y `faint` no es decoración: con él se pintan los rótulos del panel
+     ("COBRADO", "POR COBRAR"), los subtítulos y las ayudas, o sea medio panel
+     en modo noche. Se veía apagado porque LO ESTABA.
+     #80807a da 4.64:1 sobre `surface` y 4.92:1 sobre `canvas`, y queda por
+     debajo de `muted` (5.30:1), así que sigue leyéndose como el tono más
+     tenue de los tres y no se pierde la jerarquía.
+     Es el mismo arreglo que ya se le había hecho a `muted` acá arriba. */
+  --c-faint: #80807a;
 
   --c-accent: #d8f34e;
   --c-on-accent: #101010;
