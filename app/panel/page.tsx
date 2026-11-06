@@ -718,48 +718,23 @@ export default function PanelPage() {
             de una tarjeta suelta se lee como que algo se rompió, no como un día
             tranquilo.
 
-            PERO LA COLUMNA NO SE CENTRA, y eso antes estaba mal. Centrada
-            quedaba despegada del encabezado y de la tira de días, que se
-            alinean al borde izquierdo del contenedor: el panel de un día vacío
-            se veía partido, con un hueco muerto en el medio. Ahora conserva el
-            ancho exacto de la primera columna del grid (400px), así el
-            contenido ARRANCA SIEMPRE EN EL MISMO LUGAR — con turnos o sin
-            ellos — y cambiar de día no mueve nada de lugar. */}
-        <div className={hayCola
-          ? "lg:grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-7 lg:items-start"
-          : "lg:max-w-[400px]"}>
-        <div className={hayCola ? "lg:sticky lg:top-6" : ""}>
-
+            Sin cola el contenido ocupa EL ANCHO COMPLETO, no una columna.
+            Dos intentos fallidos antes de este: centrado quedaba despegado del
+            encabezado, y encajonado en 400px dejaba el 70% del monitor vacío —
+            un dashboard que no usa la pantalla. Ahora la tarjeta del estado
+            vacío se estira y lee como un panel tranquilo, que es lo que es.
+            Los botones sueltos sí se limitan (lg:max-w-sm): un botón de 1400px
+            de ancho no es una acción, es una pared. */}
+        {/* ── BARRA DEL DIA + NUMEROS ─────────────────────────────────
+            Van A LO ANCHO y fuera del grid, que es como se ordena un
+            dashboard: los numeros primero y abarcando la pantalla, el
+            detalle debajo. Antes vivian DENTRO de la columna de 400px, asi
+            que en un monitor quedaban apretados a la izquierda con el resto
+            del ancho vacio. ── */}
         <div className="flex justify-between items-baseline mb-3">
           <span className="text-lg font-bold text-ink">{date === today ? "Hoy" : date}</span>
           <span className="text-[14px] text-faint">{done.length} atendidos · {active.length} en cola</span>
         </div>
-
-        {apptsErr && (
-          <p className="rounded-2xl bg-danger-soft border border-danger text-danger text-[14px] px-3 py-2 mb-3">
-            {apptsErr}
-          </p>
-        )}
-
-        {/* Filtrando por una persona con la agenda vacía, el día se ve igual que
-            un día sin turnos. Decirlo evita el "mis clientes reservaron y no me
-            figuran" cuando en realidad están, pero con otro del equipo. */}
-        {staffFilter && appts.length > shownAppts.length && (
-          <p className="text-[14px] text-muted mb-3">
-            Estás viendo sólo los de <strong>{staffName(staffFilter)}</strong>. Hay{" "}
-            {appts.length - shownAppts.length} turno{appts.length - shownAppts.length === 1 ? "" : "s"} más
-            {" "}este día con otras personas —{" "}
-            <button onClick={() => setStaffFilter(null)} className="text-accent-ink font-bold underline">
-              ver todos
-            </button>
-            .
-          </p>
-        )}
-
-        <motion.button whileTap={{ scale: 0.97 }} onClick={abrirNuevo}
-          className="w-full rounded-2xl border-[1.5px] border-dashed border-line text-lg font-bold text-accent-ink py-3 mb-4 transition-colors hover:border-accent">
-          + Cargar un turno
-        </motion.button>
 
         {/* Números del día. El de la izquierda es el que importa: se mueve en el
             momento en que marcás un turno como atendido. */}
@@ -792,13 +767,43 @@ export default function PanelPage() {
           </div>
         </div>
 
-
         {resumen.sinPrecio > 0 && (
           <p className="text-[13px] text-faint -mt-3 mb-5">
             {resumen.sinPrecio === 1 ? "Hay 1 turno atendido sin" : `Hay ${resumen.sinPrecio} turnos atendidos sin`}{" "}
             precio guardado, así que el total les queda corto.
           </p>
         )}
+
+        <div className={hayCola
+          ? "lg:grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-7 lg:items-start"
+          : ""}>
+        <div className={hayCola ? "lg:sticky lg:top-6" : ""}>
+
+        {apptsErr && (
+          <p className="rounded-2xl bg-danger-soft border border-danger text-danger text-[14px] px-3 py-2 mb-3">
+            {apptsErr}
+          </p>
+        )}
+
+        {/* Filtrando por una persona con la agenda vacía, el día se ve igual que
+            un día sin turnos. Decirlo evita el "mis clientes reservaron y no me
+            figuran" cuando en realidad están, pero con otro del equipo. */}
+        {staffFilter && appts.length > shownAppts.length && (
+          <p className="text-[14px] text-muted mb-3">
+            Estás viendo sólo los de <strong>{staffName(staffFilter)}</strong>. Hay{" "}
+            {appts.length - shownAppts.length} turno{appts.length - shownAppts.length === 1 ? "" : "s"} más
+            {" "}este día con otras personas —{" "}
+            <button onClick={() => setStaffFilter(null)} className="text-accent-ink font-bold underline">
+              ver todos
+            </button>
+            .
+          </p>
+        )}
+
+        <motion.button whileTap={{ scale: 0.97 }} onClick={abrirNuevo}
+          className="w-full lg:max-w-sm rounded-2xl border-[1.5px] border-dashed border-line text-lg font-bold text-accent-ink py-3 mb-4 transition-colors hover:border-accent">
+          + Cargar un turno
+        </motion.button>
 
         {/* SIGUIENTE */}
         <AnimatePresence mode="wait">
@@ -865,7 +870,7 @@ export default function PanelPage() {
         {/* Descarga: acción de una vez por mes. Va al pie y en gris para que no
             le compita a la tarjeta del turno que viene, que se mira todo el día. */}
         <button onClick={bajarUltimos30} disabled={bajando}
-          className="w-full rounded-2xl border border-line bg-surface text-[14px] font-bold text-muted py-2.5 mt-1 mb-5 transition-colors hover:border-accent hover:text-accent-ink disabled:opacity-50">
+          className="w-full lg:max-w-sm rounded-2xl border border-line bg-surface text-[14px] font-bold text-muted py-2.5 mt-1 mb-5 transition-colors hover:border-accent hover:text-accent-ink disabled:opacity-50">
           {bajando ? "Preparando…" : "↓ Descargar los últimos 30 días"}
         </button>
 
