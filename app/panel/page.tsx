@@ -71,6 +71,26 @@ function deCuando(ds: string) {
   return c.startsWith("el ") ? `del ${c.slice(3)}` : `de ${c}`;
 }
 
+// Lo mismo para "a": "a hoy", "a mañana", pero "AL sábado 21". Lo usa el botón
+// de mover, que antes mostraba la fecha cruda ("Mover a 2026-11-21 · 11:00").
+function aCuando(ds: string) {
+  const c = cuando(ds);
+  return c.startsWith("el ") ? `al ${c.slice(3)}` : `a ${c}`;
+}
+
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+// Título del día que se está mirando: "Hoy, viernes 20 de noviembre" o
+// "Sábado 21 de noviembre". Antes los días que no eran hoy salían como
+// "2026-11-21".
+const MESES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio",
+  "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
+function tituloDia(ds: string, hoy: string) {
+  const [y, m, d] = ds.split("-").map(Number);
+  const fecha = `${DIAS_LARGOS[new Date(y, m - 1, d).getDay()]} ${d} de ${MESES[m - 1]}`;
+  return ds === hoy ? `Hoy, ${fecha}` : cap(fecha);
+}
+
 // Avisos al cliente por WhatsApp. El dueño toca y solo aprieta enviar: wa.me NO
 // puede mandar solo, siempre hay una persona apretando. Para el cliente el
 // mensaje llega del número del local, no de un bot.
@@ -611,10 +631,9 @@ export default function PanelPage() {
     return (
       <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
         <div className="text-center max-w-xs">
-          <p className="text-lg font-bold text-ink">No pudimos cargar tu panel</p>
-          <p className="text-[15px] text-muted mt-1 mb-5">Puede ser un problema de conexión. Probá de nuevo.</p>
-          <button onClick={() => window.location.reload()}
-            className="rounded-full bg-accent text-on-accent font-bold text-lg px-6 py-3">
+          <p className="text-[18px] leading-6 font-semibold text-ink">No pudimos cargar tu panel</p>
+          <p className="text-[15px] leading-6 text-muted mt-1 mb-6">Puede ser un problema de conexión. Probá de nuevo.</p>
+          <button onClick={() => window.location.reload()} className={btnPrimary + " px-6"}>
             Reintentar
           </button>
         </div>
@@ -623,87 +642,104 @@ export default function PanelPage() {
 
   if (!shop)
     return (
-      <main className="min-h-screen bg-canvas p-5 lg:p-8">
+      <main className="min-h-screen bg-canvas p-4 sm:p-6 lg:p-8">
         <div className="max-w-md lg:max-w-6xl mx-auto pb-16 animate-pulse">
-          <div className="flex items-center justify-between pt-2 mb-6">
-            <div className="h-6 w-40 rounded-lg bg-surface" />
-            <div className="h-4 w-16 rounded bg-line" />
+          <div className="flex items-center justify-between mb-8">
+            <div className="h-7 w-48 rounded-lg bg-surface" />
+            <div className="h-9 w-32 rounded-lg bg-surface" />
           </div>
           <div className="flex gap-2 mb-6">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-12 h-14 rounded-2xl bg-surface" />)}
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-14 h-16 rounded-xl bg-surface" />)}
           </div>
-          <div className="h-40 rounded-3xl bg-surface mb-4" />
-          <div className="h-16 rounded-2xl bg-surface mb-2" />
-          <div className="h-16 rounded-2xl bg-surface" />
+          <div className="grid grid-cols-3 gap-3 mb-6">
+            {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-28 rounded-2xl bg-surface" />)}
+          </div>
+          <div className="h-56 rounded-3xl bg-surface mb-4 lg:max-w-[400px]" />
         </div>
       </main>
     );
 
+  // Botones sueltos: en mobile ocupan el ancho; en monitor, si no hay segunda
+  // columna, se limitan (un botón de 1400px no es una acción, es una pared).
+  const anchoSuelto = hayCola ? "w-full" : "w-full lg:max-w-sm";
+
   return (
-    <main className="min-h-screen bg-canvas text-body p-5 lg:p-8">
+    <main className="min-h-screen bg-canvas text-body p-4 sm:p-6 lg:p-8">
       <div className="max-w-md lg:max-w-6xl mx-auto pb-16">
         {/* header */}
-        <motion.div className="flex items-center justify-between pt-2 mb-1"
-          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
-          <div className="flex items-center gap-2.5"><LogoMark size={22} /><h1 className="text-[22px] font-extrabold text-ink tracking-tight">{shop.name}</h1></div>
-          <div className="flex items-center">
-            <ThemeToggle className="mr-2.5" />
-            <Link href="/panel/stats" className="text-[14px] text-accent-ink font-bold mr-3">📊 Números</Link>
-            <Link href="/panel/config" className="text-[14px] text-accent-ink font-bold mr-3">⚙ Config</Link>
-            <button onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }} className="text-[14px] text-faint underline">Salir</button>
+        <header className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 min-w-0">
+            <LogoMark size={24} />
+            <h1 className="text-[20px] leading-7 font-semibold text-ink truncate">{shop.name}</h1>
           </div>
-        </motion.div>
-        <button onClick={copyLink} className="text-[14px] font-mono text-muted block">
-          {SITE_DOMAIN}/{shop.slug} <span className={copied ? "text-accent-ink font-bold" : "text-faint"}>{copied ? "✓ copiado" : "· copiar"}</span>
-        </button>
 
-        {/* El link se fija al crear la cuenta y no sigue al nombre: ya está en
-            la bio de Instagram, en estados de WhatsApp y en el historial de los
-            clientes, y cambiarlo los rompería a todos sin aviso.
-            La aclaración aparece SÓLO cuando dejaron de coincidir. Si el local
-            se sigue llamando igual que su link, no hay nada que explicar y una
-            línea fija ahí sería ruido permanente. */}
-        {slugify(shop.name) !== shop.slug && (
-          <p className="text-[13px] text-faint mt-1.5 max-w-sm leading-relaxed">
-            Tu link quedó fijo desde que creaste la cuenta y no cambia con el nombre,
-            para no romper el que ya compartiste con tus clientes.
-          </p>
-        )}
+          {/* En el celular quedan sólo los íconos: con texto, el nombre del
+              local se partía en dos renglones y la barra se amontonaba. */}
+          <nav className="flex items-center gap-1 shrink-0">
+            <ThemeToggle className="mr-1" />
+            <Link href="/panel/stats" aria-label="Números" className={navLink}>
+              <IcoChart /><span className="hidden sm:inline">Números</span>
+            </Link>
+            <Link href="/panel/config" aria-label="Configuración" className={navLink}>
+              <IcoSliders /><span className="hidden sm:inline">Config</span>
+            </Link>
+            <button aria-label="Salir" className={navLink}
+              onClick={async () => { await supabase.auth.signOut(); router.push("/login"); }}>
+              <IcoLogout /><span className="hidden sm:inline">Salir</span>
+            </button>
+          </nav>
+        </header>
 
-        <div className="mb-6" />
+        {/* El link va debajo y a lo ancho: al lado de la barra, en el celular,
+            se partía en dos renglones ("el-/toro"). */}
+        <div className="mt-1 mb-8">
+          <button onClick={copyLink}
+            className="inline-flex items-center gap-2 text-[13px] leading-5 text-muted hover:text-ink transition-colors">
+            <span className="font-mono whitespace-nowrap">{SITE_DOMAIN}/{shop.slug}</span>
+            <span className={`inline-flex items-center gap-1 ${copied ? "text-accent-ink font-medium" : ""}`}>
+              {copied ? <IcoCheck size={14} /> : <IcoCopy size={14} />}
+              {copied ? "Copiado" : "Copiar"}
+            </span>
+          </button>
+
+          {/* El link se fija al crear la cuenta y no sigue al nombre: ya está en
+              la bio de Instagram, en estados de WhatsApp y en el historial de los
+              clientes, y cambiarlo los rompería a todos sin aviso.
+              La aclaración aparece SÓLO cuando dejaron de coincidir. Si el local
+              se sigue llamando igual que su link, no hay nada que explicar y una
+              línea fija ahí sería ruido permanente. */}
+          {slugify(shop.name) !== shop.slug && (
+            <p className="text-[13px] leading-5 text-muted mt-2 max-w-sm">
+              Tu link quedó fijo desde que creaste la cuenta y no cambia con el nombre,
+              para no romper el que ya compartiste con tus clientes.
+            </p>
+          )}
+        </div>
 
         {/* días */}
-        <motion.div className="flex gap-2 overflow-x-auto pb-2 mb-6"
-          initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.04 } } }}>
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
           {days.map((d) => {
-            const ds = fmtDate(d); const on = date === ds;
+            const ds = fmtDate(d);
             return (
-              <motion.button key={ds} onClick={() => setDate(ds)}
-                variants={{ hidden: { opacity: 0, y: 10 }, show: { opacity: 1, y: 0 } }}
-                whileTap={{ scale: 0.92 }}
-                className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${on ? "border-accent bg-accent-soft" : "border-line bg-surface"}`}>
-                <div className={`text-[11px] uppercase font-semibold ${on ? "text-accent-ink" : "text-faint"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
-                <div className={`text-lg font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
-              </motion.button>
+              <DiaBtn key={ds} fecha={d} label={ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
+                on={date === ds} onClick={() => setDate(ds)} />
             );
           })}
-        </motion.div>
+        </div>
 
         {/* filtro por persona (sólo si el local cargó equipo) */}
         {staff.length > 0 && (
           <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
-            <button onClick={() => setStaffFilter(null)}
-              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[14px] font-bold transition-colors ${
-                staffFilter === null ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
+            <button onClick={() => setStaffFilter(null)} aria-pressed={staffFilter === null}
+              className={chip(staffFilter === null)}>
               Todos
             </button>
             {staff.map((b) => {
               const off = absences.has(`${b.id}|${date}`);
               return (
-                <button key={b.id} onClick={() => setStaffFilter(b.id)}
-                  className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[14px] font-bold transition-colors ${
-                    staffFilter === b.id ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
-                  {b.name}{off ? " · libre" : ""}
+                <button key={b.id} onClick={() => setStaffFilter(b.id)} aria-pressed={staffFilter === b.id}
+                  className={chip(staffFilter === b.id)}>
+                  {b.name}{off && <span className="opacity-60"> · libre</span>}
                 </button>
               );
             })}
@@ -725,62 +761,44 @@ export default function PanelPage() {
             vacío se estira y lee como un panel tranquilo, que es lo que es.
             Los botones sueltos sí se limitan (lg:max-w-sm): un botón de 1400px
             de ancho no es una acción, es una pared. */}
-        {/* ── BARRA DEL DIA + NUMEROS ─────────────────────────────────
+        {/* ── TÍTULO DEL DÍA + NÚMEROS ─────────────────────────────────
             Van A LO ANCHO y fuera del grid, que es como se ordena un
-            dashboard: los numeros primero y abarcando la pantalla, el
-            detalle debajo. Antes vivian DENTRO de la columna de 400px, asi
-            que en un monitor quedaban apretados a la izquierda con el resto
-            del ancho vacio. ── */}
-        <div className="flex justify-between items-baseline mb-3">
-          <span className="text-lg font-bold text-ink">{date === today ? "Hoy" : date}</span>
-          <span className="text-[14px] text-faint">{done.length} atendidos · {active.length} en cola</span>
-        </div>
+            dashboard: los números primero y abarcando la pantalla, el
+            detalle debajo. ── */}
+        <h2 className="text-[18px] leading-6 font-semibold text-ink mt-4 mb-3">{tituloDia(date, today)}</h2>
 
         {/* Números del día. El de la izquierda es el que importa: se mueve en el
             momento en que marcás un turno como atendido. */}
-        <div className="grid grid-cols-3 gap-2 mb-5">
-          <div className="rounded-2xl bg-surface border border-line p-3">
-            <div className="text-[12px] uppercase font-bold tracking-widest text-faint mb-1">Cobrado</div>
-            <motion.div key={resumen.cobrado}
-              initial={{ scale: 0.88, opacity: 0.5 }} animate={{ scale: 1, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 400, damping: 22 }}
-              className="text-[22px] font-extrabold text-ink tabular-nums leading-none">
+        <div className="grid grid-cols-3 gap-2 sm:gap-3 mb-6">
+          <Stat label="Cobrado" sub={plural(done.length, "atendido", "atendidos")}>
+            <motion.span key={resumen.cobrado} initial={{ opacity: 0.4 }} animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, ease: EASE }}>
               {fmtPesos(resumen.cobrado)}
-            </motion.div>
-            <div className="text-[13px] text-faint mt-1">{done.length} atendidos</div>
-          </div>
-
-          <div className="rounded-2xl bg-surface border border-line p-3">
-            <div className="text-[12px] uppercase font-bold tracking-widest text-faint mb-1">Por cobrar</div>
-            <div className="text-[22px] font-extrabold text-muted tabular-nums leading-none">
-              {fmtPesos(resumen.porCobrar)}
-            </div>
-            <div className="text-[13px] text-faint mt-1">{active.length} en cola</div>
-          </div>
-
-          <div className="rounded-2xl bg-surface border border-line p-3">
-            <div className="text-[12px] uppercase font-bold tracking-widest text-faint mb-1">Ausencias</div>
-            <div className={`text-[22px] font-extrabold tabular-nums leading-none ${resumen.ausencias > 0 ? "text-danger" : "text-muted"}`}>
-              {resumen.ausencias}
-            </div>
-            <div className="text-[13px] text-faint mt-1">no vinieron</div>
-          </div>
+            </motion.span>
+          </Stat>
+          <Stat label="Por cobrar" sub={`${active.length} en cola`}>
+            {fmtPesos(resumen.porCobrar)}
+          </Stat>
+          <Stat label="Ausencias" sub={resumen.ausencias === 1 ? "no vino" : "no vinieron"}
+            alerta={resumen.ausencias > 0}>
+            {resumen.ausencias}
+          </Stat>
         </div>
 
         {resumen.sinPrecio > 0 && (
-          <p className="text-[13px] text-faint -mt-3 mb-5">
+          <p className="text-[13px] leading-5 text-muted -mt-3 mb-6">
             {resumen.sinPrecio === 1 ? "Hay 1 turno atendido sin" : `Hay ${resumen.sinPrecio} turnos atendidos sin`}{" "}
             precio guardado, así que el total les queda corto.
           </p>
         )}
 
         <div className={hayCola
-          ? "lg:grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-7 lg:items-start"
+          ? "lg:grid lg:grid-cols-[minmax(0,400px)_minmax(0,1fr)] lg:gap-8 lg:items-start"
           : ""}>
         <div className={hayCola ? "lg:sticky lg:top-6" : ""}>
 
         {apptsErr && (
-          <p className="rounded-2xl bg-danger-soft border border-danger text-danger text-[14px] px-3 py-2 mb-3">
+          <p role="alert" className="rounded-xl bg-danger-soft text-danger text-[14px] leading-5 px-4 py-3 mb-4">
             {apptsErr}
           </p>
         )}
@@ -789,89 +807,99 @@ export default function PanelPage() {
             un día sin turnos. Decirlo evita el "mis clientes reservaron y no me
             figuran" cuando en realidad están, pero con otro del equipo. */}
         {staffFilter && appts.length > shownAppts.length && (
-          <p className="text-[14px] text-muted mb-3">
-            Estás viendo sólo los de <strong>{staffName(staffFilter)}</strong>. Hay{" "}
+          <p className="text-[14px] leading-5 text-muted mb-4">
+            Estás viendo sólo los de <span className="font-medium text-ink">{staffName(staffFilter)}</span>. Hay{" "}
             {appts.length - shownAppts.length} turno{appts.length - shownAppts.length === 1 ? "" : "s"} más
             {" "}este día con otras personas —{" "}
-            <button onClick={() => setStaffFilter(null)} className="text-accent-ink font-bold underline">
+            <button onClick={() => setStaffFilter(null)} className="text-accent-ink font-medium underline underline-offset-2">
               ver todos
             </button>
             .
           </p>
         )}
 
-        <motion.button whileTap={{ scale: 0.97 }} onClick={abrirNuevo}
-          className="w-full lg:max-w-sm rounded-2xl border-[1.5px] border-dashed border-line text-lg font-bold text-accent-ink py-3 mb-4 transition-colors hover:border-accent">
-          + Cargar un turno
-        </motion.button>
+        <button onClick={abrirNuevo}
+          className={`${anchoSuelto} inline-flex items-center justify-center gap-2 h-12 rounded-2xl border border-dashed border-line text-[15px] font-semibold text-accent-ink mb-4 transition-[background-color,border-color,transform] duration-150 hover:border-accent hover:bg-accent-soft active:scale-[0.98]`}>
+          <IcoPlus /> Cargar un turno
+        </button>
 
-        {/* SIGUIENTE */}
+        {/* SIGUIENTE — el lima marca esto y nada más: el turno que viene. */}
         <AnimatePresence mode="wait">
           {current ? (
             <motion.div key={current.id}
-              initial={{ opacity: 0, scale: 0.94, y: 12 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.94, y: -12 }} transition={{ type: "spring", stiffness: 260, damping: 24 }}
-              className="rounded-3xl bg-highlight text-on-highlight p-5 mb-4 relative overflow-hidden">
-              <div className="absolute top-0 right-0 bg-black text-highlight text-[11px] font-black tracking-[0.15em] px-3.5 py-1.5 rounded-bl-2xl">SIGUIENTE</div>
-              <div className="flex items-center gap-4">
-                <div className="text-[33px] font-extrabold tracking-tight">{current.time.slice(0, 5)}</div>
+              initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.3, ease: EASE }}
+              className="rounded-3xl bg-highlight text-on-highlight p-5 sm:p-6 mb-4">
+              <div className="flex items-center justify-between gap-4 text-[13px] leading-5 font-semibold">
+                <span>Siguiente</span>
+                {staffName(current.staff_id) && (
+                  <span className="font-medium opacity-60 truncate">con {staffName(current.staff_id)}</span>
+                )}
+              </div>
+              <div className="flex items-center gap-4 mt-3">
+                <div className="text-[40px] leading-none font-semibold tracking-[-0.02em] tabular-nums">
+                  {current.time.slice(0, 5)}
+                </div>
                 <div className="flex-1 min-w-0">
-                  <div className="text-[22px] font-bold truncate">{current.client_name}</div>
-                  <div className="text-[15px] opacity-75 mt-0.5">
+                  <div className="text-[22px] leading-7 font-semibold truncate">{current.client_name}</div>
+                  <div className="text-[15px] leading-5 opacity-70">
                     {current.services?.name} · {formatDuracion(current.services?.duration_min ?? 0)}
-                    {staffName(current.staff_id) ? ` · con ${staffName(current.staff_id)}` : ""} ·{" "}
-                    {/* Teléfono → abre WhatsApp */}
-                    <a href={waLink(current.client_phone)} target="_blank" rel="noopener noreferrer"
-                      className="underline font-semibold">
-                      💬 {current.client_phone}
-                    </a>
                   </div>
                 </div>
               </div>
-              <div className="flex gap-2 mt-4">
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.96 }} onClick={() => setStatus(current.id, "done")}
-                  className="flex-1 rounded-full bg-black text-white font-bold text-lg py-3">✓ Listo, siguiente</motion.button>
-                <motion.button whileTap={{ scale: 0.96 }} onClick={() => setStatus(current.id, "no_show")}
-                  className="rounded-full border-[1.5px] border-black/25 text-on-highlight text-[15px] font-bold px-5">No vino</motion.button>
-              </div>
-              <a href={waRecordatorio(current)} target="_blank" rel="noopener noreferrer"
-                className="block w-full text-center text-[14px] font-bold text-on-highlight/55 mt-2.5 underline underline-offset-2">
-                🔔 Recordarle
+              {/* Teléfono → abre WhatsApp */}
+              <a href={waLink(current.client_phone)} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 mt-4 text-[15px] leading-5 font-medium underline underline-offset-2 decoration-on-highlight/30 hover:decoration-on-highlight">
+                <IcoMensaje /> {current.client_phone}
               </a>
-              <button onClick={() => openMove(current)}
-                className="w-full text-center text-[14px] font-bold text-on-highlight/55 mt-2.5 underline underline-offset-2">
-                🕐 Mover a otro horario
-              </button>
+              <div className="flex gap-2 mt-4">
+                <button onClick={() => setStatus(current.id, "done")}
+                  className="flex-1 inline-flex items-center justify-center gap-2 h-12 rounded-full bg-on-highlight text-highlight text-[16px] font-semibold transition-transform duration-150 active:scale-[0.98]">
+                  <IcoCheck /> Listo, siguiente
+                </button>
+                <button onClick={() => setStatus(current.id, "no_show")}
+                  className="h-12 px-5 rounded-full border border-on-highlight/25 text-[15px] font-semibold transition-[background-color,transform] duration-150 hover:bg-on-highlight/5 active:scale-[0.98]">
+                  No vino
+                </button>
+              </div>
+              <div className="flex gap-2 mt-3 pt-3 border-t border-on-highlight/10">
+                <a href={waRecordatorio(current)} target="_blank" rel="noopener noreferrer" className={accionLima}>
+                  <IcoCampana /> Recordarle
+                </a>
+                <button onClick={() => openMove(current)} className={accionLima}>
+                  <IcoReloj /> Mover de horario
+                </button>
+              </div>
             </motion.div>
           ) : (
-            <motion.div key="empty" initial={{ opacity: 0, scale: 0.96 }} animate={{ opacity: 1, scale: 1 }}
+            <motion.div key="empty" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              transition={{ duration: 0.3, ease: EASE }}
               className="rounded-3xl border border-line bg-surface p-8 text-center mb-4">
               {shownAppts.length === 0 ? (
                 <>
                   <IconoVacio />
-                  <p className="text-lg font-bold text-ink">Todavía no hay turnos este día</p>
-                  <p className="text-[15px] text-faint mt-1 mb-5">Compartí tu link para recibir el primero</p>
-                  <motion.button whileTap={{ scale: 0.96 }} onClick={copyLink}
-                    className="rounded-full bg-accent text-on-accent font-bold text-lg px-6 py-2.5">
-                    {copied ? "✓ Link copiado" : "Copiar mi link"}
-                  </motion.button>
+                  <p className="text-[18px] leading-6 font-semibold text-ink">Todavía no hay turnos este día</p>
+                  <p className="text-[15px] leading-6 text-muted mt-1 mb-6">Compartí tu link para recibir el primero</p>
+                  <button onClick={copyLink} className={btnPrimary + " px-6"}>
+                    {copied ? <><IcoCheck /> Link copiado</> : "Copiar mi link"}
+                  </button>
                 </>
               ) : (
                 <>
                   <IconoListo />
-                  <p className="text-lg font-bold text-ink">¡Día completado!</p>
-                  <p className="text-[15px] text-faint mt-1">Atendiste todos los turnos. Bien ahí.</p>
+                  <p className="text-[18px] leading-6 font-semibold text-ink">Día completado</p>
+                  <p className="text-[15px] leading-6 text-muted mt-1">Atendiste todos los turnos. Bien ahí.</p>
                 </>
               )}
             </motion.div>
           )}
         </AnimatePresence>
 
-        {/* Descarga: acción de una vez por mes. Va al pie y en gris para que no
+        {/* Descarga: acción de una vez por mes. Va al pie y sin borde para que no
             le compita a la tarjeta del turno que viene, que se mira todo el día. */}
         <button onClick={bajarUltimos30} disabled={bajando}
-          className="w-full lg:max-w-sm rounded-2xl border border-line bg-surface text-[14px] font-bold text-muted py-2.5 mt-1 mb-5 transition-colors hover:border-accent hover:text-accent-ink disabled:opacity-50">
-          {bajando ? "Preparando…" : "↓ Descargar los últimos 30 días"}
+          className={`${anchoSuelto} inline-flex items-center justify-center gap-2 h-10 rounded-xl text-[14px] font-medium text-muted mb-6 transition-colors hover:text-ink hover:bg-surface disabled:opacity-50`}>
+          {bajando ? "Preparando…" : <><IcoDescarga /> Descargar los últimos 30 días</>}
         </button>
 
         </div>{/* fin columna izquierda */}
@@ -881,47 +909,58 @@ export default function PanelPage() {
         {rest.length > 0 && (
           <>
             <SectionLabel>Después siguen</SectionLabel>
-            <motion.div initial="hidden" animate="show" variants={{ show: { transition: { staggerChildren: 0.06 } } }}>
-              <AnimatePresence>
-                {rest.map((a, i) => (
+            <div className="flex flex-col gap-2">
+              <AnimatePresence initial={false}>
+                {rest.map((a) => (
                   <motion.div key={a.id} layout
-                    variants={{ hidden: { opacity: 0, x: 20 }, show: { opacity: 1, x: 0 } }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="flex items-center gap-3 rounded-2xl bg-surface border border-line px-4 py-3 mb-2">
-                    <div className="w-6 h-6 rounded-full bg-canvas border border-line text-muted text-[13px] font-bold flex items-center justify-center shrink-0">{i + 2}</div>
-                    <div className="font-mono text-lg font-bold w-16 text-accent-ink">{a.time.slice(0, 5)}</div>
+                    initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2, ease: EASE }}
+                    className="flex items-center gap-3 sm:gap-4 rounded-2xl bg-surface border border-line pl-4 pr-2 py-3">
+                    <div className="w-12 shrink-0 text-[17px] leading-6 font-semibold tabular-nums text-ink">
+                      {a.time.slice(0, 5)}
+                    </div>
                     <div className="flex-1 min-w-0">
-                      <div className="text-lg font-bold truncate text-ink">{a.client_name}</div>
-                      <div className="text-[13px] text-faint">
+                      <div className="text-[16px] leading-6 font-semibold text-ink truncate">{a.client_name}</div>
+                      <div className="text-[13px] leading-5 text-muted">
                         {a.services?.name}
                         {staffName(a.staff_id) ? ` · ${staffName(a.staff_id)}` : ""} ·{" "}
                         <a href={waLink(a.client_phone)} target="_blank" rel="noopener noreferrer"
-                          className="underline text-muted hover:text-accent-ink">
-                          💬 {a.client_phone}
+                          className="whitespace-nowrap underline-offset-2 hover:text-ink hover:underline">
+                          {a.client_phone}
                         </a>
                       </div>
                     </div>
-                    <a href={waRecordatorio(a)} target="_blank" rel="noopener noreferrer"
-                      className="text-faint hover:text-accent-ink text-lg px-1" title="Recordarle el turno">🔔</a>
-                    <button onClick={() => openMove(a)} className="text-faint hover:text-accent-ink text-lg px-1" title="Mover turno">🕐</button>
-                    <button onClick={() => setCancelando(a)} className="text-faint hover:text-danger text-lg px-1" title="Cancelar turno">✕</button>
+                    <div className="flex items-center shrink-0">
+                      <a href={waRecordatorio(a)} target="_blank" rel="noopener noreferrer"
+                        className={iconBtn} title="Recordarle el turno" aria-label={`Recordarle el turno a ${a.client_name}`}>
+                        <IcoCampana />
+                      </a>
+                      <button onClick={() => openMove(a)} className={iconBtn}
+                        title="Mover turno" aria-label={`Mover el turno de ${a.client_name}`}>
+                        <IcoReloj />
+                      </button>
+                      <button onClick={() => setCancelando(a)} className={`${iconBtn} hover:text-danger`}
+                        title="Cancelar turno" aria-label={`Cancelar el turno de ${a.client_name}`}>
+                        <IcoX />
+                      </button>
+                    </div>
                   </motion.div>
                 ))}
               </AnimatePresence>
-            </motion.div>
+            </div>
           </>
         )}
 
         {/* YA ATENDIDOS */}
         {done.length > 0 && (
           <>
-            <SectionLabel className="mt-6">Ya atendidos</SectionLabel>
+            <SectionLabel className="mt-8">Ya atendidos</SectionLabel>
             {done.map((a) => (
-              <motion.div key={a.id} layout initial={{ opacity: 0 }} animate={{ opacity: 0.5 }}
-                className="flex items-center gap-3 px-4 py-2">
-                <span className="text-accent-ink text-lg">✓</span>
-                <span className="font-mono text-[15px] w-14">{a.time.slice(0, 5)}</span>
-                <span className="text-lg line-through">{a.client_name}</span>
+              <motion.div key={a.id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className="flex items-center gap-3 px-4 h-10 text-muted">
+                <IcoCheck />
+                <span className="w-12 shrink-0 text-[14px] tabular-nums">{a.time.slice(0, 5)}</span>
+                <span className="text-[15px] line-through decoration-faint truncate">{a.client_name}</span>
               </motion.div>
             ))}
           </>
@@ -943,32 +982,32 @@ export default function PanelPage() {
       <AnimatePresence>
         {nuevo && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             onClick={() => setNuevo(false)}
             className="fixed inset-0 z-50 bg-black/45 flex items-end lg:items-center justify-center">
             <motion.div
               initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 34 }}
+              transition={{ duration: 0.35, ease: EASE }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-surface rounded-t-3xl lg:rounded-3xl p-5 max-h-[85vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-extrabold text-ink">Cargar un turno</h2>
-                <button onClick={() => setNuevo(false)} className="text-faint text-[22px] leading-none px-1">✕</button>
+              className="w-full max-w-md bg-surface rounded-t-3xl lg:rounded-3xl p-6 max-h-[85vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-[20px] leading-7 font-semibold text-ink">Cargar un turno</h2>
+                <button onClick={() => setNuevo(false)} className={iconBtn} aria-label="Cerrar"><IcoX /></button>
               </div>
-              <p className="text-[14px] text-faint mb-4">
+              <p className="text-[14px] leading-5 text-muted mb-6">
                 Para lo que se cerró por teléfono, al mostrador o por WhatsApp. Queda igual
                 que un turno reservado por la web y suma en los números del día.
               </p>
 
               <SectionLabel>Servicio</SectionLabel>
-              <div className="grid grid-cols-3 gap-2 mb-4">
+              <div className="grid grid-cols-3 gap-2 mb-6">
                 {services.map((s) => (
                   <button key={s.id}
                     onClick={() => { setNvSvc(s); setNvHora(null); setNvStaff(null); }}
-                    className={`rounded-2xl border-[1.5px] p-2.5 text-center transition-colors ${
-                      nvSvc?.id === s.id ? "border-accent bg-accent-soft" : "border-line bg-canvas"
-                    }`}>
-                    <div className="text-[14px] font-bold text-ink truncate">{s.name}</div>
-                    <div className="text-[13px] text-faint mt-0.5">{formatDuracion(s.duration_min)}</div>
+                    aria-pressed={nvSvc?.id === s.id}
+                    className={opcion(nvSvc?.id === s.id)}>
+                    <div className="text-[14px] leading-5 font-semibold text-ink truncate">{s.name}</div>
+                    <div className="text-[13px] leading-5 text-muted">{formatDuracion(s.duration_min)}</div>
                   </button>
                 ))}
               </div>
@@ -976,13 +1015,12 @@ export default function PanelPage() {
               {nvSvc && nvElegibles.length > 0 && (
                 <>
                   <SectionLabel>Quién atiende</SectionLabel>
-                  <div className="grid grid-cols-3 gap-2 mb-4">
+                  <div className="grid grid-cols-3 gap-2 mb-6">
                     {nvElegibles.map((b) => (
                       <button key={b.id} onClick={() => { setNvStaff(b.id); setNvHora(null); }}
-                        className={`rounded-2xl border-[1.5px] p-2.5 text-center transition-colors ${
-                          nvStaff === b.id ? "border-accent bg-accent-soft" : "border-line bg-canvas"
-                        }`}>
-                        <div className="text-[14px] font-bold text-ink truncate">{b.name}</div>
+                        aria-pressed={nvStaff === b.id}
+                        className={opcion(nvStaff === b.id)}>
+                        <div className="text-[14px] leading-5 font-semibold text-ink truncate">{b.name}</div>
                       </button>
                     ))}
                   </div>
@@ -993,55 +1031,40 @@ export default function PanelPage() {
               <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
                 {days.map((d) => {
                   const ds = fmtDate(d);
-                  const on = nvFecha === ds;
                   return (
-                    <button key={ds} onClick={() => { setNvFecha(ds); setNvHora(null); }}
-                      className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
-                        on ? "border-accent bg-accent-soft" : "border-line bg-canvas"}`}>
-                      <div className={`text-[11px] uppercase font-semibold ${on ? "text-accent-ink" : "text-faint"}`}>
-                        {ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
-                      </div>
-                      <div className={`text-lg font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
-                    </button>
+                    <DiaBtn key={ds} fecha={d} label={ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
+                      on={nvFecha === ds} onClick={() => { setNvFecha(ds); setNvHora(null); }} />
                   );
                 })}
               </div>
 
               <SectionLabel>Horario</SectionLabel>
               {!nvSvc ? (
-                <p className="text-[15px] text-faint mb-4">Elegí primero el servicio.</p>
+                <p className="text-[14px] leading-5 text-muted mb-6">Elegí primero el servicio</p>
               ) : nvElegibles.length > 0 && !nvStaff ? (
-                <p className="text-[15px] text-faint mb-4">Elegí quién lo atiende para ver sus horarios.</p>
+                <p className="text-[14px] leading-5 text-muted mb-6">Elegí quién lo atiende para ver sus horarios</p>
               ) : nvSlots.grid.length === 0 ? (
-                <p className="text-[15px] text-faint mb-4">No hay horarios ese día. Probá con otro.</p>
+                <p className="text-[14px] leading-5 text-muted mb-6">No hay horarios ese día. Probá con otro.</p>
               ) : (
-                <div className="grid grid-cols-4 gap-2 mb-4">
-                  {nvSlots.grid.map((s) => {
-                    const libre = nvSlots.availability[s];
-                    return (
-                      <button key={s} disabled={!libre} onClick={() => setNvHora(s)}
-                        className={`rounded-xl border-[1.5px] py-2 text-[14px] font-bold transition-colors ${
-                          !libre ? "border-dashed border-line text-faint line-through"
-                            : nvHora === s ? "border-accent bg-accent text-on-accent"
-                            : "border-line bg-canvas text-body"}`}>{s}</button>
-                    );
-                  })}
+                <div className="grid grid-cols-4 gap-2 mb-6">
+                  {nvSlots.grid.map((s) => (
+                    <button key={s} disabled={!nvSlots.availability[s]} onClick={() => setNvHora(s)}
+                      className={horario(nvSlots.availability[s], nvHora === s)}>{s}</button>
+                  ))}
                 </div>
               )}
 
               <SectionLabel>Cliente</SectionLabel>
               <input value={nvNombre} onChange={(e) => setNvNombre(e.target.value)} placeholder="Nombre y apellido"
-                className="w-full rounded-2xl bg-canvas border border-line px-4 py-3 text-lg outline-none focus:border-accent mb-2" />
-              <input value={nvTel} onChange={(e) => setNvTel(e.target.value)} placeholder="351 234-5678" type="tel"
-                className="w-full rounded-2xl bg-canvas border border-line px-4 py-3 text-lg outline-none focus:border-accent mb-4" />
+                autoComplete="off" aria-label="Nombre y apellido del cliente" className={`${inputCls} mb-2`} />
+              <input value={nvTel} onChange={(e) => setNvTel(e.target.value)} placeholder="351 234-5678"
+                type="tel" inputMode="tel" autoComplete="off" aria-label="Teléfono del cliente" className={`${inputCls} mb-6`} />
 
-              {nvError && <p className="text-lg text-danger mb-3 text-center">{nvError}</p>}
+              {nvError && <p role="alert" className={errorBox}>{nvError}</p>}
 
-              <motion.button whileTap={{ scale: 0.97 }} onClick={guardarNuevo}
-                disabled={!nvHora || nvSaving}
-                className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
+              <button onClick={guardarNuevo} disabled={!nvHora || nvSaving} className={`${btnPrimary} w-full`}>
                 {nvSaving ? "Guardando…" : "Guardar turno"}
-              </motion.button>
+              </button>
             </motion.div>
           </motion.div>
         )}
@@ -1052,20 +1075,21 @@ export default function PanelPage() {
       <AnimatePresence>
         {(moving || cancelando || avisar) && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            transition={{ duration: 0.2 }}
             onClick={closeMove}
             className="fixed inset-0 z-50 bg-black/45 flex items-end justify-center">
             <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-              transition={{ type: "spring", stiffness: 320, damping: 32 }}
+              transition={{ duration: 0.35, ease: EASE }}
               onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-surface rounded-t-3xl p-5 max-h-[85vh] overflow-y-auto">
+              className="w-full max-w-md bg-surface rounded-t-3xl p-6 max-h-[85vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-1">
-                <h2 className="text-xl font-extrabold text-ink">
+                <h2 className="text-[20px] leading-7 font-semibold text-ink">
                   {avisar ? (avisar.tipo === "movido" ? "Turno movido" : "Turno cancelado")
                     : cancelando ? "¿Cancelar el turno?" : "Mover turno"}
                 </h2>
-                <button onClick={closeSheet} className="text-faint text-[22px] leading-none px-1">✕</button>
+                <button onClick={closeSheet} className={iconBtn} aria-label="Cerrar"><IcoX /></button>
               </div>
-              <p className="text-[15px] text-muted mb-4">
+              <p className="text-[15px] leading-6 text-muted mb-6">
                 {(() => {
                   const a = moving ?? cancelando;
                   if (a) return `${a.client_name} · ${a.services?.name} (${formatDuracion(a.services?.duration_min ?? 0)})${staffName(a.staff_id) ? ` · con ${staffName(a.staff_id)}` : ""}`;
@@ -1075,31 +1099,33 @@ export default function PanelPage() {
 
               {cancelando ? (
                 /* Paso 1 del cancelar: confirmar. El ✕ cancelaba de una. */
-                <div className="py-2">
-                  <p className="text-lg text-ink mb-1">
-                    {cuando(cancelando.date)} a las <span className="font-bold">{cancelando.time.slice(0, 5)}</span>
+                <div>
+                  <p className="text-[18px] leading-6 text-ink mb-1">
+                    {cap(cuando(cancelando.date))} a las <span className="font-semibold tabular-nums">{cancelando.time.slice(0, 5)}</span>
                   </p>
-                  <p className="text-[15px] text-muted mb-5">
+                  <p className="text-[15px] leading-6 text-muted mb-6">
                     El horario queda libre y se lo vas a poder avisar al cliente en el paso siguiente.
                   </p>
-                  <motion.button whileTap={{ scale: 0.97 }} onClick={confirmCancel} disabled={cancelSaving}
-                    className="w-full rounded-full bg-danger text-white font-bold py-3.5 disabled:opacity-40 mb-3">
+                  {/* text-surface y no text-white: en modo noche el rojo es claro
+                      y el blanco encima no se leía. */}
+                  <button onClick={confirmCancel} disabled={cancelSaving}
+                    className="w-full h-12 rounded-full bg-danger text-surface text-[16px] font-semibold transition-[opacity,transform] duration-150 active:scale-[0.98] disabled:opacity-40 mb-2">
                     {cancelSaving ? "Cancelando…" : "Sí, cancelar el turno"}
-                  </motion.button>
-                  <button onClick={closeSheet} className="block w-full text-center text-[15px] text-faint py-2">
+                  </button>
+                  <button onClick={closeSheet} className={btnTexto}>
                     Mejor no
                   </button>
                 </div>
               ) : avisar ? (
                 /* Paso 2: avisarle al cliente. El cambio YA está en la base;
                    esto es lo que evita que se presente en el horario viejo. */
-                <div className="py-2">
+                <div>
                   {avisar.tipo === "movido" && (
-                    <p className="text-lg text-ink mb-1">
-                      Quedó {cuando(avisar.date)} a las <span className="font-bold">{avisar.time}</span>.
+                    <p className="text-[18px] leading-6 text-ink mb-1">
+                      Quedó {cuando(avisar.date)} a las <span className="font-semibold tabular-nums">{avisar.time}</span>.
                     </p>
                   )}
-                  <p className="text-[15px] text-muted mb-3">
+                  <p className="text-[15px] leading-6 text-muted mb-4">
                     {avisar.mail === "enviado"
                       ? `Le mandamos el mail con el horario nuevo. Igual conviene el WhatsApp: se lee mucho antes.`
                       : `${avisar.clientName.trim().split(/\s+/)[0]} todavía no lo sabe.${
@@ -1111,75 +1137,66 @@ export default function PanelPage() {
                       salido el intento: que el dueño sepa si el cliente ya se
                       enteró por otro lado o si sigue dependiendo de él. */}
                   {avisar.mail && (
-                    <p className="text-[14px] mb-5">
+                    <p className="text-[14px] leading-5 mb-6">
                       {avisar.mail === "enviando" ? (
-                        <span className="text-faint">Mandándole el mail…</span>
+                        <span className="text-muted">Mandándole el mail…</span>
                       ) : avisar.mail === "enviado" ? (
-                        <span className="text-accent-ink font-semibold">✓ Mail enviado</span>
+                        <span className="inline-flex items-center gap-1.5 text-accent-ink font-medium"><IcoCheck size={14} /> Mail enviado</span>
                       ) : avisar.mail === "sin-email" ? (
-                        <span className="text-faint">No dejó email al reservar: por mail no se entera.</span>
+                        <span className="text-muted">No dejó email al reservar: por mail no se entera.</span>
                       ) : (
                         <span className="text-danger">No se pudo mandar el mail. Avisale por acá.</span>
                       )}
                     </p>
                   )}
 
+                  {/* Verde de WhatsApp con texto oscuro: con blanco encima daba
+                      2:1 de contraste y no pasaba ni el mínimo. */}
                   <a href={waAviso(avisar)} target="_blank" rel="noopener noreferrer" onClick={closeSheet}
-                    className="block w-full rounded-full bg-[#25D366] text-white font-bold py-3.5 text-center mb-3">
+                    className="flex items-center justify-center w-full h-12 rounded-full bg-[#25D366] text-[#0b141a] text-[16px] font-semibold mb-2 transition-transform duration-150 active:scale-[0.98]">
                     Avisarle por WhatsApp
                   </a>
-                  <button onClick={closeSheet} className="block w-full text-center text-[15px] text-faint py-2">
+                  <button onClick={closeSheet} className={btnTexto}>
                     Ya le avisé por otro lado
                   </button>
                 </div>
               ) : !schedInfo ? (
-                <p className="text-lg text-faint py-6 text-center">Cargando horarios…</p>
+                <p className="text-[15px] leading-6 text-muted py-6 text-center">Cargando horarios…</p>
               ) : (
                 <>
                   {/* día destino */}
                   <div className="flex gap-2 overflow-x-auto pb-2 mb-4">
                     {days.map((d) => {
-                      const ds = fmtDate(d); const on = moveDate === ds; const closed = moveDayBlocked(ds);
+                      const ds = fmtDate(d);
                       return (
-                        <button key={ds} disabled={closed} onClick={() => { setMoveDate(ds); setMoveTime(null); }}
-                          className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
-                            closed ? "border-line bg-line opacity-45 cursor-not-allowed"
-                              : on ? "border-accent bg-accent-soft" : "border-line bg-surface"}`}>
-                          <div className={`text-[11px] uppercase font-semibold ${on && !closed ? "text-accent-ink" : "text-faint"}`}>{ds === today ? "Hoy" : DAYS_ES[d.getDay()]}</div>
-                          <div className={`text-lg font-bold ${on ? "text-accent-ink" : "text-ink"}`}>{d.getDate()}</div>
-                        </button>
+                        <DiaBtn key={ds} fecha={d} label={ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
+                          on={moveDate === ds} disabled={moveDayBlocked(ds)}
+                          onClick={() => { setMoveDate(ds); setMoveTime(null); }} />
                       );
                     })}
                   </div>
 
                   {/* horarios libres */}
                   {moveSlots.grid.length === 0 ? (
-                    <p className="text-lg text-faint py-4 text-center">
+                    <p className="text-[15px] leading-6 text-muted py-4 text-center">
                       {moving?.staff_id && absences.has(`${moving.staff_id}|${moveDate}`)
                         ? `${staffName(moving.staff_id)} no está ese día. Elegí otro.`
                         : "Cerrado ese día. Elegí otro."}
                     </p>
                   ) : (
-                    <div className="grid grid-cols-4 gap-2 mb-4">
-                      {moveSlots.grid.map((s) => {
-                        const free = moveSlots.availability[s]; const on = moveTime === s;
-                        return (
-                          <button key={s} disabled={!free} onClick={() => setMoveTime(s)}
-                            className={`rounded-xl border-[1.5px] py-2 text-[14px] font-bold transition-colors ${
-                              !free ? "border-dashed border-line bg-transparent text-faint line-through"
-                                : on ? "border-accent bg-accent text-on-accent"
-                                : "border-line bg-surface text-body"}`}>{s}</button>
-                        );
-                      })}
+                    <div className="grid grid-cols-4 gap-2 mb-6">
+                      {moveSlots.grid.map((s) => (
+                        <button key={s} disabled={!moveSlots.availability[s]} onClick={() => setMoveTime(s)}
+                          className={horario(moveSlots.availability[s], moveTime === s)}>{s}</button>
+                      ))}
                     </div>
                   )}
 
-                  {moveError && <p className="text-lg text-danger mb-3 text-center">{moveError}</p>}
+                  {moveError && <p role="alert" className={errorBox}>{moveError}</p>}
 
-                  <motion.button whileTap={{ scale: 0.97 }} onClick={confirmMove} disabled={!moveTime || moveSaving}
-                    className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
-                    {moveSaving ? "Moviendo…" : moveTime ? `Mover a ${moveDate === today ? "hoy" : moveDate} · ${moveTime}` : "Elegí un horario"}
-                  </motion.button>
+                  <button onClick={confirmMove} disabled={!moveTime || moveSaving} className={`${btnPrimary} w-full`}>
+                    {moveSaving ? "Moviendo…" : moveTime ? `Mover ${aCuando(moveDate)} · ${moveTime}` : "Elegí un horario"}
+                  </button>
                 </>
               )}
             </motion.div>
@@ -1190,21 +1207,111 @@ export default function PanelPage() {
   );
 }
 
-function SectionLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`text-[13px] font-bold uppercase tracking-widest text-faint mb-2 ${className}`}>{children}</div>;
+// ── PIEZAS DE UI ─────────────────────────────────────────────────────────
+// Clases compartidas: un solo alto, un solo radio y una sola transición por
+// tipo de control, así no se van desparejando pantalla por pantalla.
+
+const btnPrimary =
+  "inline-flex items-center justify-center gap-2 h-12 rounded-full bg-accent text-on-accent text-[16px] font-semibold " +
+  "transition-[background-color,opacity,transform] duration-150 hover:bg-[var(--c-accent-hover)] active:scale-[0.98] " +
+  "disabled:opacity-40 disabled:hover:bg-accent";
+const btnTexto =
+  "block w-full h-11 text-center text-[15px] text-muted transition-colors hover:text-ink";
+const navLink =
+  "inline-flex items-center gap-2 h-9 px-2.5 rounded-lg text-[14px] font-medium text-muted transition-colors hover:text-ink hover:bg-surface";
+const iconBtn =
+  "inline-flex items-center justify-center w-9 h-9 rounded-lg text-muted transition-colors hover:text-ink hover:bg-surface-2";
+const accionLima =
+  "flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-full text-[14px] font-medium opacity-75 " +
+  "transition-[opacity,background-color] duration-150 hover:opacity-100 hover:bg-on-highlight/5";
+const inputCls =
+  "w-full h-12 rounded-xl bg-canvas border border-line px-4 text-[16px] text-ink placeholder:text-faint outline-none " +
+  "transition-[border-color,box-shadow] duration-150 focus:border-accent focus:shadow-[0_0_0_3px_var(--c-accent-soft)]";
+const errorBox = "rounded-xl bg-danger-soft text-danger text-[14px] leading-5 px-4 py-3 mb-4";
+
+const chip = (on: boolean) =>
+  "shrink-0 h-9 px-4 rounded-full border text-[14px] font-medium transition-colors " +
+  (on ? "border-accent bg-accent-soft text-accent-ink" : "border-line bg-surface text-muted hover:text-ink");
+const opcion = (on: boolean) =>
+  "rounded-xl border p-3 text-center transition-colors " +
+  (on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-faint");
+const horario = (libre: boolean, on: boolean) =>
+  "h-10 rounded-lg border text-[14px] font-medium tabular-nums transition-colors " +
+  (!libre ? "border-transparent bg-canvas text-faint line-through cursor-not-allowed"
+    : on ? "border-accent bg-accent text-on-accent"
+    : "border-line bg-surface text-ink hover:border-faint");
+
+const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
+
+function Stat({ label, sub, alerta = false, children }: {
+  label: string; sub: string; alerta?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-2xl bg-surface border border-line p-3 sm:p-4">
+      <div className="text-[13px] leading-5 text-muted">{label}</div>
+      <div className={`text-[22px] sm:text-[28px] leading-none font-semibold tabular-nums mt-2 ${alerta ? "text-danger" : "text-ink"}`}>
+        {children}
+      </div>
+      <div className="text-[13px] leading-5 text-muted mt-2">{sub}</div>
+    </div>
+  );
 }
 
-// Los estados vacíos usaban 📅 y 🎉 sueltos. Un emoji lo dibuja la fuente del
-// sistema: cambia de forma y de color entre Windows, Android e iOS, no toma los
-// tokens del tema (en modo noche quedaba un calendario celeste chillón sobre el
-// negro) y un lector de pantalla lo lee en voz alta como "calendario". Un SVG
-// hereda `currentColor`, se ve igual en todos lados y va `aria-hidden` porque el
-// texto de al lado ya dice lo mismo.
+// Un día de la tira. Es el mismo botón en el panel, en "cargar un turno" y en
+// "mover turno": antes eran tres copias que ya se habían desparejado.
+function DiaBtn({ fecha, label, on, disabled = false, onClick }: {
+  fecha: Date; label: string; on: boolean; disabled?: boolean; onClick: () => void;
+}) {
+  const marcado = on && !disabled;
+  return (
+    <button type="button" disabled={disabled} onClick={onClick} aria-pressed={on}
+      className={`shrink-0 w-14 h-16 rounded-xl border flex flex-col items-center justify-center transition-[background-color,border-color,transform] duration-150 active:scale-[0.97] ${
+        disabled ? "border-line bg-surface-2 opacity-50 cursor-not-allowed"
+          : on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-faint"}`}>
+      <span className={`text-[12px] leading-4 ${marcado ? "text-accent-ink" : "text-muted"}`}>{label}</span>
+      <span className={`text-[18px] leading-6 font-semibold tabular-nums ${marcado ? "text-accent-ink" : "text-ink"}`}>
+        {fecha.getDate()}
+      </span>
+    </button>
+  );
+}
 
+function SectionLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  return <div className={`text-[14px] leading-5 font-medium text-muted mb-3 ${className}`}>{children}</div>;
+}
+
+// ── ÍCONOS ───────────────────────────────────────────────────────────────
+// Trazos de lucide (ISC), un solo grosor. Reemplazan a los emojis (📊 ⚙ 💬 🔔
+// 🕐): un emoji lo dibuja la fuente del sistema, cambia de forma y de color
+// entre Windows, Android e iOS, no toma los tokens del tema y un lector de
+// pantalla lo lee en voz alta. Un SVG hereda `currentColor` y va aria-hidden.
+
+function Ico({ size = 16, children }: { size?: number; children: React.ReactNode }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+      {children}
+    </svg>
+  );
+}
+type IcoProps = { size?: number };
+const IcoChart = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></Ico>;
+const IcoSliders = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M20 7h-9" /><path d="M14 17H5" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></Ico>;
+const IcoLogout = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></Ico>;
+const IcoCopy = ({ size = 16 }: IcoProps) => <Ico size={size}><rect width="14" height="14" x="8" y="8" rx="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></Ico>;
+const IcoCheck = ({ size = 16 }: IcoProps) => <Ico size={size}><path d="M20 6 9 17l-5-5" /></Ico>;
+const IcoPlus = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M5 12h14" /><path d="M12 5v14" /></Ico>;
+const IcoCampana = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></Ico>;
+const IcoReloj = ({ size = 18 }: IcoProps) => <Ico size={size}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Ico>;
+const IcoX = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></Ico>;
+const IcoMensaje = ({ size = 16 }: IcoProps) => <Ico size={size}><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></Ico>;
+const IcoDescarga = ({ size = 16 }: IcoProps) => <Ico size={size}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /><path d="M12 15V3" /></Ico>;
+
+// Los estados vacíos usaban 📅 y 🎉 sueltos; mismo motivo que arriba.
 function IconoVacio() {
   return (
-    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mx-auto mb-3 text-faint">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mx-auto mb-4 text-muted">
       <rect x="3" y="5" width="18" height="16" rx="3" />
       <path d="M3 10h18M8 3v4M16 3v4" />
     </svg>
@@ -1213,8 +1320,8 @@ function IconoVacio() {
 
 function IconoListo() {
   return (
-    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mx-auto mb-3 text-accent-ink">
+    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
+      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mx-auto mb-4 text-accent-ink">
       <circle cx="12" cy="12" r="9" />
       <path d="m8.5 12.4 2.4 2.4 4.6-5" />
     </svg>

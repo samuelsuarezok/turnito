@@ -71,12 +71,16 @@ export default function SoporteWhatsApp({
         // lg:hidden: en monitor manda la variante `side`, y dos botones de
         // soporte en la misma pantalla se leen como un error.
         className={
-          "lg:hidden mt-10 flex items-center justify-center gap-2.5 w-full " +
-          "rounded-full bg-[#25d366] text-white font-bold text-lg py-3.5 " +
+          // Botón secundario: superficie con hairline y el verde sólo en el
+          // ícono. Un verde lleno con texto blanco daba 2:1 de contraste y le
+          // peleaba la atención a la tarjeta del turno que sigue.
+          "lg:hidden mt-10 flex items-center justify-center gap-2 w-full h-12 " +
+          "rounded-full border border-line bg-surface text-ink text-[15px] font-semibold " +
+          "transition-colors hover:bg-surface-2 " +
           "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
         }
       >
-        <IconoWhatsApp size={22} />
+        <span className="text-[#25d366]"><IconoWhatsApp size={20} /></span>
         Soporte
       </a>
     );
@@ -92,13 +96,13 @@ export default function SoporteWhatsApp({
       rel="noopener noreferrer"
       className={
         "hidden lg:flex fixed right-5 top-1/2 -translate-y-1/2 z-[140] " +
-        "items-center gap-2.5 rounded-full bg-[#25d366] text-white font-bold text-[15px] " +
-        "px-4 py-3 shadow-[0_8px_28px_rgba(0,0,0,0.22)] " +
-        "transition-transform hover:scale-[1.04] active:scale-[0.97] " +
+        "items-center gap-2 h-11 rounded-full border border-line bg-surface text-ink " +
+        "text-[14px] font-semibold px-4 shadow-[0_8px_24px_rgba(0,0,0,0.08)] " +
+        "transition-[background-color,transform] duration-150 hover:bg-surface-2 active:scale-[0.97] " +
         "focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent"
       }
     >
-      <IconoWhatsApp size={20} />
+      <span className="text-[#25d366]"><IconoWhatsApp size={18} /></span>
       Soporte
     </a>,
     document.body
