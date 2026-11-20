@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { traducirErrorAuth } from "@/lib/auth-errors";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
-import { motion, stagger, fadeUp, scaleIn } from "@/components/motion";
+import { motion, EASE } from "@/components/motion";
 
 type Errors = { email?: string; pass?: string; form?: string };
 
@@ -38,7 +38,13 @@ export default function LoginPage() {
     return next;
   }
 
-  async function handleSubmit() {
+  // Es un <form> de verdad para que Enter envíe y para que el gestor de
+  // contraseñas del navegador ofrezca guardar y completar. `noValidate` apaga
+  // los globitos nativos del navegador: los errores los damos nosotros, en
+  // español y debajo de cada campo.
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (loading) return;
     const next = validate();
     setErrors(next);
     if (next.email || next.pass) return;
@@ -61,38 +67,48 @@ export default function LoginPage() {
     setErrors({});
   }
 
+  const registro = mode === "register";
+
   const inputCls =
-    "w-full rounded-2xl bg-surface-2 border px-4 py-3.5 outline-none transition-colors";
-  const okCls = "border-line focus:border-accent";
-  const badCls = "border-danger focus:border-danger";
-  const labelCls = "block text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
-  const fieldErrCls = "text-[13px] text-danger mt-1.5";
+    "w-full h-12 rounded-xl bg-surface-2 border px-4 text-[16px] text-ink placeholder:text-faint " +
+    "outline-none transition-[border-color,box-shadow] duration-150";
+  const okCls = "border-line focus:border-accent focus:shadow-[0_0_0_3px_var(--c-accent-soft)]";
+  const badCls = "border-danger focus:shadow-[0_0_0_3px_var(--c-danger-soft)]";
+  const labelCls = "block text-[14px] leading-5 font-medium text-body mb-2";
+  const fieldErrCls = "text-[14px] leading-5 text-danger mt-2";
 
   return (
     <main className="min-h-screen bg-canvas text-body flex items-center justify-center p-6">
-      <motion.div className="w-full max-w-sm" variants={stagger} initial="hidden" animate="show">
+      {/* Una sola entrada: la columna entera aparece con un fade corto. */}
+      <motion.div
+        className="w-full max-w-sm"
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: EASE }}
+      >
         {/* El logo queda centrado y el toggle se apoya en el borde derecho de
             la columna: si fueran hermanos en un flex, el logo se correría. */}
-        <motion.div className="relative flex justify-center mb-10" variants={fadeUp}>
-          <Logo size={30} />
+        <div className="relative flex justify-center mb-8">
+          <Logo size={28} />
           <ThemeToggle className="absolute right-0 top-1/2 -translate-y-1/2" />
-        </motion.div>
+        </div>
 
-        <motion.div className="bg-surface border border-line rounded-3xl p-7" variants={scaleIn}>
-          <motion.h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
-            {mode === "register" ? "Creá tu cuenta" : "Ingresá a tu panel"}
-          </motion.h1>
-          <motion.p className="text-lg text-muted mb-7" variants={fadeUp}>
-            {mode === "register" ? (
-              <><span className="text-accent-ink font-bold">30 días gratis</span> · sin tarjeta</>
-            ) : ("Bienvenido de nuevo")}
-          </motion.p>
+        <form onSubmit={handleSubmit} noValidate className="bg-surface border border-line rounded-3xl p-8">
+          <h1 className="text-[28px] leading-[34px] font-semibold tracking-[-0.02em] text-ink">
+            {registro ? "Creá tu cuenta" : "Ingresá a tu panel"}
+          </h1>
+          {registro && (
+            <p className="text-[15px] leading-6 text-muted mt-2 text-balance">30 días gratis, sin tarjeta y sin permanencia</p>
+          )}
 
-          <motion.div className="mb-4" variants={fadeUp}>
+          <div className="mt-8 mb-5">
             <label className={labelCls} htmlFor="email">Email</label>
             <input
               id="email"
               type="email"
+              autoComplete="email"
+              autoCapitalize="none"
+              spellCheck={false}
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
@@ -104,68 +120,81 @@ export default function LoginPage() {
               className={`${inputCls} ${errors.email ? badCls : okCls}`}
             />
             {errors.email && <p id="email-error" className={fieldErrCls}>{errors.email}</p>}
-          </motion.div>
+          </div>
 
-          <motion.div className="mb-6" variants={fadeUp}>
+          <div className="mb-6">
             <label className={labelCls} htmlFor="pass">Contraseña</label>
             <input
               id="pass"
               type="password"
+              // new-password hace que el navegador proponga una contraseña
+              // segura al registrarse; current-password, que complete la guardada.
+              autoComplete={registro ? "new-password" : "current-password"}
               value={pass}
               onChange={(e) => {
                 setPass(e.target.value);
                 if (errors.pass) setErrors({ ...errors, pass: undefined });
               }}
-              placeholder={mode === "register" ? "Mínimo 6 caracteres" : "Tu contraseña"}
+              placeholder={registro ? "Mínimo 6 caracteres" : undefined}
               aria-invalid={!!errors.pass}
               aria-describedby={errors.pass ? "pass-error" : undefined}
               className={`${inputCls} ${errors.pass ? badCls : okCls}`}
             />
             {errors.pass && <p id="pass-error" className={fieldErrCls}>{errors.pass}</p>}
-          </motion.div>
+          </div>
 
           {errors.form && (
-            <motion.p role="alert" className="text-lg text-danger mb-4" initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}>
+            <motion.p
+              role="alert"
+              className="text-[14px] leading-5 text-danger bg-danger-soft rounded-xl px-4 py-3 mb-4"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.18, ease: EASE }}
+            >
               {errors.form}
             </motion.p>
           )}
 
-          <motion.button
-            variants={fadeUp}
-            whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-            onClick={handleSubmit}
+          <button
+            type="submit"
             disabled={loading}
-            className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity"
+            aria-busy={loading}
+            className={
+              "w-full h-12 rounded-full bg-accent text-on-accent text-[16px] font-semibold " +
+              "transition-[background-color,transform] duration-150 hover:bg-[var(--c-accent-hover)] " +
+              "active:scale-[0.98] disabled:opacity-60 " +
+              "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+            }
           >
-            {loading ? "…" : mode === "register" ? "Crear cuenta →" : "Ingresar →"}
-          </motion.button>
+            {loading ? (registro ? "Creando cuenta…" : "Ingresando…") : registro ? "Crear cuenta" : "Ingresar"}
+          </button>
 
           {/* ¿Olvidaste tu contraseña? — solo en modo login */}
-          {mode === "login" && (
-            <motion.p className="text-center mt-4" variants={fadeUp}>
-              <Link href="/recuperar" className="text-[15px] text-faint underline hover:text-accent-ink transition-colors">
+          {!registro && (
+            <p className="text-center mt-4">
+              <Link href="/recuperar" className="text-[14px] text-muted underline underline-offset-2 hover:text-ink transition-colors">
                 ¿Olvidaste tu contraseña?
               </Link>
-            </motion.p>
+            </p>
           )}
-        </motion.div>
+        </form>
 
-        <motion.p className="text-lg text-muted mt-6 text-center" variants={fadeUp}>
-          {mode === "register" ? "¿Ya tenés cuenta?" : "¿No tenés cuenta?"}{" "}
-          <button onClick={switchMode} className="text-accent-ink font-bold">
-            {mode === "register" ? "Ingresá" : "Registrate gratis"}
+        <p className="text-[15px] leading-6 text-muted mt-6 text-center">
+          {registro ? "¿Ya tenés cuenta?" : "¿No tenés cuenta?"}{" "}
+          <button type="button" onClick={switchMode} className="font-semibold text-accent-ink hover:underline underline-offset-2">
+            {registro ? "Ingresá" : "Registrate gratis"}
           </button>
-        </motion.p>
+        </p>
 
         {/* Fuera del botón de arriba: antes estaba anidado adentro y tocar
             "Términos" alternaba el modo en vez de abrir el link. */}
-        {mode === "register" && (
-          <motion.p className="text-[13px] text-faint text-center mt-4 leading-relaxed" variants={fadeUp}>
+        {registro && (
+          <p className="text-[13px] leading-5 text-muted text-center mt-4">
             Al crear tu cuenta aceptás los{" "}
-            <Link href="/legales" className="underline hover:text-accent-ink transition-colors">
+            <Link href="/legales" className="underline underline-offset-2 hover:text-ink transition-colors">
               Términos y la Política de Privacidad
             </Link>
-          </motion.p>
+          </p>
         )}
       </motion.div>
     </main>
