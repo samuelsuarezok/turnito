@@ -4,39 +4,40 @@ import Link from "next/link";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion } from "framer-motion";
+import { IcoAtras } from "@/components/icons";
+import * as ui from "@/lib/ui";
 import { CONSULTA_LEGALES, CONTACT_TO, gmailLink } from "@/lib/contacto";
 
 const UPDATED = "6 de agosto de 2026";
 
 export default function LegalesPage() {
   return (
-    <main className="min-h-screen bg-canvas text-body p-6">
-      <div className="max-w-2xl mx-auto py-8">
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between mb-10">
+    <main className="min-h-screen bg-canvas text-body p-4 sm:p-6">
+      <div className="max-w-2xl mx-auto py-6 sm:py-8">
+        <header className="flex items-center justify-between mb-12">
           <Logo size={26} />
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Link href="/" className="text-[14px] text-accent-ink font-bold">← Inicio</Link>
+          <div className="flex items-center gap-1">
+            <ThemeToggle className="mr-1" />
+            <Link href="/" className={ui.navLink}><IcoAtras /> Inicio</Link>
           </div>
-        </motion.div>
+        </header>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-          <h1 className="text-[33px] font-extrabold text-ink mb-2 tracking-tight">Términos y Privacidad</h1>
-          <p className="text-lg text-faint mb-10">Última actualización: {UPDATED}</p>
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
+          <h1 className="text-[32px] leading-[38px] font-semibold tracking-[-0.02em] text-ink">Términos y Privacidad</h1>
+          <p className="text-[14px] leading-5 text-muted mt-2 mb-10">Última actualización: {UPDATED}</p>
 
           {/* índice */}
-          <div className="rounded-2xl bg-surface border border-line p-5 mb-10">
-            <p className="text-[13px] font-bold uppercase tracking-widest text-faint mb-3">Contenido</p>
-            <ul className="space-y-1.5 text-lg">
-              <li><a href="#terminos" className="text-accent-ink font-semibold hover:underline">1. Términos y Condiciones de Uso</a></li>
-              <li><a href="#privacidad" className="text-accent-ink font-semibold hover:underline">2. Política de Privacidad</a></li>
+          <nav aria-label="Contenido" className={`${ui.card} rounded-2xl! p-5 mb-12`}>
+            <p className="text-[14px] leading-5 font-medium text-muted mb-3">Contenido</p>
+            <ul className="space-y-2 text-[16px] leading-6">
+              <li><a href="#terminos" className="text-accent-ink font-medium hover:underline underline-offset-2">1. Términos y Condiciones de Uso</a></li>
+              <li><a href="#privacidad" className="text-accent-ink font-medium hover:underline underline-offset-2">2. Política de Privacidad</a></li>
             </ul>
-          </div>
+          </nav>
 
           {/* ══ TÉRMINOS ══ */}
           <section id="terminos" className="mb-12">
-            <h2 className="text-[26px] font-extrabold text-ink mb-6">1. Términos y Condiciones de Uso</h2>
+            <h2 className="text-[24px] leading-8 font-semibold tracking-[-0.01em] text-ink mb-6 scroll-mt-6">1. Términos y Condiciones de Uso</h2>
 
             <Block title="1.1 Qué es Turnito">
               Turnito es una plataforma de software que permite a negocios que trabajan con turnos —barberías,
@@ -118,7 +119,7 @@ export default function LegalesPage() {
 
           {/* ══ PRIVACIDAD ══ */}
           <section id="privacidad" className="mb-12">
-            <h2 className="text-[26px] font-extrabold text-ink mb-6">2. Política de Privacidad</h2>
+            <h2 className="text-[24px] leading-8 font-semibold tracking-[-0.01em] text-ink mb-6 scroll-mt-6">2. Política de Privacidad</h2>
 
             <Block title="2.1 Responsable">
               El responsable del tratamiento de los datos es Turnito. Para consultas sobre tus datos, escribinos
@@ -127,13 +128,13 @@ export default function LegalesPage() {
             </Block>
 
             <Block title="2.2 Qué datos recopilamos">
-              <b className="text-ink">De los Negocios:</b> email, contraseña (encriptada), nombre del
+              <b className="font-medium text-ink">De los Negocios:</b> email, contraseña (encriptada), nombre del
               local, rubro, teléfono de contacto, servicios, precios y horarios.<br /><br />
-              <b className="text-ink">De los Clientes:</b> nombre y número de teléfono, y opcionalmente un
+              <b className="font-medium text-ink">De los Clientes:</b> nombre y número de teléfono, y opcionalmente un
               email, que se ingresan al reservar un turno. Los Clientes no crean una cuenta ni establecen
               contraseña. Estos datos se usan únicamente para gestionar y confirmar el turno con el Negocio
               elegido.<br /><br />
-              <b className="text-ink">De quienes nos escriben:</b> si usás el formulario de contacto,
+              <b className="font-medium text-ink">De quienes nos escriben:</b> si usás el formulario de contacto,
               guardamos tu nombre, email, el rubro que indiques y el mensaje, para poder responderte.
               También registramos de forma temporal la dirección IP desde la que se envía, con el único
               fin de evitar el envío automatizado de mensajes repetidos.
@@ -185,22 +186,22 @@ export default function LegalesPage() {
           </section>
 
           {/* contacto */}
-          <div className="rounded-2xl bg-surface border border-line p-5">
-            <p className="text-[13px] font-bold uppercase tracking-widest text-faint mb-2">Contacto</p>
-            <p className="text-lg text-muted">
+          <div className={`${ui.card} rounded-2xl! p-5`}>
+            <p className="text-[14px] leading-5 font-medium text-ink mb-2">Contacto</p>
+            <p className="text-[16px] leading-7 text-muted">
               Para consultas sobre estos términos o tus datos personales, escribinos a{" "}
               <a
                 href={gmailLink(CONSULTA_LEGALES.asunto, CONSULTA_LEGALES.cuerpo)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-accent-ink font-semibold underline"
+                className="text-accent-ink font-medium underline underline-offset-2"
               >
                 {CONTACT_TO}
               </a>
             </p>
           </div>
 
-          <p className="text-[14px] text-faint text-center mt-10">
+          <p className="text-[14px] text-muted text-center mt-12">
             © 2026 Turnito · Córdoba, Argentina
           </p>
         </motion.div>
@@ -212,8 +213,8 @@ export default function LegalesPage() {
 function Block({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-6">
-      <h3 className="text-xl font-bold text-ink mb-2">{title}</h3>
-      <p className="text-lg text-muted leading-relaxed">{children}</p>
+      <h3 className="text-[18px] leading-6 font-semibold text-ink mb-2">{title}</h3>
+      <p className="text-[16px] leading-7 text-muted max-w-[65ch]">{children}</p>
     </div>
   );
 }

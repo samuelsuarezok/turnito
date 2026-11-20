@@ -5,34 +5,26 @@
 import Link from "next/link";
 import Logo from "@/components/Logo";
 import { motion } from "framer-motion";
+import * as ui from "@/lib/ui";
 
 export default function NotFound() {
   return (
     <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
       <motion.div className="text-center max-w-sm"
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}>
-        <div className="flex justify-center mb-8">
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}>
+        <div className="flex justify-center mb-10">
           <Logo size={28} />
         </div>
 
-        <motion.div
-          initial={{ scale: 0 }} animate={{ scale: 1 }}
-          transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.1 }}
-          className="text-7xl font-extrabold text-accent-ink mb-4 tracking-tighter">
-          404
-        </motion.div>
-
-        <h1 className="text-[26px] font-extrabold text-ink mb-2">Esta página no existe</h1>
-        <p className="text-lg text-muted mb-8">
+        <p className="font-mono text-[14px] text-muted mb-3">Error 404</p>
+        <h1 className={`${ui.h1} mb-3`}>Esta página no existe</h1>
+        <p className="text-[16px] leading-6 text-muted mb-8">
           Puede que el link esté mal escrito o que el negocio que buscás ya no esté disponible.
         </p>
 
-        <motion.div whileHover={{ scale: 1.03 }} whileTap={{ scale: 0.97 }} className="inline-block">
-          <Link href="/"
-            className="inline-block rounded-full bg-accent text-on-accent font-bold text-lg px-8 py-3.5">
-            Ir al inicio →
-          </Link>
-        </motion.div>
+        <Link href="/" className={ui.btnPrimary}>
+          Ir al inicio
+        </Link>
       </motion.div>
     </main>
   );

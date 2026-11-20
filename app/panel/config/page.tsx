@@ -8,6 +8,9 @@ import { LogoMark } from "@/components/Logo";
 import { SITE_DOMAIN, slugify } from "@/lib/site";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
+import { IcoAtras, IcoCheck, IcoPlus, IcoX } from "@/components/icons";
+import * as ui from "@/lib/ui";
+import { fechaCorta } from "@/lib/fechas";
 import {
   RUBROS_LISTA,
   EQUIPO,
@@ -61,25 +64,27 @@ type StaffMember = {
   _deleted?: boolean;
 };
 
-const inputCls = "w-full rounded-2xl bg-surface border border-line px-4 py-3 outline-none focus:border-accent transition-colors text-lg";
-const selectCls = "rounded-xl bg-surface border border-line px-2.5 py-1.5 text-[15px] outline-none focus:border-accent";
-const saveBtn = "rounded-full bg-accent text-on-accent font-bold text-lg px-6 py-2.5 disabled:opacity-25 transition-opacity";
-const miniLabel = "block text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
+// Estilos compartidos con el resto de la app (lib/ui.ts). Antes cada input de
+// esta pantalla tenía su propia combinación de alto, radio y tamaño de letra.
+const inputCls = ui.input();
+const selectCls = ui.select;
+const saveBtn = `${ui.btnPrimary} ${ui.btnSm}`;
+const miniLabel = ui.label;
+const quitarBtn = `${ui.iconBtn} h-12! w-12! hover:text-danger`;
 
 function SectionCard({ title, children, onSave, saving, saved }: {
   title: string; children: React.ReactNode; onSave: () => void; saving: boolean; saved: boolean;
 }) {
   return (
-    <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}
-      className="rounded-3xl bg-surface border border-line p-5 mb-4">
-      <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-extrabold text-ink">{title}</h2>
-        <motion.button whileTap={{ scale: 0.95 }} onClick={onSave} disabled={saving} className={saveBtn}>
-          {saving ? "…" : saved ? "✓ Guardado" : "Guardar"}
-        </motion.button>
+    <section className={`${ui.card} p-5 sm:p-6 mb-4`}>
+      <div className="flex items-center justify-between gap-4 mb-5">
+        <h2 className={ui.h2}>{title}</h2>
+        <button onClick={onSave} disabled={saving} aria-busy={saving} className={saveBtn}>
+          {saving ? "Guardando…" : saved ? <><IcoCheck /> Guardado</> : "Guardar"}
+        </button>
       </div>
       {children}
-    </motion.div>
+    </section>
   );
 }
 
@@ -504,80 +509,77 @@ export default function ConfigPage() {
   const visibleStaff = staff.filter((b) => !b._deleted);
 
   return (
-    <main className="min-h-screen bg-canvas text-body p-5">
+    <main className="min-h-screen bg-canvas text-body p-4 sm:p-6 lg:p-8">
       {/* Toast de guardado — feedback bien visible abajo */}
       <AnimatePresence>
         {savedKey && (
           <motion.div
-            initial={{ opacity: 0, y: 24, x: "-50%" }} animate={{ opacity: 1, y: 0, x: "-50%" }} exit={{ opacity: 0, y: 24, x: "-50%" }}
-            transition={{ type: "spring", stiffness: 400, damping: 28 }}
-            className="fixed bottom-6 left-1/2 z-50 flex items-center gap-2 rounded-full bg-highlight text-on-highlight font-bold text-lg px-5 py-2.5 shadow-lg shadow-black/15">
-            <span className="text-xl leading-none">✓</span> Guardado
+            initial={{ opacity: 0, y: 8, x: "-50%" }} animate={{ opacity: 1, y: 0, x: "-50%" }} exit={{ opacity: 0, y: 8, x: "-50%" }}
+            transition={{ duration: 0.25, ease: EASE }}
+            role="status"
+            className="fixed bottom-6 left-1/2 z-50 flex items-center gap-2 rounded-full bg-ink text-canvas text-[15px] font-medium px-5 h-11 shadow-[0_8px_24px_rgba(0,0,0,0.12)]">
+            <IcoCheck /> Guardado
           </motion.div>
         )}
       </AnimatePresence>
       <div className="max-w-md lg:max-w-5xl mx-auto pb-16">
         {/* header */}
-        <motion.div className="flex items-center justify-between pt-2 mb-6"
-          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
-          <div className="flex items-center gap-2.5">
-            <LogoMark size={22} />
-            <h1 className="text-[22px] font-extrabold text-ink tracking-tight">Configuración</h1>
+        <header className="flex items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-2">
+            <LogoMark size={24} />
+            <h1 className="text-[20px] leading-7 font-semibold text-ink">Configuración</h1>
           </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Link href="/panel" className="text-[14px] text-accent-ink font-bold">← Volver al panel</Link>
+          <div className="flex items-center gap-1">
+            <ThemeToggle className="mr-1" />
+            <Link href="/panel" className={ui.navLink}>
+              <IcoAtras /><span><span className="hidden sm:inline">Volver al </span>panel</span>
+            </Link>
           </div>
-        </motion.div>
+        </header>
 
         {error && (
-          <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="text-lg text-danger mb-4">{error}</motion.p>
+          <motion.p role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`${ui.errorBox} mb-6`}>{error}</motion.p>
         )}
 
         {/* Dos columnas desde lg. Las tarjetas son independientes entre si,
             asi que columnas de altura despareja no molestan: cada una arranca
             arriba y crece lo que necesite. */}
-        <div className="lg:grid lg:grid-cols-2 lg:gap-x-5 lg:items-start">
+        <div className="lg:grid lg:grid-cols-2 lg:gap-x-6 lg:items-start">
 
         {/* DATOS */}
         <SectionCard title="Datos del local" onSave={saveShop} saving={savingKey === "shop"} saved={savedKey === "shop"}>
           <label className={miniLabel}>Nombre</label>
-          <input value={name} onChange={(e) => setName(e.target.value)} className={`${inputCls} mb-3`} />
+          <input value={name} onChange={(e) => setName(e.target.value)} aria-label="Nombre del local" className={`${inputCls} mb-5`} />
 
           <label className={miniLabel}>A qué te dedicás</label>
-          <div className="grid grid-cols-3 gap-1.5 mb-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-5">
             {RUBROS_LISTA.map((r) => (
-              <button key={r.id} onClick={() => setBusinessType(r.id)}
-                className={`rounded-xl border-[1.5px] py-2 px-1 text-[14px] font-bold transition-colors ${
-                  businessType === r.id ? "border-accent bg-accent-soft text-accent-ink" : "border-line bg-surface text-muted"
-                }`}>
-                <span className="block text-xl leading-tight mb-0.5">{r.emoji}</span>
+              <button key={r.id} onClick={() => setBusinessType(r.id)} aria-pressed={businessType === r.id}
+                className={`${ui.chip(businessType === r.id)} justify-center rounded-xl! h-10!`}>
                 {r.label}
               </button>
             ))}
           </div>
 
           <label className={miniLabel}>WhatsApp</label>
-          <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} className={`${inputCls} mb-3`} />
+          <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} type="tel" inputMode="tel" aria-label="WhatsApp del local" className={`${inputCls} mb-5`} />
 
           <label className={miniLabel}>Cada cuánto arranca un turno</label>
-          <div className="flex gap-2 mb-1">
+          <div className="grid grid-cols-4 gap-2 mb-2">
             {[15, 30, 45, 60].map((m) => (
-              <button key={m} onClick={() => setSlotMinutes(m)}
-                className={`flex-1 rounded-full py-2 text-[15px] font-bold border transition-colors ${
-                  slotMinutes === m ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"
-                }`}>{m} min</button>
+              <button key={m} onClick={() => setSlotMinutes(m)} aria-pressed={slotMinutes === m}
+                className={`${ui.chip(slotMinutes === m)} justify-center h-10! px-2!`}>{m} min</button>
             ))}
           </div>
-          <p className="text-[14px] text-faint mb-3">
+          <p className={`${ui.ayuda} mb-5`}>
             Es la grilla que ve tu cliente, no la duración del servicio.
           </p>
 
-          <div className="flex gap-3 mb-3">
+          <div className="flex gap-3 mb-5">
             <div className="flex-1">
               <label className={miniLabel}>Anticipación mínima</label>
               <select value={minNotice} onChange={(e) => setMinNotice(Number(e.target.value))}
-                className="w-full rounded-xl bg-surface border border-line px-3 py-2.5 text-lg outline-none focus:border-accent">
+                className={`${ui.select} w-full h-12!`}>
                 <option value={0}>Sin límite</option>
                 <option value={30}>30 min antes</option>
                 <option value={60}>1 hora antes</option>
@@ -588,7 +590,7 @@ export default function ConfigPage() {
             <div className="flex-1">
               <label className={miniLabel}>Cancelar hasta</label>
               <select value={cancelLimit} onChange={(e) => setCancelLimit(Number(e.target.value))}
-                className="w-full rounded-xl bg-surface border border-line px-3 py-2.5 text-lg outline-none focus:border-accent">
+                className={`${ui.select} w-full h-12!`}>
                 <option value={0}>Sin límite</option>
                 <option value={30}>30 min antes</option>
                 <option value={60}>1 hora antes</option>
@@ -600,23 +602,23 @@ export default function ConfigPage() {
           {/* El link. Se puede cambiar, pero está cerrado por defecto: es una
               decisión de una vez cada mucho, no un campo más del formulario. */}
           {!editandoSlug ? (
-            <p className="text-[14px] text-faint">
+            <p className="text-[14px] text-muted">
               Tu link es <span className="font-mono text-muted">{SITE_DOMAIN}/{slug}</span>.{" "}
               <button onClick={() => { setEditandoSlug(true); setNuevoSlug(slug); setSlugMsg(""); }}
-                className="text-accent-ink font-bold underline underline-offset-2">
+                className="text-accent-ink font-semibold underline underline-offset-2">
                 Cambiarlo
               </button>
             </p>
           ) : (
-            <div className="rounded-2xl bg-surface-2 border border-line p-3.5">
+            <div className="rounded-2xl bg-surface-2 border border-line p-4">
               <label className={miniLabel}>Tu link</label>
               <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-[17px] font-mono text-faint shrink-0">{SITE_DOMAIN}/</span>
+                <span className="text-[15px] font-mono text-muted shrink-0">{SITE_DOMAIN}/</span>
                 <input value={nuevoSlug} inputMode="url" autoCapitalize="off" spellCheck={false}
                   onChange={(e) => { setNuevoSlug(slugify(e.target.value)); setSlugMsg(""); }}
-                  className="flex-1 min-w-0 rounded-xl bg-surface border border-line px-3 py-2 text-[17px] font-mono outline-none focus:border-accent" />
+                  aria-label="Nuevo link" className={`${ui.input()} flex-1 min-w-0 font-mono text-[15px]!`} />
               </div>
-              <p className="text-[14px] text-faint leading-relaxed mb-3">
+              <p className="text-[14px] text-muted leading-relaxed mb-3">
                 El link de ahora, <span className="font-mono">{slug}</span>, va a seguir funcionando:
                 a quien entre por ahí lo mandamos solo a la dirección nueva. Nadie se queda afuera.
               </p>
@@ -624,12 +626,11 @@ export default function ConfigPage() {
                 <p className={`text-[14px] mb-2.5 ${slugOk ? "text-accent-ink" : "text-danger"}`}>{slugMsg}</p>
               )}
               <div className="flex gap-2">
-                <button onClick={() => setEditandoSlug(false)}
-                  className="flex-1 rounded-full border border-line bg-surface text-[14px] font-bold py-2">
+                <button onClick={() => setEditandoSlug(false)} className={`${ui.btnSecondary} ${ui.btnSm} flex-1`}>
                   Cancelar
                 </button>
                 <button onClick={guardarSlug} disabled={savingKey === "slug" || nuevoSlug === slug || !nuevoSlug}
-                  className="flex-1 rounded-full bg-accent text-on-accent text-[14px] font-bold py-2 disabled:opacity-30">
+                  className={`${ui.btnPrimary} ${ui.btnSm} flex-1`}>
                   {savingKey === "slug" ? "Guardando…" : "Cambiar el link"}
                 </button>
               </div>
@@ -647,54 +648,54 @@ export default function ConfigPage() {
             // "a consultar" igual, así que se avisa en vez de sorprender después.
             const vacioSinElegir = !aConsultar && !svc.price;
             return (
-              <div key={svc.id ?? `new-${realIndex}`} className="rounded-2xl bg-surface-2 border border-line p-3 mb-2">
+              <div key={svc.id ?? `new-${realIndex}`} className="rounded-2xl bg-surface-2 border border-line p-4 mb-3">
                 <div className="flex gap-2 mb-2">
                   <input value={svc.name} placeholder="Nombre"
                     onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, name: e.target.value } : s)))}
-                    className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-lg outline-none focus:border-accent" />
+                    className={`${ui.input()} flex-1`} />
                   {visibleServices.length > 1 && (
                     <button onClick={() => setServices(services.map((s, j) => (j === realIndex ? { ...s, _deleted: true } : s)))}
-                      className="text-danger px-2">✕</button>
+                      className={quitarBtn} aria-label="Quitar servicio"><IcoX /></button>
                   )}
                 </div>
                 <div className="flex gap-2">
                   <select value={svc.duration_min}
                     onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, duration_min: Number(e.target.value) } : s)))}
-                    className={`${selectCls} flex-1 py-2`}>
+                    aria-label="Duración" className={`${selectCls} flex-1 h-12!`}>
                     {DURACION_OPTS.map((d) => (<option key={d} value={d}>{formatDuracion(d)}</option>))}
                   </select>
                   <input type="number" inputMode="numeric" min={0}
                     value={svc.price || ""} placeholder={aConsultar ? "A consultar" : "Precio"} disabled={aConsultar}
                     onChange={(e) => setServices(services.map((s, j) => (j === realIndex ? { ...s, price: Number(e.target.value) } : s)))}
-                    className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-lg outline-none focus:border-accent disabled:text-faint disabled:italic" />
+                    aria-label="Precio" className={`${ui.input()} flex-1 tabular-nums`} />
                 </div>
-                <label className="flex items-center gap-2 mt-2 text-[14px] text-muted cursor-pointer select-none">
+                <label className="flex items-center gap-2 mt-3 text-[14px] text-muted cursor-pointer select-none">
                   {/* Al destildar NO se rellena con un número inventado: se deja
                       el campo vacío y listo para escribir. Antes ponía 1000 y
                       había que borrarlo primero. */}
                   <input type="checkbox" checked={aConsultar}
                     onChange={(e) => setServices(services.map((s, j) => (j === realIndex
                       ? { ...s, _aConsultar: e.target.checked, price: 0 } : s)))}
-                    className="accent-[var(--c-accent)] w-3.5 h-3.5" />
-                  Sin precio fijo — mostrar &quot;a consultar&quot;
+                    className="accent-[var(--c-accent)] w-4 h-4" />
+                  Sin precio fijo: mostrar &quot;a consultar&quot;
                 </label>
                 {vacioSinElegir && (
-                  <p className="text-[13px] text-faint mt-1 leading-relaxed">
+                  <p className="text-[13px] text-muted mt-1 leading-relaxed">
                     Sin precio se va a mostrar como &quot;a consultar&quot;.
                   </p>
                 )}
                 {/* Modo consulta: el cliente no reserva, se va al WhatsApp de
                     quien hace el servicio. Pensado para trabajos que se
                     conversan antes (un tatuaje, una extensión larga). */}
-                <label className="flex items-center gap-2 mt-1.5 text-[14px] text-muted cursor-pointer select-none">
+                <label className="flex items-center gap-2 mt-2 text-[14px] text-muted cursor-pointer select-none">
                   <input type="checkbox" checked={svc.booking_mode === "consulta"}
                     onChange={(e) => setServices(services.map((s, j) => (j === realIndex
                       ? { ...s, booking_mode: e.target.checked ? "consulta" : "agenda" } : s)))}
-                    className="accent-[var(--c-accent)] w-3.5 h-3.5" />
-                  Se coordina por WhatsApp — sin turno online
+                    className="accent-[var(--c-accent)] w-4 h-4" />
+                  Se coordina por WhatsApp, sin turno online
                 </label>
                 {svc.booking_mode === "consulta" && (
-                  <p className="text-[13px] text-faint mt-1.5 leading-relaxed">
+                  <p className="text-[13px] text-muted mt-1.5 leading-relaxed">
                     El cliente no elige día ni hora: lo mandamos al WhatsApp de quien lo hace.
                     Cuando cierren, cargá el turno vos desde la agenda.
                   </p>
@@ -707,8 +708,8 @@ export default function ConfigPage() {
                 {svc.id && visibleStaff.length > 1 && (() => {
                   const lohacen = visibleStaff.filter((b) => b.service_ids.includes(svc.id!));
                   return (
-                    <div className="mt-2.5 pt-2.5 border-t border-line">
-                      <div className="text-[14px] text-faint mb-1.5">
+                    <div className="mt-3 pt-3 border-t border-line">
+                      <div className="text-[14px] text-muted mb-1.5">
                         {lohacen.length === 0
                           ? `Lo hace todo el equipo: ${visibleStaff.map((b) => b.name.trim() || "sin nombre").join(", ")}`
                           : "Lo hacen sólo estas personas."}
@@ -720,11 +721,8 @@ export default function ConfigPage() {
                           onClick={() => setStaff(staff.map((x) => ({
                             ...x, service_ids: x.service_ids.filter((y) => y !== svc.id),
                           })))}
-                          className={`rounded-full border px-2.5 py-1 text-[14px] font-semibold transition-colors ${
-                            lohacen.length === 0
-                              ? "border-accent bg-accent-soft text-accent-ink"
-                              : "border-dashed border-line bg-surface text-faint"
-                          }`}>
+                          aria-pressed={lohacen.length === 0}
+                          className={`${ui.chip(lohacen.length === 0)} h-8! px-3!`}>
                           Todos
                         </button>
                         {visibleStaff.map((b) => {
@@ -738,9 +736,7 @@ export default function ConfigPage() {
                                   ? x.service_ids.filter((y) => y !== svc.id)
                                   : [...x.service_ids, svc.id!],
                               }))}
-                              className={`rounded-full border px-2.5 py-1 text-[14px] font-semibold transition-colors ${
-                                on ? "border-accent bg-accent-soft text-accent-ink" : "border-line bg-surface text-muted"
-                              }`}>
+                              aria-pressed={on} className={`${ui.chip(on)} h-8! px-3!`}>
                               {b.name.trim() || "Sin nombre"}
                             </button>
                           );
@@ -753,27 +749,27 @@ export default function ConfigPage() {
             );
           })}
           <button onClick={() => setServices([...services, { name: "", duration_min: 30, price: 0, booking_mode: "agenda" }])}
-            className="w-full rounded-2xl border border-dashed border-line py-3 text-lg text-accent-ink font-bold hover:border-accent transition-colors">
-            + Agregar servicio
+            className={ui.btnAgregar}>
+            <IcoPlus /> Agregar servicio
           </button>
         </SectionCard>
 
         {/* EQUIPO */}
         <SectionCard title={EQUIPO.seccion} onSave={saveStaff} saving={savingKey === "brb"} saved={savedKey === "brb"}>
-          <p className="text-[14px] text-faint mb-4">
+          <p className="text-[14px] text-muted mb-4">
             {visibleStaff.length === 0 ? EQUIPO.vacio : EQUIPO.cargado}
           </p>
 
           {visibleStaff.map((brb) => {
             const realIndex = staff.indexOf(brb);
             return (
-              <div key={brb.id ?? `new-${realIndex}`} className="rounded-2xl bg-surface-2 border border-line p-3 mb-2">
+              <div key={brb.id ?? `new-${realIndex}`} className="rounded-2xl bg-surface-2 border border-line p-4 mb-3">
                 <div className="flex gap-2">
                   <input value={brb.name} placeholder={EQUIPO.placeholderNombre}
                     onChange={(e) => setStaff(staff.map((b, j) => (j === realIndex ? { ...b, name: e.target.value } : b)))}
-                    className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-lg outline-none focus:border-accent" />
+                    className={`${ui.input()} flex-1`} />
                   <button onClick={() => setConfirmDelStaff(confirmDelStaff === realIndex ? null : realIndex)}
-                    className="text-danger px-2" title="Quitar del equipo">✕</button>
+                    className={quitarBtn} title="Quitar del equipo" aria-label="Quitar del equipo"><IcoX /></button>
                 </div>
 
                 {/* WhatsApp propio. Sólo hace falta para los servicios en modo
@@ -787,14 +783,14 @@ export default function ConfigPage() {
                   if (!haceConsulta) return null;
                   return (
                     <div className="mt-2.5">
-                      <label className="block text-[14px] text-faint mb-1.5">
+                      <label className="block text-[14px] text-muted mb-1.5">
                         Su WhatsApp — para los servicios que se coordinan hablando
                       </label>
                       <input value={brb.whatsapp} placeholder="351 234-5678" inputMode="tel"
                         onChange={(e) => setStaff(staff.map((b, j) => (j === realIndex ? { ...b, whatsapp: e.target.value } : b)))}
-                        className="w-full rounded-xl bg-surface border border-line px-3 py-2 text-lg outline-none focus:border-accent" />
+                        className={ui.input()} />
                       {!brb.whatsapp.trim() && (
-                        <p className="text-[13px] text-faint mt-1.5">
+                        <p className="text-[13px] text-muted mt-1.5">
                           Sin número, esas consultas van a llegar al WhatsApp del negocio.
                         </p>
                       )}
@@ -806,7 +802,7 @@ export default function ConfigPage() {
                     uno recién agregado todavía no tiene id para vincular. */}
                 {services.some((s) => s.id && !s._deleted) && (
                   <div className="mt-2.5">
-                    <div className="text-[14px] text-faint mb-1.5">
+                    <div className="text-[14px] text-muted mb-1.5">
                       {brb.service_ids.length === 0
                         ? "Hace todos los servicios. Tocá alguno para limitarlo."
                         : "Sólo hace los servicios marcados."}
@@ -836,18 +832,18 @@ export default function ConfigPage() {
                 {/* Quitar = ya no trabaja más acá. Pedimos confirmación porque
                     se lleva puesta su disponibilidad futura. */}
                 {confirmDelStaff === realIndex && (
-                  <div className="mt-2 rounded-xl border border-danger/40 bg-danger-soft p-2.5">
+                  <div className="mt-3 rounded-xl bg-danger-soft p-4">
                     <p className="text-[14px] text-body mb-2">
                       ¿Quitar a {brb.name.trim() || "esta persona"} del equipo? Sale de la lista y deja de recibir turnos.
                       Los turnos que ya tenía no se borran.
                     </p>
                     <div className="flex gap-2">
                       <button onClick={() => setConfirmDelStaff(null)}
-                        className="flex-1 rounded-full border border-line bg-surface text-[14px] font-bold py-1.5">No</button>
+                        className={`${ui.btnSecondary} ${ui.btnSm} flex-1`}>No</button>
                       <button onClick={() => {
                         setStaff(staff.map((b, j) => (j === realIndex ? { ...b, _deleted: true } : b)));
                         setConfirmDelStaff(null);
-                      }} className="flex-1 rounded-full bg-danger text-white text-[14px] font-bold py-1.5">
+                      }} className="flex-1 h-10 rounded-full bg-danger text-surface text-[14px] font-semibold transition-transform duration-150 active:scale-[0.98]">
                         Sí, quitar
                       </button>
                     </div>
@@ -857,13 +853,13 @@ export default function ConfigPage() {
                 {/* Ausencias: sólo tienen sentido sobre alguien ya guardado. */}
                 {brb.id ? (
                   <div className="mt-2.5">
-                    <div className="text-[13px] font-bold uppercase tracking-widest text-faint mb-1.5">Días que no está</div>
+                    <div className="text-[14px] leading-5 font-medium text-body mt-1 mb-2">Días que no está</div>
                     <div className="flex gap-2 mb-2">
                       <input type="date" value={absenceDate[brb.id] ?? ""} min={new Date().toISOString().slice(0, 10)}
                         onChange={(e) => setAbsenceDate({ ...absenceDate, [brb.id!]: e.target.value })}
-                        className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-lg outline-none focus:border-accent" />
+                        className={`${ui.input()} flex-1`} />
                       <button onClick={() => addAbsence(brb.id!)} disabled={!absenceDate[brb.id]}
-                        className="rounded-full bg-accent text-on-accent font-bold text-[14px] px-4 disabled:opacity-25">
+                        className={`${ui.btnPrimary} h-12! px-5! text-[14px]!`}>
                         Marcar
                       </button>
                     </div>
@@ -876,50 +872,54 @@ export default function ConfigPage() {
                     <div className="flex items-center gap-2 mb-2">
                       <select value={absenceFrom[brb.id!] ?? ""}
                         onChange={(e) => setAbsenceFrom({ ...absenceFrom, [brb.id!]: e.target.value })}
-                        className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-[15px] outline-none focus:border-accent">
+                        className={`${ui.select} flex-1`}>
                         <option value="">Desde…</option>
                         {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
                       </select>
-                      <span className="text-faint text-[14px]">a</span>
+                      <span className="text-muted text-[14px]">a</span>
                       <select value={absenceTo[brb.id!] ?? ""}
                         onChange={(e) => setAbsenceTo({ ...absenceTo, [brb.id!]: e.target.value })}
-                        className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-[15px] outline-none focus:border-accent">
+                        className={`${ui.select} flex-1`}>
                         <option value="">Hasta…</option>
                         {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
                       </select>
                     </div>
-                    <p className="text-[13px] text-faint mb-2.5">
+                    <p className="text-[13px] text-muted mb-2.5">
                       Dejá las dos horas vacías para marcar el <strong>día completo</strong>. Con horas,
                       sólo se bloquea ese rato y el resto del día sigue disponible.
                     </p>
                     {brb.absences.length === 0 ? (
-                      <p className="text-[14px] text-faint">Trabaja todos los días abiertos del local.</p>
+                      <p className="text-[14px] text-muted">Trabaja todos los días abiertos del local.</p>
                     ) : (
                       <div className="flex flex-wrap gap-1.5">
                         {brb.absences.map((a) => (
-                          <span key={a.id} className="flex items-center gap-1.5 rounded-full bg-surface border border-line pl-2.5 pr-1.5 py-1">
-                            <span className="font-mono text-[14px] text-accent-ink font-semibold">{a.date}</span>
+                          <span key={a.id} className="flex items-center gap-1.5 rounded-full bg-surface border border-line pl-3 pr-1 h-8">
+                            <span className="text-[14px] text-ink font-medium">{fechaCorta(a.date)}</span>
                             {/* Sin esto, una ausencia de 14 a 17 se ve igual que
                                 una de día completo y el dueño no puede saber
                                 cuál cargó. */}
-                            <span className="font-mono text-[13px] text-faint">
+                            <span className="text-[13px] text-muted tabular-nums">
                               {a.from_time ? `${a.from_time.slice(0, 5)}–${a.to_time?.slice(0, 5)}` : "todo el día"}
                             </span>
-                            <button onClick={() => removeAbsence(a.id)} className="text-faint hover:text-danger text-[15px] leading-none">✕</button>
+                            <button onClick={() => removeAbsence(a.id)} aria-label="Quitar ausencia"
+                              className="inline-flex items-center justify-center w-6 h-6 rounded-full text-muted transition-colors hover:text-danger hover:bg-surface-2">
+                              <IcoX size={14} />
+                            </button>
                           </span>
                         ))}
                       </div>
                     )}
                   </div>
                 ) : (
-                  <p className="text-[14px] text-faint mt-2">Guardá para poder marcarle días libres.</p>
+                  <p className="text-[14px] text-muted mt-2">Guardá para poder marcarle días libres.</p>
                 )}
               </div>
             );
           })}
 
           <button onClick={() => setStaff([...staff, { name: "", whatsapp: "", absences: [], service_ids: [] }])}
-            className="w-full rounded-2xl border border-dashed border-line py-3 text-lg text-accent-ink font-bold hover:border-accent transition-colors">
+            className={ui.btnAgregar}>
+            <IcoPlus />
             {EQUIPO.agregar}
           </button>
         </SectionCard>
@@ -934,39 +934,39 @@ export default function ConfigPage() {
               setDay({ ranges: h.ranges.map((r, j) => (j === i ? { ...r, ...patch } : r)) });
             return (
               <div key={d.weekday}
-                className={`rounded-2xl bg-surface-2 border border-line px-3 py-2.5 mb-2 ${h.open ? "" : "opacity-50"}`}>
+                className={`rounded-xl bg-surface-2 border border-line px-4 py-3 mb-2 transition-opacity ${h.open ? "" : "opacity-60"}`}>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setDay({ open: !h.open })}
-                    className={`w-9 h-5 rounded-full relative transition-colors shrink-0 ${h.open ? "bg-accent" : "bg-line"}`}>
+                  <button onClick={() => setDay({ open: !h.open })} role="switch" aria-checked={h.open} aria-label={`${d.label} abierto`}
+                    className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${h.open ? "bg-accent" : "bg-line"}`}>
                     {/* Se mueve con transform y no con `left`: `left` recalcula
                         layout en cada cuadro, el transform va por GPU. Y se
                         anima sólo esa propiedad, no `all`. */}
-                    <span className={`absolute top-[3px] left-[3px] w-3.5 h-3.5 rounded-full bg-surface transition-transform duration-200 ease-out ${h.open ? "translate-x-[17px]" : "translate-x-0"}`} />
+                    <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-surface transition-transform duration-200 ease-out ${h.open ? "translate-x-4" : "translate-x-0"}`} />
                   </button>
-                  <span className="text-[15px] font-bold text-ink">{d.label}</span>
-                  {!h.open && <span className="ml-auto text-[14px] text-faint">Cerrado</span>}
+                  <span className="text-[15px] font-semibold text-ink">{d.label}</span>
+                  {!h.open && <span className="ml-auto text-[14px] text-muted">Cerrado</span>}
                 </div>
 
                 {h.open && (
-                  <div className="mt-2 pl-12 flex flex-col gap-1.5">
+                  <div className="mt-3 pl-13 flex flex-col gap-2">
                     {h.ranges.map((r, i) => (
-                      <div key={i} className="flex items-center gap-1">
+                      <div key={i} className="flex items-center gap-1.5">
                         <select value={r.opens_at} onChange={(e) => setRange(i, { opens_at: e.target.value })} className={selectCls}>
                           {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
                         </select>
-                        <span className="text-[13px] text-faint">a</span>
+                        <span className="text-[13px] text-muted">a</span>
                         <select value={r.closes_at} onChange={(e) => setRange(i, { closes_at: e.target.value })} className={selectCls}>
                           {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
                         </select>
                         {h.ranges.length > 1 && (
                           <button onClick={() => setDay({ ranges: h.ranges.filter((_, j) => j !== i) })}
-                            className="text-faint hover:text-danger text-lg px-1" title="Quitar franja">✕</button>
+                            className={`${ui.iconBtn} hover:text-danger`} title="Quitar franja" aria-label="Quitar franja"><IcoX /></button>
                         )}
                       </div>
                     ))}
                     <button onClick={() => setDay({ ranges: [...h.ranges, { opens_at: "16:00", closes_at: "20:00" }] })}
-                      className="text-[14px] text-accent-ink font-bold text-left mt-0.5">
-                      + Agregar franja (ej: tarde)
+                      className="inline-flex items-center gap-1.5 self-start h-8 text-[14px] text-accent-ink font-medium hover:underline underline-offset-2">
+                      <IcoPlus size={16} /> Agregar franja (ej: tarde)
                     </button>
                   </div>
                 )}
@@ -976,67 +976,66 @@ export default function ConfigPage() {
         </SectionCard>
 
         {/* DÍAS CERRADOS */}
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}
-          className="rounded-3xl bg-surface border border-line p-5 mb-4">
-          <h2 className="text-xl font-extrabold text-ink mb-1">Días cerrados</h2>
-          <p className="text-[14px] text-faint mb-4">Feriados, vacaciones, turnos médicos. Esos días nadie va a poder reservar.</p>
+        <section className={`${ui.card} p-5 sm:p-6 mb-4`}>
+          <h2 className={ui.h2}>Días cerrados</h2>
+          <p className="text-[14px] leading-5 text-muted mt-1 mb-5">Feriados, vacaciones, turnos médicos. Esos días nadie va a poder reservar.</p>
 
-          <div className="flex gap-2 mb-2">
+          <div className="flex flex-col sm:flex-row gap-2 mb-2">
             <input type="date" value={newClosedDate} min={new Date().toISOString().slice(0, 10)}
               onChange={(e) => setNewClosedDate(e.target.value)}
-              className="rounded-xl bg-surface border border-line px-3 py-2 text-lg outline-none focus:border-accent" />
+              aria-label="Fecha" className={`${ui.input()} sm:w-48! shrink-0`} />
             <input value={newClosedReason} onChange={(e) => setNewClosedReason(e.target.value)} placeholder="Motivo (opcional)"
-              className="flex-1 rounded-xl bg-surface border border-line px-3 py-2 text-lg outline-none focus:border-accent" />
+              className={`${ui.input()} flex-1`} />
           </div>
 
           {/* Día completo vs rango horario puntual (ej: "médico 15-17") */}
-          <div className="flex items-center gap-2 mb-2">
-            <button onClick={() => setClosedPartial(false)}
-              className={`flex-1 rounded-full py-1.5 text-[14px] font-bold border transition-colors ${!closedPartial ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
+          <div className="grid grid-cols-2 gap-2 mb-2">
+            <button onClick={() => setClosedPartial(false)} aria-pressed={!closedPartial}
+              className={`${ui.chip(!closedPartial)} justify-center`}>
               Todo el día
             </button>
-            <button onClick={() => setClosedPartial(true)}
-              className={`flex-1 rounded-full py-1.5 text-[14px] font-bold border transition-colors ${closedPartial ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
+            <button onClick={() => setClosedPartial(true)} aria-pressed={closedPartial}
+              className={`${ui.chip(closedPartial)} justify-center`}>
               Solo un rango
             </button>
           </div>
           {closedPartial && (
             <div className="flex items-center gap-1.5 mb-2">
-              <span className="text-[14px] text-faint">de</span>
+              <span className="text-[14px] text-muted">de</span>
               <select value={newClosedFrom} onChange={(e) => setNewClosedFrom(e.target.value)} className={selectCls}>
                 <option value="">--</option>
                 {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
               </select>
-              <span className="text-[14px] text-faint">a</span>
+              <span className="text-[14px] text-muted">a</span>
               <select value={newClosedTo} onChange={(e) => setNewClosedTo(e.target.value)} className={selectCls}>
                 <option value="">--</option>
                 {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
               </select>
             </div>
           )}
-          <motion.button whileTap={{ scale: 0.96 }} onClick={addClosed}
+          <button onClick={addClosed}
             disabled={!newClosedDate || (closedPartial && (!newClosedFrom || !newClosedTo))}
-            className="w-full rounded-full bg-accent text-on-accent font-bold text-lg py-2.5 disabled:opacity-25 mb-4 transition-opacity">
+            className={`${ui.btnPrimary} w-full mt-2 mb-5`}>
             {closedPartial ? "Bloquear rango" : "Bloquear fecha"}
-          </motion.button>
+          </button>
 
           {closedList.length === 0 ? (
-            <p className="text-[14px] text-faint text-center py-2">No hay fechas bloqueadas próximas.</p>
+            <p className="text-[14px] text-muted text-center py-2">No hay fechas bloqueadas próximas.</p>
           ) : (
             closedList.map((c) => (
-              <div key={c.id} className="flex items-center gap-2.5 rounded-2xl bg-surface-2 border border-line px-4 py-2.5 mb-2">
-                <span className="font-mono text-lg font-bold text-accent-ink">{c.date}</span>
+              <div key={c.id} className="flex items-center gap-3 rounded-xl bg-surface-2 border border-line pl-4 pr-1.5 h-12 mb-2">
+                <span className="text-[15px] font-medium text-ink shrink-0">{fechaCorta(c.date)}</span>
                 {c.from_time && (
-                  <span className="font-mono text-[13px] text-accent-ink bg-accent-soft rounded px-1.5 py-0.5 shrink-0">
+                  <span className="text-[13px] text-muted tabular-nums shrink-0">
                     {c.from_time.slice(0, 5)}–{c.to_time?.slice(0, 5)}
                   </span>
                 )}
                 <span className="flex-1 text-[15px] text-muted truncate">{c.reason ?? (c.from_time ? "Rango bloqueado" : "Cerrado")}</span>
-                <button onClick={() => removeClosed(c.id)} className="text-faint hover:text-danger text-lg">✕</button>
+                <button onClick={() => removeClosed(c.id)} className={`${ui.iconBtn} hover:text-danger`} aria-label="Quitar fecha bloqueada"><IcoX /></button>
               </div>
             ))
           )}
-        </motion.div>
+        </section>
 
         </div>{/* fin grid de tarjetas */}
       </div>

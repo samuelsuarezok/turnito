@@ -8,6 +8,7 @@
 // una server action. Este archivo no tiene acceso a nada de la base.
 
 import { useActionState, useMemo, useState } from "react";
+import * as ui from "@/lib/ui";
 import { motion } from "framer-motion";
 import { cambiarAcceso } from "./acciones";
 import type { Negocio } from "./tipos";
@@ -48,7 +49,7 @@ const BADGE: Record<Situacion, { texto: string; clase: string }> = {
   pagando: { texto: "Pagando", clase: "bg-highlight text-on-highlight" },
   prueba: { texto: "Prueba", clase: "bg-accent-soft text-accent-ink" },
   vencido: { texto: "Vencido", clase: "bg-danger-soft text-danger" },
-  cortado: { texto: "Cortado", clase: "bg-surface-2 text-faint border border-line" },
+  cortado: { texto: "Cortado", clase: "bg-surface-2 text-muted border border-line" },
 };
 
 type FiltroId = "todos" | "prueba" | "porvencer" | "vencidos" | "pagando" | "cortados";
@@ -84,7 +85,7 @@ function cuantoQueda(dias: number) {
 }
 
 const btn =
-  "rounded-full px-3 py-1.5 text-[14px] font-bold transition-opacity disabled:opacity-40";
+  "inline-flex items-center h-8 rounded-full px-3 text-[14px] font-medium transition-[opacity,background-color] disabled:opacity-40";
 
 function Fila({ n }: { n: Negocio }) {
   const [res, enviar, pendiente] = useActionState(cambiarAcceso, null);
@@ -98,8 +99,8 @@ function Fila({ n }: { n: Negocio }) {
         <div className="min-w-0 lg:flex-1">
           <div className="flex items-center gap-2 mb-0.5">
             <span aria-hidden>{RUBRO_EMOJI[n.rubro ?? "otro"] ?? "🗓️"}</span>
-            <h3 className="text-lg font-extrabold text-ink truncate">{n.nombre}</h3>
-            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[12px] font-bold ${badge.clase}`}>
+            <h3 className="text-[16px] leading-6 font-semibold text-ink truncate">{n.nombre}</h3>
+            <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-[12px] font-medium ${badge.clase}`}>
               {badge.texto}
             </span>
           </div>
@@ -112,7 +113,7 @@ function Fila({ n }: { n: Negocio }) {
             /{n.slug}
           </a>
           <p className="text-[14px] text-muted truncate mt-0.5">{n.email ?? "sin dueño"}</p>
-          <p className="text-[13px] text-faint mt-0.5">
+          <p className="text-[13px] text-muted mt-0.5">
             Alta {fecha(n.creado)} · hace {n.antiguedad} {n.antiguedad === 1 ? "día" : "días"} ·
             último ingreso {fecha(n.ultimo_ingreso)}
           </p>
@@ -123,10 +124,10 @@ function Fila({ n }: { n: Negocio }) {
           <div className="text-[15px] text-ink tabular-nums">
             <strong>{n.turnos_30}</strong> turnos en 30 días
           </div>
-          <div className="text-[13px] text-faint tabular-nums">
+          <div className="text-[13px] text-muted tabular-nums">
             {n.turnos} en total · {n.equipo} en el equipo
           </div>
-          <div className="text-[13px] text-faint">
+          <div className="text-[13px] text-muted">
             {n.ultimo_turno ? `último turno ${fecha(n.ultimo_turno)}` : "nunca reservaron"}
           </div>
         </div>
@@ -240,15 +241,17 @@ export default function Negocios({ lista }: { lista: Negocio[] }) {
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Buscar por nombre, link, mail o WhatsApp"
-          className="flex-1 min-w-[220px] rounded-full bg-surface border border-line px-4 py-2 text-[15px] outline-none focus:border-accent transition-colors"
+          aria-label="Buscar locales"
+          className={`${ui.input()} flex-1 min-w-[220px] h-10! text-[15px]!`}
         />
         <div className="flex gap-1.5">
           {ORDENES.map((o) => (
             <button
               key={o.id}
               onClick={() => setOrden(o.id)}
-              className={`rounded-full border px-3 py-1.5 text-[14px] font-bold transition-colors ${
-                orden === o.id ? "bg-surface-2 text-ink border-line" : "bg-transparent text-faint border-transparent"
+              aria-pressed={orden === o.id}
+              className={`h-9 rounded-lg px-3 text-[14px] font-medium transition-colors ${
+                orden === o.id ? "bg-surface text-ink" : "text-muted hover:text-ink"
               }`}
             >
               {o.label}
@@ -262,9 +265,8 @@ export default function Negocios({ lista }: { lista: Negocio[] }) {
           <button
             key={f.id}
             onClick={() => setFiltro(f.id)}
-            className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[14px] font-bold transition-colors ${
-              filtro === f.id ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"
-            }`}
+            aria-pressed={filtro === f.id}
+            className={`${ui.chip(filtro === f.id)} gap-1.5`}
           >
             {f.label} <span className="tabular-nums opacity-60">{cuentas[f.id]}</span>
           </button>
@@ -272,11 +274,11 @@ export default function Negocios({ lista }: { lista: Negocio[] }) {
       </div>
 
       {visibles.length === 0 ? (
-        <p className="text-lg text-faint py-8 text-center">
+        <p className="text-[15px] text-muted py-8 text-center">
           {lista.length === 0 ? "Todavía no hay ningún local publicado." : "Ningún local entra en ese filtro."}
         </p>
       ) : (
-        <div className="space-y-2.5">
+        <div className="space-y-2">
           {visibles.map((n) => (
             <Fila key={n.id} n={n} />
           ))}

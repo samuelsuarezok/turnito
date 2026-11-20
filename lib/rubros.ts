@@ -174,7 +174,7 @@ export const EQUIPO = {
   seccion: "Equipo",
   /** Placeholder del input de nombre. */
   placeholderNombre: "Nombre",
-  agregar: "+ Agregar al equipo",
+  agregar: "Agregar al equipo",
   /** Cuando el negocio todavía no cargó a nadie. */
   vacio:
     "Si trabajás solo, dejá esto vacío y todo sigue igual. Si son varios, cargá a cada persona: el cliente va a poder elegir con quién.",

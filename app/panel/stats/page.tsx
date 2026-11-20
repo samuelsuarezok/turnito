@@ -13,6 +13,9 @@ import { LogoMark } from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion } from "framer-motion";
 import { turnosACsv, descargarCsv, type FilaTurno } from "@/lib/csv";
+import { IcoAtras, IcoDescarga } from "@/components/icons";
+import * as ui from "@/lib/ui";
+import { cap, diaMes, fechaCorta } from "@/lib/fechas";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
@@ -53,24 +56,27 @@ function rangos() {
   ];
 }
 
-const label = "block text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
-
-/** Una fila de la comparativa. El ancho de la barra es relativo al mayor. */
-function Barra({ nombre, valor, maximo, detalle }: {
-  nombre: string; valor: number; maximo: number; detalle: string;
+/**
+ * Una fila de la comparativa. El ancho de la barra es relativo al mayor.
+ * La primera (la que más hizo) va en acento y el resto en neutro: un solo
+ * color que marca lo que importa, no una lista entera pintada de azul.
+ * Se anima con scaleX y no con width, así no recalcula layout en cada cuadro.
+ */
+function Barra({ nombre, valor, maximo, detalle, destacada }: {
+  nombre: string; valor: number; maximo: number; detalle: string; destacada: boolean;
 }) {
-  const pct = maximo > 0 ? Math.max(2, (valor / maximo) * 100) : 0;
+  const pct = maximo > 0 ? Math.max(0.02, valor / maximo) : 0;
   return (
-    <div className="mb-2.5">
-      <div className="flex justify-between items-baseline mb-1 gap-3">
-        <span className="text-lg font-semibold text-ink truncate">{nombre}</span>
-        <span className="text-[15px] text-muted tabular-nums shrink-0">{detalle}</span>
+    <div className="mb-4 last:mb-0">
+      <div className="flex justify-between items-baseline mb-2 gap-3">
+        <span className="text-[15px] leading-5 font-medium text-ink truncate">{nombre}</span>
+        <span className="text-[14px] leading-5 text-muted tabular-nums shrink-0">{detalle}</span>
       </div>
-      <div className="h-2 rounded-full bg-canvas overflow-hidden">
+      <div className="h-1.5 rounded-full bg-canvas overflow-hidden">
         <motion.div
-          initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+          initial={{ scaleX: 0 }} animate={{ scaleX: pct }}
           transition={{ duration: 0.45, ease: EASE }}
-          className="h-full rounded-full bg-accent"
+          className={`h-full w-full rounded-full origin-left ${destacada ? "bg-accent" : "bg-faint"}`}
         />
       </div>
     </div>
@@ -172,37 +178,44 @@ export default function StatsPage() {
   const maxPersona = Math.max(1, ...(stats?.por_persona ?? []).map((s) => s.facturado));
   const maxDia = Math.max(1, ...(stats?.por_dia ?? []).map((d) => d.facturado));
 
-  return (
-    <main className="min-h-screen bg-canvas text-body p-5 lg:p-8">
-      <div className="max-w-md lg:max-w-5xl mx-auto pb-16">
-        <motion.div className="flex items-center justify-between pt-2 mb-6"
-          initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
-          <div className="flex items-center gap-2.5">
-            <LogoMark size={22} />
-            <h1 className="text-[22px] font-extrabold text-ink tracking-tight">Números</h1>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <Link href="/panel" className="text-[14px] text-accent-ink font-bold">← Volver al panel</Link>
-          </div>
-        </motion.div>
+  // El mejor día del período: es el único que va en acento en el gráfico, y
+  // lo decimos con palabras abajo para que el gráfico cuente algo.
+  const mejorDia = (stats?.por_dia ?? []).reduce<PorDia | null>(
+    (best, d) => (d.facturado > 0 && (!best || d.facturado > best.facturado) ? d : best), null);
 
-        <div className="flex gap-2 overflow-x-auto pb-2 mb-5">
+  return (
+    <main className="min-h-screen bg-canvas text-body p-4 sm:p-6 lg:p-8">
+      <div className="max-w-md lg:max-w-5xl mx-auto pb-16">
+        <header className="flex items-center justify-between gap-4 mb-8">
+          <div className="flex items-center gap-2">
+            <LogoMark size={24} />
+            <h1 className="text-[20px] leading-7 font-semibold text-ink">Números</h1>
+          </div>
+          <div className="flex items-center gap-1">
+            <ThemeToggle className="mr-1" />
+            <Link href="/panel" className={ui.navLink}>
+              <IcoAtras /><span><span className="hidden sm:inline">Volver al </span>panel</span>
+            </Link>
+          </div>
+        </header>
+
+        <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
           {opciones.map((o) => (
-            <button key={o.id} onClick={() => setRango(o)}
-              className={`shrink-0 rounded-full border px-3.5 py-1.5 text-[14px] font-bold transition-colors ${
-                rango.id === o.id ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
+            <button key={o.id} onClick={() => setRango(o)} aria-pressed={rango.id === o.id}
+              className={ui.chip(rango.id === o.id)}>
               {o.label}
             </button>
           ))}
         </div>
 
-        {error && <p className="text-lg text-danger mb-4">{error}</p>}
+        {error && <p role="alert" className={`${ui.errorBox} mb-6`}>{error}</p>}
 
         {!stats ? (
           <div className="animate-pulse space-y-3">
-            <div className="h-24 rounded-3xl bg-surface" />
-            <div className="h-40 rounded-3xl bg-surface" />
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-28 rounded-2xl bg-surface" />)}
+            </div>
+            <div className="h-48 rounded-3xl bg-surface" />
           </div>
         ) : (
           // Al cambiar de rango se atenúa lo viejo en vez de vaciar la pantalla:
@@ -210,108 +223,109 @@ export default function StatsPage() {
           // números anteriores en gris.
           <div className={`transition-opacity duration-200 ${cargando ? "opacity-40" : "opacity-100"}`}>
             {/* Lo que importa primero: cuánto entró y cuántos se atendieron. */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 mb-5">
-              <div className="rounded-2xl bg-surface border border-line p-4">
-                <div className={label}>Facturado</div>
-                <div className="text-[26px] font-extrabold text-ink tabular-nums leading-none">
-                  {pesos(t!.facturado)}
-                </div>
-                <div className="text-[14px] text-faint mt-1.5">{t!.hechos} turnos atendidos</div>
-              </div>
-              <div className="rounded-2xl bg-surface border border-line p-4">
-                <div className={label}>Ticket promedio</div>
-                <div className="text-[26px] font-extrabold text-ink tabular-nums leading-none">
-                  {pesos(t!.hechos > 0 ? Math.round(t!.facturado / t!.hechos) : 0)}
-                </div>
-                <div className="text-[14px] text-faint mt-1.5">por turno atendido</div>
-              </div>
-              <div className="rounded-2xl bg-surface border border-line p-4">
-                <div className={label}>Ausencias</div>
-                <div className={`text-[26px] font-extrabold tabular-nums leading-none ${t!.ausencias > 0 ? "text-danger" : "text-ink"}`}>
-                  {t!.ausencias}
-                </div>
-                <div className="text-[14px] text-faint mt-1.5">{tasaAusencia}% de los que llegaron al día</div>
-              </div>
-              <div className="rounded-2xl bg-surface border border-line p-4">
-                <div className={label}>Cancelados</div>
-                <div className="text-[26px] font-extrabold text-ink tabular-nums leading-none">
-                  {t!.cancelo_cliente + t!.cancelo_local}
-                </div>
-                <div className="text-[14px] text-faint mt-1.5">
-                  {t!.cancelo_cliente} el cliente · {t!.cancelo_local} el local
-                </div>
-              </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3 mb-6">
+              <Stat label="Facturado" valor={pesos(t!.facturado)} sub={`${t!.hechos} turnos atendidos`} />
+              <Stat label="Ticket promedio" valor={pesos(t!.hechos > 0 ? Math.round(t!.facturado / t!.hechos) : 0)}
+                sub="por turno atendido" />
+              <Stat label="Ausencias" valor={String(t!.ausencias)} alerta={t!.ausencias > 0}
+                sub={`${tasaAusencia}% de los que llegaron al día`} />
+              <Stat label="Cancelados" valor={String(t!.cancelo_cliente + t!.cancelo_local)}
+                sub={`${t!.cancelo_cliente} el cliente · ${t!.cancelo_local} el local`} />
             </div>
 
             {t!.sin_precio > 0 && (
-              <p className="text-[14px] text-faint -mt-2 mb-5">
+              <p className={`${ui.ayuda} -mt-2 mb-6`}>
                 {t!.sin_precio} {t!.sin_precio === 1 ? "turno atendido no tiene" : "turnos atendidos no tienen"} precio
                 guardado (son anteriores a que empezáramos a registrarlo), así que lo facturado queda corto.
               </p>
             )}
 
-            <div className="lg:grid lg:grid-cols-2 lg:gap-5 lg:items-start">
+            <div className="lg:grid lg:grid-cols-2 lg:gap-6 lg:items-start">
               <div>
-                <div className="rounded-3xl bg-surface border border-line p-5 mb-4">
-                  <h2 className="text-xl font-extrabold text-ink mb-4">Qué se hizo</h2>
+                <section className={`${ui.card} p-5 sm:p-6 mb-4`}>
+                  <h2 className={`${ui.h2} mb-5`}>Qué se hizo</h2>
                   {stats.por_servicio.length === 0 ? (
-                    <p className="text-lg text-faint">Todavía no hay turnos atendidos en este período.</p>
-                  ) : stats.por_servicio.map((s) => (
-                    <Barra key={s.nombre} nombre={s.nombre} valor={s.hechos} maximo={maxServicio}
+                    <p className="text-[15px] leading-6 text-muted">Todavía no hay turnos atendidos en este período.</p>
+                  ) : stats.por_servicio.map((s, i) => (
+                    <Barra key={s.nombre} nombre={s.nombre} valor={s.hechos} maximo={maxServicio} destacada={i === 0}
                       detalle={`${s.hechos} · ${pesos(s.facturado)}`} />
                   ))}
-                </div>
+                </section>
 
-                <div className="rounded-3xl bg-surface border border-line p-5 mb-4">
-                  <h2 className="text-xl font-extrabold text-ink mb-1">Quién lo hizo</h2>
-                  <p className="text-[14px] text-faint mb-4">Ordenado por lo que trajo cada uno.</p>
+                <section className={`${ui.card} p-5 sm:p-6 mb-4`}>
+                  <h2 className={ui.h2}>Quién lo hizo</h2>
+                  <p className="text-[14px] leading-5 text-muted mt-1 mb-5">Ordenado por lo que trajo cada uno</p>
                   {stats.por_persona.length === 0 ? (
-                    <p className="text-lg text-faint">No hay turnos asignados a nadie en este período.</p>
-                  ) : stats.por_persona.map((p) => (
-                    <Barra key={p.nombre} nombre={p.nombre} valor={p.facturado} maximo={maxPersona}
+                    <p className="text-[15px] leading-6 text-muted">No hay turnos asignados a nadie en este período.</p>
+                  ) : stats.por_persona.map((p, i) => (
+                    <Barra key={p.nombre} nombre={p.nombre} valor={p.facturado} maximo={maxPersona} destacada={i === 0}
                       detalle={`${pesos(p.facturado)} · ${p.hechos} turnos${p.ausencias > 0 ? ` · ${p.ausencias} faltaron` : ""}`} />
                   ))}
-                </div>
+                </section>
               </div>
 
               <div>
-                <div className="rounded-3xl bg-surface border border-line p-5 mb-4">
-                  <h2 className="text-xl font-extrabold text-ink mb-1">Día por día</h2>
-                  <p className="text-[14px] text-faint mb-4">Cuánto entró cada día del período.</p>
-                  <div className="flex items-end gap-[3px] h-28">
-                    {stats.por_dia.map((d) => (
-                      <div key={d.fecha} className="flex-1 min-w-0 group relative"
-                        title={`${d.fecha} · ${pesos(d.facturado)} · ${d.hechos} turnos`}>
-                        <motion.div
-                          initial={{ height: 0 }}
-                          animate={{ height: `${Math.max(2, (d.facturado / maxDia) * 112)}px` }}
-                          transition={{ duration: 0.4, ease: EASE }}
-                          className={`w-full rounded-sm ${d.facturado > 0 ? "bg-accent" : "bg-line"}`}
-                        />
-                      </div>
-                    ))}
+                <section className={`${ui.card} p-5 sm:p-6 mb-4`}>
+                  <h2 className={ui.h2}>Día por día</h2>
+                  <p className="text-[14px] leading-5 text-muted mt-1 mb-5">Cuánto entró cada día del período</p>
+                  {/* Barras neutras y una sola en acento: el mejor día. Se
+                      animan con scaleY desde abajo, no con height. */}
+                  <div className="flex items-end gap-[3px] h-32 border-b border-line">
+                    {stats.por_dia.map((d) => {
+                      const alto = d.facturado > 0 ? Math.max(4, (d.facturado / maxDia) * 128) : 2;
+                      return (
+                        <div key={d.fecha} className="flex-1 min-w-0"
+                          title={`${cap(fechaCorta(d.fecha))} · ${pesos(d.facturado)} · ${d.hechos} turnos`}>
+                          <motion.div
+                            initial={{ scaleY: 0 }} animate={{ scaleY: 1 }}
+                            transition={{ duration: 0.4, ease: EASE }}
+                            style={{ height: alto }}
+                            className={`w-full rounded-t-[2px] origin-bottom ${
+                              mejorDia && d.fecha === mejorDia.fecha ? "bg-accent" : d.facturado > 0 ? "bg-faint" : "bg-line"}`}
+                          />
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex justify-between text-[13px] text-faint mt-2 font-mono">
-                    <span>{stats.desde}</span>
-                    <span>{stats.hasta}</span>
+                  <div className="flex justify-between text-[12px] leading-4 text-muted mt-2 font-mono">
+                    <span>{diaMes(stats.desde)}</span>
+                    <span>{diaMes(stats.hasta)}</span>
                   </div>
-                </div>
+                  {mejorDia && (
+                    <p className="text-[14px] leading-5 text-muted mt-4">
+                      Mejor día: <span className="text-ink font-medium">{fechaCorta(mejorDia.fecha)}</span>, con{" "}
+                      <span className="text-ink font-medium tabular-nums">{pesos(mejorDia.facturado)}</span> en{" "}
+                      {mejorDia.hechos} {mejorDia.hechos === 1 ? "turno" : "turnos"}
+                    </p>
+                  )}
+                </section>
 
-                <div className="rounded-3xl bg-surface border border-line p-5">
-                  <h2 className="text-xl font-extrabold text-ink mb-1">Descargar</h2>
-                  <p className="text-[14px] text-faint mb-4">
+                <section className={`${ui.card} p-5 sm:p-6`}>
+                  <h2 className={ui.h2}>Descargar</h2>
+                  <p className="text-[14px] leading-5 text-muted mt-1 mb-5">
                     Un archivo con todos los turnos del período, uno por fila. Se abre con Excel.
                   </p>
-                  <button onClick={bajar} disabled={bajando}
-                    className="w-full rounded-full bg-accent text-on-accent font-bold text-lg py-3 disabled:opacity-40 transition-opacity">
-                    {bajando ? "Preparando…" : "↓ Descargar el período"}
+                  <button onClick={bajar} disabled={bajando} aria-busy={bajando} className={`${ui.btnSecondary} w-full`}>
+                    {bajando ? "Preparando…" : <><IcoDescarga /> Descargar el período</>}
                   </button>
-                </div>
+                </section>
               </div>
             </div>
           </div>
         )}
       </div>
     </main>
+  );
+}
+
+function Stat({ label, valor, sub, alerta = false }: { label: string; valor: string; sub: string; alerta?: boolean }) {
+  return (
+    <div className="rounded-2xl bg-surface border border-line p-4">
+      <div className="text-[13px] leading-5 text-muted">{label}</div>
+      <div className={`text-[24px] sm:text-[28px] leading-none font-semibold tabular-nums mt-2 ${alerta ? "text-danger" : "text-ink"}`}>
+        {valor}
+      </div>
+      <div className="text-[13px] leading-5 text-muted mt-2">{sub}</div>
+    </div>
   );
 }

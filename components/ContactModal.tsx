@@ -5,13 +5,15 @@ import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { RUBROS_LISTA } from "@/lib/rubros";
 import { CONTACT_TO, gmailLink, WHATSAPP_URL } from "@/lib/contacto";
+import { IcoX } from "@/components/icons";
+import * as ui from "@/lib/ui";
 
 const EASE = [0.22, 1, 0.36, 1] as const;
 
-const inputCls =
-  "w-full rounded-2xl bg-surface-2 border border-line px-4 py-3 text-[15px] text-body outline-none focus:border-accent transition-colors";
-const labelCls =
-  "block text-[10px] font-bold uppercase tracking-widest text-faint mb-1.5";
+// Mismos inputs y rótulos que el resto de la app (lib/ui.ts). El rótulo era de
+// 10px en mayúsculas y en `faint`: ilegible.
+const inputCls = ui.input({ bg: "bg-surface-2" });
+const labelCls = ui.label;
 
 type Estado = "form" | "enviado" | "sinMail";
 
@@ -130,26 +132,25 @@ export default function ContactModal({
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
           onClick={onClose}
           role="dialog" aria-modal="true" aria-label="Contacto"
-          className="fixed inset-0 z-[200] bg-black/45 backdrop-blur-[2px] flex items-end sm:items-center justify-center p-0 sm:p-6"
+          className="fixed inset-0 z-[200] bg-black/45 flex items-end sm:items-center justify-center p-0 sm:p-6"
         >
           <motion.div
-            initial={{ y: 40, opacity: 0, scale: 0.98 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 30, opacity: 0, scale: 0.98 }}
+            initial={{ y: 16, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 16, opacity: 0 }}
             transition={{ duration: 0.28, ease: EASE }}
             onClick={(e) => e.stopPropagation()}
-            className="w-full max-w-lg bg-surface rounded-t-[28px] sm:rounded-[28px] max-h-[92vh] overflow-y-auto"
+            className="w-full max-w-lg bg-surface rounded-t-3xl sm:rounded-3xl max-h-[92vh] overflow-y-auto"
           >
             <div className="p-6 sm:p-8">
-              <div className="flex items-start justify-between gap-4 mb-1">
-                <h2 className="text-[26px] font-extrabold text-ink tracking-tight leading-tight">
-                  {estado === "enviado" ? "¡Listo, nos llegó!"
+              <div className="flex items-start justify-between gap-4 mb-2">
+                <h2 className="text-[24px] leading-8 font-semibold tracking-[-0.01em] text-ink">
+                  {estado === "enviado" ? "Listo, nos llegó"
                     : estado === "sinMail" ? "Escribinos directo"
                     : "Contanos qué necesitás"}
                 </h2>
-                <button onClick={onClose} aria-label="Cerrar"
-                  className="shrink-0 w-9 h-9 rounded-full bg-canvas text-muted text-lg leading-none hover:bg-line transition-colors">
-                  ✕
+                <button onClick={onClose} aria-label="Cerrar" className={`${ui.iconBtn} shrink-0 -mr-2`}>
+                  <IcoX />
                 </button>
               </div>
 
@@ -157,11 +158,11 @@ export default function ContactModal({
               {estado === "enviado" && (
                 <div className="mt-2">
                   <p className="text-[15px] text-muted">
-                    Te respondemos a <span className="font-bold text-ink">{email.trim()}</span>,
+                    Te respondemos a <span className="font-medium text-ink">{email.trim()}</span>,
                     normalmente dentro de las 24 horas.
                   </p>
                   <button onClick={() => { reset(); onClose(); }}
-                    className="mt-6 w-full rounded-full bg-accent text-on-accent font-bold py-3.5">
+                    className={`${ui.btnPrimary} mt-6 w-full`}>
                     Cerrar
                   </button>
                 </div>
@@ -174,18 +175,18 @@ export default function ContactModal({
                     No pudimos enviar el formulario desde acá. Estas dos vías sí funcionan
                     y las miramos igual de seguido:
                   </p>
-                  <div className="flex flex-col gap-2.5 mt-5">
+                  <div className="flex flex-col gap-2 mt-6">
                     <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer"
-                      className="w-full rounded-full bg-highlight text-on-highlight font-bold py-3.5 text-center">
+                      className={`${ui.btnPrimary} w-full`}>
                       Escribirnos por WhatsApp
                     </a>
                     <a href={gmailHref} target="_blank" rel="noopener noreferrer"
-                      className="w-full rounded-full border border-line text-ink font-bold py-3.5 text-center">
+                      className={`${ui.btnSecondary} w-full`}>
                       Escribirnos por Gmail
                     </a>
                   </div>
-                  <p className="text-xs text-faint mt-4 text-center">
-                    O copiá la dirección: <span className="font-mono text-accent-ink">{CONTACT_TO}</span>
+                  <p className="text-[13px] leading-5 text-muted mt-4 text-center">
+                    O copiá la dirección: <span className="font-mono text-ink select-all">{CONTACT_TO}</span>
                   </p>
                 </div>
               )}
@@ -214,7 +215,7 @@ export default function ContactModal({
 
                     <div>
                       <label className={labelCls} htmlFor="c-rubro">
-                        Tu rubro <span className="text-faint normal-case tracking-normal">— opcional</span>
+                        Tu rubro <span className="font-normal text-muted">(opcional)</span>
                       </label>
                       <select id="c-rubro" value={rubro} onChange={(e) => setRubro(e.target.value)}
                         className={inputCls}>
@@ -230,7 +231,7 @@ export default function ContactModal({
                       <textarea id="c-msg" value={message} rows={4}
                         onChange={(e) => setMessage(e.target.value)}
                         placeholder="Hola, tengo un estudio de uñas y quería saber si…"
-                        className={`${inputCls} resize-y min-h-[110px]`} />
+                        className={`${inputCls} h-auto! py-3 resize-y min-h-[112px]`} />
                     </div>
 
                     {/* Honeypot: invisible para personas, tentador para bots. */}
@@ -239,18 +240,17 @@ export default function ContactModal({
                       onChange={(e) => setWebsite(e.target.value)}
                       className="absolute w-px h-px opacity-0 -z-10 pointer-events-none" />
 
-                    {error && <p className="text-sm text-danger">{error}</p>}
+                    {error && <p role="alert" className={ui.errorBox}>{error}</p>}
 
-                    <motion.button whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}
-                      onClick={send} disabled={!puedeEnviar || sending}
-                      className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
-                      {sending ? "Enviando…" : "Enviar consulta →"}
-                    </motion.button>
+                    <button onClick={send} disabled={!puedeEnviar || sending} aria-busy={sending}
+                      className={`${ui.btnPrimary} w-full`}>
+                      {sending ? "Enviando…" : "Enviar consulta"}
+                    </button>
 
-                    <p className="text-xs text-faint text-center">
+                    <p className="text-[13px] leading-5 text-muted text-center">
                       ¿Preferís WhatsApp?{" "}
                       <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer"
-                        className="text-accent-ink font-bold underline">
+                        className="text-accent-ink font-medium underline underline-offset-2">
                         Escribinos por acá
                       </a>
                     </p>

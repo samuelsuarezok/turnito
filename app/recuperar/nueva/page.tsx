@@ -17,7 +17,8 @@ import { createClient } from "@/lib/supabase/client";
 import { traducirErrorAuth } from "@/lib/auth-errors";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
-import { motion, stagger, fadeUp, scaleIn } from "@/components/motion";
+import { motion, EASE } from "@/components/motion";
+import * as ui from "@/lib/ui";
 
 type Estado = "verificando" | "listo" | "sin-sesion" | "guardado";
 
@@ -60,93 +61,77 @@ export default function NuevaPasswordPage() {
     setTimeout(() => router.push("/panel"), 1600);
   }
 
-  const inputCls =
-    "w-full rounded-2xl bg-surface-2 border border-line px-4 py-3.5 outline-none focus:border-accent transition-colors";
-  const labelCls = "block text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
+  const subtitulo = "text-[16px] leading-6 text-muted mt-2";
 
   return (
     <main className="min-h-screen bg-canvas text-body flex items-center justify-center p-6">
-      <motion.div className="w-full max-w-sm" variants={stagger} initial="hidden" animate="show">
-        <motion.div className="relative flex justify-center mb-10" variants={fadeUp}>
-          <Logo size={30} />
+      <motion.div className="w-full max-w-sm"
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }}>
+        <div className="relative flex justify-center mb-8">
+          <Logo size={28} />
           <ThemeToggle className="absolute right-0 top-1/2 -translate-y-1/2" />
-        </motion.div>
+        </div>
 
-        <motion.div className="bg-surface border border-line rounded-3xl p-7" variants={scaleIn}>
+        <div className={`${ui.card} p-8`}>
           {estado === "verificando" && (
-            <p className="text-lg text-faint py-6 text-center">Verificando el link…</p>
+            <p className="text-[15px] text-muted py-6 text-center">Verificando el link…</p>
           )}
 
           {estado === "sin-sesion" && (
             <>
-              <motion.h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
-                Este link no sirve
-              </motion.h1>
-              <motion.p className="text-lg text-muted mb-6" variants={fadeUp}>
+              <h1 className={ui.h1}>Este link no sirve</h1>
+              <p className={`${subtitulo} mb-8`}>
                 Puede haber vencido o ya haberse usado. Los links de recuperación
-                duran un rato y son de un solo uso — pedí uno nuevo.
-              </motion.p>
-              <motion.div variants={fadeUp}>
-                <Link href="/recuperar"
-                  className="block w-full rounded-full bg-accent text-on-accent font-bold py-3.5 text-center">
-                  Pedir otro link
-                </Link>
-              </motion.div>
+                duran un rato y son de un solo uso: pedí uno nuevo.
+              </p>
+              <Link href="/recuperar" className={`${ui.btnPrimary} w-full`}>
+                Pedir otro link
+              </Link>
             </>
           )}
 
           {estado === "guardado" && (
             <>
-              <motion.h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
-                Listo ✓
-              </motion.h1>
-              <motion.p className="text-lg text-muted" variants={fadeUp}>
+              <h1 className={ui.h1}>Listo</h1>
+              <p className={subtitulo}>
                 Cambiamos tu contraseña. Te llevamos al panel…
-              </motion.p>
+              </p>
             </>
           )}
 
           {estado === "listo" && (
-            <>
-              <motion.h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
-                Nueva contraseña
-              </motion.h1>
-              <motion.p className="text-lg text-muted mb-7" variants={fadeUp}>
+            // Un <form> de verdad: Enter guarda y el gestor de contraseñas
+            // ofrece guardar la nueva (autocomplete="new-password").
+            <form noValidate onSubmit={(e) => { e.preventDefault(); if (!loading && pass.length >= 6 && pass === pass2) guardar(); }}>
+              <h1 className={ui.h1}>Nueva contraseña</h1>
+              <p className={`${subtitulo} mb-8`}>
                 Elegí una que puedas recordar. Mínimo 6 caracteres.
-              </motion.p>
+              </p>
 
-              <motion.div variants={fadeUp}>
-                <label className={labelCls}>Contraseña</label>
-                <input type="password" value={pass} onChange={(e) => setPass(e.target.value)}
-                  placeholder="Mínimo 6 caracteres" className={`${inputCls} mb-4`} />
-              </motion.div>
+              <label className={ui.label} htmlFor="n-pass">Contraseña</label>
+              <input id="n-pass" type="password" value={pass} onChange={(e) => setPass(e.target.value)}
+                autoComplete="new-password" placeholder="Mínimo 6 caracteres"
+                className={`${ui.input({ bg: "bg-surface-2" })} mb-5`} />
 
-              <motion.div variants={fadeUp}>
-                <label className={labelCls}>Repetila</label>
-                <input type="password" value={pass2} onChange={(e) => setPass2(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && pass.length >= 6 && pass === pass2) guardar(); }}
-                  placeholder="La misma de arriba" className={`${inputCls} mb-6`} />
-              </motion.div>
+              <label className={ui.label} htmlFor="n-pass2">Repetila</label>
+              <input id="n-pass2" type="password" value={pass2} onChange={(e) => setPass2(e.target.value)}
+                autoComplete="new-password" placeholder="La misma de arriba"
+                className={`${ui.input({ bg: "bg-surface-2" })} mb-6`} />
 
               {error && (
-                <motion.p className="text-lg text-danger mb-4"
-                  initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}>
+                <motion.p role="alert" className={`${ui.errorBox} mb-4`}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                   {error}
                 </motion.p>
               )}
 
-              <motion.button
-                variants={fadeUp}
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={guardar}
-                disabled={loading || pass.length < 6 || pass !== pass2}
-                className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity"
-              >
-                {loading ? "…" : "Guardar y entrar →"}
-              </motion.button>
-            </>
+              <button type="submit" disabled={loading || pass.length < 6 || pass !== pass2} aria-busy={loading}
+                className={`${ui.btnPrimary} w-full`}>
+                {loading ? "Guardando…" : "Guardar y entrar"}
+              </button>
+            </form>
           )}
-        </motion.div>
+        </div>
       </motion.div>
     </main>
   );

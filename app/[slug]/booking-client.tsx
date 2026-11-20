@@ -8,6 +8,10 @@ import { EQUIPO, formatPrecio, formatDuracion } from "@/lib/rubros";
 import { SITE_DOMAIN } from "@/lib/site";
 import { waLink } from "@/lib/contacto";
 import ThemeToggle from "@/components/ThemeToggle";
+import DiaBtn from "@/components/DiaBtn";
+import { IcoAtras, IcoCheck, IcoMail, IcoMensaje, IcoX } from "@/components/icons";
+import * as ui from "@/lib/ui";
+import { cap, diaRelativo } from "@/lib/fechas";
 
 // `staff_ids`: quiénes hacen este servicio. Vacío (o ausente, si todavía no se
 // corrió 0009) = lo hace todo el equipo. Ver 0009_servicios_por_persona.sql.
@@ -52,21 +56,13 @@ function getNext7Days() {
   return Array.from({ length: 7 }, (_, i) => { const d = new Date(); d.setDate(d.getDate() + i); return d; });
 }
 
-const labelCls = "text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
-const inputCls = "w-full rounded-2xl bg-surface border px-4 py-3.5 outline-none transition-colors";
-// Mismo patrón que el login: borde y focus rojos cuando el campo tiene error,
-// así no chocan dos clases focus:border-* con el órden impredecible del CSS.
-const inputOkCls = "border-line focus:border-accent";
-const inputBadCls = "border-danger focus:border-danger";
-const fieldErrCls = "text-[13px] text-danger mt-1.5";
-
+// Los pasos se deslizan apenas (16px) en la dirección en que se avanza: alcanza
+// para que se entienda "adelante" y "atrás" sin que la pantalla se sacuda.
 const stepVariants = {
-  enter: (dir: number) => ({ opacity: 0, x: dir * 60 }),
-  center: { opacity: 1, x: 0, transition: { duration: 0.35, ease: EASE } },
-  exit: (dir: number) => ({ opacity: 0, x: dir * -60, transition: { duration: 0.25, ease: EASE } }),
+  enter: (dir: number) => ({ opacity: 0, x: dir * 16 }),
+  center: { opacity: 1, x: 0, transition: { duration: 0.3, ease: EASE } },
+  exit: (dir: number) => ({ opacity: 0, x: dir * -16, transition: { duration: 0.2, ease: EASE } }),
 };
-const gridStagger = { show: { transition: { staggerChildren: 0.03 } } };
-const gridItem = { hidden: { opacity: 0, scale: 0.9 }, show: { opacity: 1, scale: 1 } };
 
 // El slug llega ya resuelto desde page.tsx, que ahora es un componente de
 // servidor: es el que puede exportar generateMetadata y darle a cada negocio su
@@ -323,23 +319,23 @@ export default function BookingClient({ slug }: { slug: string }) {
     goTo(3);
   }
 
-  if (notFound) return <Center><p className="text-muted">Este negocio no existe o no está disponible.</p></Center>;
+  if (notFound) return <Center><p className="text-[15px] text-muted">Este negocio no existe o no está disponible.</p></Center>;
   if (!shop)
     return (
-      <main className="min-h-screen bg-canvas p-5">
+      <main className="min-h-screen bg-canvas p-4 sm:p-6">
         <div className="max-w-md mx-auto pt-4 animate-pulse">
-          <div className="h-6 w-44 rounded-lg bg-surface mb-2" />
-          <div className="h-3 w-28 rounded bg-line mb-7" />
-          <div className="h-3 w-16 rounded bg-line mb-3" />
-          <div className="grid grid-cols-3 gap-2 mb-6">
-            {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-16 rounded-2xl bg-surface" />)}
+          <div className="h-7 w-48 rounded-lg bg-surface mb-2" />
+          <div className="h-4 w-32 rounded bg-surface mb-8" />
+          <div className="h-4 w-20 rounded bg-surface mb-3" />
+          <div className="grid grid-cols-3 gap-2 mb-8">
+            {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-20 rounded-xl bg-surface" />)}
           </div>
-          <div className="h-3 w-12 rounded bg-line mb-3" />
-          <div className="flex gap-2 mb-6">
-            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-12 h-14 rounded-2xl bg-surface" />)}
+          <div className="h-4 w-12 rounded bg-surface mb-3" />
+          <div className="flex gap-2 mb-8">
+            {Array.from({ length: 6 }).map((_, i) => <div key={i} className="w-14 h-16 rounded-xl bg-surface" />)}
           </div>
           <div className="grid grid-cols-4 gap-2">
-            {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-9 rounded-xl bg-surface" />)}
+            {Array.from({ length: 8 }).map((_, i) => <div key={i} className="h-10 rounded-lg bg-surface" />)}
           </div>
         </div>
       </main>
@@ -349,60 +345,52 @@ export default function BookingClient({ slug }: { slug: string }) {
     return (
       <Center>
         <motion.div className="w-full max-w-sm text-center"
-          initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-          transition={{ type: "spring", stiffness: 200, damping: 18 }}>
-          <motion.div
-            initial={{ scale: 0, rotate: -90 }} animate={{ scale: 1, rotate: 0 }}
-            transition={{ type: "spring", stiffness: 260, damping: 16, delay: 0.15 }}
-            className="w-16 h-16 rounded-full bg-highlight text-on-highlight flex items-center justify-center text-[26px] font-bold mx-auto mb-5">
-            ✓
-          </motion.div>
-          <h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight">¡Turno confirmado!</h1>
-          <p className="text-lg text-muted mb-6">
-            {date === today ? "Hoy" : date} · {time} hs · {shop.name}
+          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }}>
+          {/* El lima marca lo reservado: es el mismo color de la tarjeta
+              "Siguiente" que el local ve en su panel. */}
+          <div className="w-16 h-16 rounded-full bg-highlight text-on-highlight flex items-center justify-center mx-auto mb-6">
+            <IcoCheck size={28} />
+          </div>
+          <h1 className={`${ui.h1} mb-2`}>Turno confirmado</h1>
+          <p className="text-[16px] leading-6 text-muted mb-8">
+            {cap(diaRelativo(date))} a las <span className="text-ink font-medium tabular-nums">{time}</span> · {shop.name}
             {member ? ` · con ${member.name}` : ""}
           </p>
-          <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3, ease: EASE }}
-            className="rounded-3xl bg-surface border border-line p-5 text-left text-lg mb-4">
-            <p className="text-muted mb-2">Guardá este link para ver o cancelar tu turno:</p>
-            <a href={`/t/${token}`} className="font-mono text-[15px] text-accent-ink font-semibold underline break-all">
+          <div className={`${ui.card} p-5 text-left mb-4`}>
+            <p className="text-[15px] leading-6 text-muted mb-2">Guardá este link para ver o cancelar tu turno</p>
+            <a href={`/t/${token}`} className="font-mono text-[14px] leading-5 text-accent-ink underline underline-offset-2 break-all">
               {typeof window !== "undefined" ? window.location.origin : ""}/t/{token}
             </a>
-          </motion.div>
+          </div>
           {emailSent ? (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.45 }}
-              className="rounded-2xl border border-line bg-surface px-4 py-3">
-              <p className="text-[15px] text-body">
-                📧 Te mandamos la confirmación a <span className="font-bold">{email.trim()}</span>.
-              </p>
-              <p className="text-[14px] text-faint mt-1">
-                Si no la ves en unos minutos, <span className="text-accent-ink font-bold">revisá la carpeta de spam</span> o correo no deseado.
-              </p>
-            </motion.div>
+            <div className="rounded-2xl border border-line bg-surface px-4 py-3 text-left flex gap-3">
+              <IcoMail size={18} className="text-muted mt-0.5" />
+              <div>
+                <p className="text-[15px] leading-6 text-body">
+                  Te mandamos la confirmación a <span className="font-medium text-ink">{email.trim()}</span>.
+                </p>
+                <p className="text-[14px] leading-5 text-muted mt-1">
+                  Si no la ves en unos minutos, revisá la carpeta de spam o correo no deseado.
+                </p>
+              </div>
+            </div>
           ) : (
-            <p className="text-[15px] text-faint">Guardá este link: es tu comprobante del turno.</p>
+            <p className="text-[14px] leading-5 text-muted">Es tu comprobante del turno.</p>
           )}
         </motion.div>
       </Center>
     );
 
   return (
-    <main className="min-h-screen bg-canvas text-body p-5 overflow-x-hidden">
+    <main className="min-h-screen bg-canvas text-body p-4 sm:p-6 overflow-x-hidden">
       <div className="max-w-md mx-auto pt-4 pb-16">
-        <motion.div className="flex items-center justify-between mb-7"
-          initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
-          <div>
-            <h1 className="text-[22px] font-extrabold text-ink tracking-tight">{shop.name}</h1>
-            <p className="text-[14px] text-faint font-mono">{SITE_DOMAIN}/{shop.slug}</p>
+        <header className="flex items-start justify-between gap-4 mb-8">
+          <div className="min-w-0">
+            <h1 className="text-[22px] leading-7 font-semibold text-ink truncate">{shop.name}</h1>
+            <p className="text-[13px] leading-5 text-muted font-mono mt-0.5">{SITE_DOMAIN}/{shop.slug}</p>
           </div>
-          <div className="flex items-center gap-2.5">
-            <ThemeToggle />
-            <motion.span animate={{ opacity: [1, 0.55, 1] }} transition={{ duration: 2, repeat: Infinity }}
-            className="bg-highlight text-on-highlight text-[12px] font-extrabold tracking-widest px-3 py-1.5 rounded-full">
-            ONLINE
-          </motion.span>
-          </div>
-        </motion.div>
+          <ThemeToggle />
+        </header>
 
         <AnimatePresence mode="wait" custom={dir}>
           {step === 1 && (
@@ -412,51 +400,47 @@ export default function BookingClient({ slug }: { slug: string }) {
                   tiene que verse ACÁ o el cliente nunca se entera de qué pasó.
                   Se limpia solo al elegir otro día/horario/servicio/persona. */}
               {error && (
-                <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-                  className="rounded-2xl border-[1.5px] border-danger bg-danger-soft px-4 py-3 mb-6 flex items-start justify-between gap-3">
-                  <p className="text-lg text-danger font-semibold">{error}</p>
-                  <button onClick={() => setError("")} aria-label="Cerrar aviso"
-                    className="shrink-0 text-danger text-xl font-bold leading-none">×</button>
+                <motion.div role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  className={`${ui.errorBox} mb-6 flex items-start justify-between gap-3`}>
+                  <p>{error}</p>
+                  <button onClick={() => setError("")} aria-label="Cerrar aviso" className="shrink-0 -mr-1 -mt-0.5">
+                    <IcoX size={16} />
+                  </button>
                 </motion.div>
               )}
 
-              <div className={labelCls}>Servicio</div>
-              <motion.div className="grid grid-cols-3 gap-2 mb-6" variants={gridStagger} initial="hidden" animate="show">
+              <div className={ui.sectionLabel}>Servicio</div>
+              <div className="grid grid-cols-3 gap-2 mb-8">
                 {shop.services.map((s) => (
-                  <motion.button key={s.id} variants={gridItem} whileTap={{ scale: 0.94 }} onClick={() => { setService(s); setError(""); }}
-                    className={`rounded-2xl border-[1.5px] p-3 text-center transition-colors ${
-                      service?.id === s.id ? "border-accent bg-accent-soft" : "border-line bg-surface"
-                    }`}>
-                    <div className="text-[15px] font-bold text-ink">{s.name}</div>
-                    <div className="text-[14px] text-accent-ink font-bold mt-1">{formatPrecio(s.price)}</div>
-                    <div className="text-[13px] text-faint mt-0.5">{formatDuracion(s.duration_min)}</div>
-                  </motion.button>
+                  <button key={s.id} onClick={() => { setService(s); setError(""); }}
+                    aria-pressed={service?.id === s.id} className={ui.opcion(service?.id === s.id)}>
+                    <div className="text-[15px] leading-5 font-semibold text-ink">{s.name}</div>
+                    <div className="text-[14px] leading-5 text-body tabular-nums mt-1">{formatPrecio(s.price)}</div>
+                    <div className="text-[13px] leading-5 text-muted">{formatDuracion(s.duration_min)}</div>
+                  </button>
                 ))}
-              </motion.div>
+              </div>
 
               {/* Equipo: sólo cuando hay algo para elegir. Si el servicio lo
                   hace una sola persona, ya quedó elegida sola y mostrar un
                   selector de una opción es ruido. */}
               {elegibles.length > 1 && (
                 <>
-                  <div className={labelCls}>{EQUIPO.selector}</div>
-                  <motion.div className="grid grid-cols-3 gap-2 mb-6" variants={gridStagger} initial="hidden" animate="show">
+                  <div className={ui.sectionLabel}>{EQUIPO.selector}</div>
+                  <div className="grid grid-cols-3 gap-2 mb-8">
                     {elegibles.map((b) => (
-                      <motion.button key={b.id} variants={gridItem} whileTap={{ scale: 0.94 }}
-                        onClick={() => { setMember(b); setTime(null); setError(""); }}
-                        className={`rounded-2xl border-[1.5px] p-3 text-center transition-colors ${
-                          member?.id === b.id ? "border-accent bg-accent-soft" : "border-line bg-surface"
-                        }`}>
-                        <div className="text-[15px] font-bold truncate text-ink">{b.name}</div>
+                      <button key={b.id} onClick={() => { setMember(b); setTime(null); setError(""); }}
+                        aria-pressed={member?.id === b.id} className={ui.opcion(member?.id === b.id)}>
+                        <div className="text-[15px] leading-5 font-semibold truncate text-ink">{b.name}</div>
                         {estadoAusencia(b, date) === "completo" && (
-                          <div className="text-[13px] text-faint mt-0.5">no está ese día</div>
+                          <div className="text-[13px] leading-5 text-muted mt-0.5">No está ese día</div>
                         )}
                         {estadoAusencia(b, date) === "parcial" && (
-                          <div className="text-[13px] text-faint mt-0.5">tiene menos horarios</div>
+                          <div className="text-[13px] leading-5 text-muted mt-0.5">Tiene menos horarios</div>
                         )}
-                      </motion.button>
+                      </button>
                     ))}
-                  </motion.div>
+                  </div>
                 </>
               )}
 
@@ -464,88 +448,64 @@ export default function BookingClient({ slug }: { slug: string }) {
                   cliente se va al WhatsApp y el turno lo carga el local después,
                   desde el panel. */}
               {esConsulta ? (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className="rounded-2xl border-[1.5px] border-line bg-surface p-5 mb-6">
-                  <div className="text-lg font-bold text-ink mb-1.5">
-                    Este servicio se coordina por WhatsApp
-                  </div>
-                  <p className="text-lg text-muted leading-relaxed mb-4">
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3, ease: EASE }}
+                  className={`${ui.card} p-5 mb-8`}>
+                  <h2 className={`${ui.h2} mb-2`}>Este servicio se coordina por WhatsApp</h2>
+                  <p className="text-[15px] leading-6 text-muted mb-5">
                     {service!.name} se conversa antes de agendar{member ? `. ${member.name} te` : ". Te"} responde
                     y arreglan día y hora juntos.
                   </p>
                   {waConsulta ? (
-                    <a href={waConsulta} target="_blank" rel="noopener noreferrer"
-                      className="block rounded-full bg-accent text-on-accent font-bold text-lg text-center py-3">
-                      Escribir por WhatsApp
+                    <a href={waConsulta} target="_blank" rel="noopener noreferrer" className={`${ui.btnPrimary} w-full`}>
+                      <IcoMensaje /> Escribir por WhatsApp
                     </a>
                   ) : (
-                    <p className="text-lg text-faint">
+                    <p className="text-[15px] leading-6 text-muted">
                       Todavía no cargaron un número de contacto para este servicio.
                     </p>
                   )}
                 </motion.div>
               ) : (
               <>
-              <div className={labelCls}>Día</div>
-              <motion.div className="flex gap-2 overflow-x-auto pb-2 mb-6" variants={gridStagger} initial="hidden" animate="show">
+              <div className={ui.sectionLabel}>Día</div>
+              <div className="flex gap-2 overflow-x-auto pb-2 mb-6">
                 {days.map((d) => {
                   const ds = fmtDate(d);
-                  const on = date === ds;
                   // Cerrado el local, o la persona elegida no está NINGUNA hora.
                   // Una ausencia parcial no tacha el día: deja menos horarios,
                   // y eso se ve al abrirlo.
                   const isClosed =
                     fullDayClosed.has(ds) || (!!member && estadoAusencia(member, ds) === "completo");
                   return (
-                    <motion.button key={ds} variants={gridItem}
-                      whileTap={!isClosed ? { scale: 0.92 } : {}}
-                      disabled={isClosed}
-                      onClick={() => { setDate(ds); setTime(null); setError(""); }}
-                      className={`shrink-0 w-12 rounded-2xl border-[1.5px] py-2 text-center transition-colors ${
-                        isClosed ? "border-line bg-line opacity-45 cursor-not-allowed"
-                          : on ? "border-accent bg-accent-soft" : "border-line bg-surface"
-                      }`}>
-                      <div className={`text-[11px] uppercase font-semibold ${on && !isClosed ? "text-accent-ink" : "text-faint"}`}>
-                        {ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
-                      </div>
-                      <div className={`text-lg font-bold ${isClosed ? "line-through text-faint" : on ? "text-accent-ink" : "text-ink"}`}>
-                        {d.getDate()}
-                      </div>
-                    </motion.button>
+                    <DiaBtn key={ds} fecha={d} label={ds === today ? "Hoy" : DAYS_ES[d.getDay()]}
+                      on={date === ds} disabled={isClosed}
+                      onClick={() => { setDate(ds); setTime(null); setError(""); }} />
                   );
                 })}
-              </motion.div>
+              </div>
 
-              <div className={labelCls}>
-                Horario{service ? ` · ${service.name} (${formatDuracion(service.duration_min)})` : ""}
-                {member ? ` · con ${member.name}` : ""}
+              <div className={ui.sectionLabel}>
+                Horario
+                {service && <span className="text-faint"> · {service.name} ({formatDuracion(service.duration_min)})</span>}
+                {member && <span className="text-faint"> · con {member.name}</span>}
               </div>
               {!service ? (
-                <p className="text-lg text-faint mb-6">Primero elegí un servicio para ver los horarios disponibles.</p>
+                <p className="text-[15px] leading-6 text-muted mb-8">Primero elegí un servicio para ver los horarios disponibles.</p>
               ) : elegibles.length > 0 && !member ? (
-                <p className="text-lg text-faint mb-6">Elegí con quién querés reservar para ver sus horarios.</p>
+                <p className="text-[15px] leading-6 text-muted mb-8">Elegí con quién querés reservar para ver sus horarios.</p>
               ) : dayIsClosed || staffAbsent || grid.length === 0 ? (
-                <p className="text-lg text-faint mb-6">
+                <p className="text-[15px] leading-6 text-muted mb-8">
                   {staffAbsent
                     ? `${member!.name} no atiende ese día. Elegí otro día u otra persona.`
-                    : dayIsClosed ? "Está cerrado ese día. Elegí otro." : "Cerrado este día. Elegí otro."}
+                    : "Está cerrado ese día. Elegí otro."}
                 </p>
               ) : (
-                <motion.div key={`${date}-${service.id}-${member?.id ?? "solo"}`} className="grid grid-cols-4 gap-2 mb-8" variants={gridStagger} initial="hidden" animate="show">
-                  {grid.map((s) => {
-                    const free = availability[s];
-                    const on = time === s;
-                    return (
-                      <motion.button key={s} variants={gridItem} whileTap={free ? { scale: 0.92 } : {}}
-                        disabled={!free} onClick={() => { setTime(s); setError(""); }}
-                        className={`rounded-xl border-[1.5px] py-2 text-[14px] font-bold transition-colors ${
-                          !free ? "border-dashed border-line bg-transparent text-faint line-through"
-                            : on ? "border-accent bg-accent text-on-accent"
-                            : "border-line bg-surface text-body"
-                        }`}>{s}</motion.button>
-                    );
-                  })}
-                </motion.div>
+                <div className="grid grid-cols-4 gap-2 mb-8">
+                  {grid.map((s) => (
+                    <button key={s} disabled={!availability[s]} onClick={() => { setTime(s); setError(""); }}
+                      aria-pressed={time === s} className={ui.horario(availability[s], time === s)}>{s}</button>
+                  ))}
+                </div>
               )}
               </>
               )}
@@ -553,54 +513,57 @@ export default function BookingClient({ slug }: { slug: string }) {
               {/* En modo consulta no hay nada que continuar: el paso siguiente
                   es el chat de WhatsApp, no un formulario de reserva. */}
               {!esConsulta && (
-                <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                  onClick={() => goTo(2)} disabled={!service || !time || (elegibles.length > 0 && !member)}
-                  className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity">
-                  Continuar →
-                </motion.button>
+                <button onClick={() => goTo(2)} disabled={!service || !time || (elegibles.length > 0 && !member)}
+                  className={`${ui.btnPrimary} w-full`}>
+                  Continuar
+                </button>
               )}
             </motion.div>
           )}
 
           {step === 2 && (
-            <motion.div key="s2" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <button onClick={() => goTo(1)} className="text-lg text-muted mb-4 hover:text-accent-ink transition-colors">← Atrás</button>
-              <div className="rounded-2xl bg-surface border border-line px-4 py-3 text-lg text-muted mb-6">
-                <span className="text-ink font-bold">{service?.name}</span> · {date === today ? "hoy" : date} ·{" "}
-                <span className="text-accent-ink font-bold">{time} hs</span>
-                {member && <> · con <span className="text-ink font-bold">{member.name}</span></>}
+            <motion.form key="s2" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit"
+              // Es un <form> para que Enter confirme desde el teclado del celular.
+              // noValidate: los errores los damos nosotros, campo por campo.
+              noValidate onSubmit={(e) => { e.preventDefault(); if (!saving) book(); }}>
+              <button type="button" onClick={() => goTo(1)} className={`${ui.btnTexto} -ml-1 mb-4`}>
+                <IcoAtras /> Atrás
+              </button>
+              <div className="rounded-2xl bg-surface border border-line px-4 py-3 text-[15px] leading-6 text-muted mb-8">
+                <span className="text-ink font-medium">{service?.name}</span> · {diaRelativo(date)} a las{" "}
+                <span className="text-ink font-medium tabular-nums">{time}</span>
+                {member && <> · con <span className="text-ink font-medium">{member.name}</span></>}
               </div>
 
-              <div className={labelCls}>Tu nombre</div>
-              <input value={name} placeholder="Juan Pérez"
+              <label className={ui.label} htmlFor="b-name">Tu nombre</label>
+              <input id="b-name" value={name} placeholder="Juan Pérez" autoComplete="name"
                 onChange={(e) => { setName(e.target.value); if (fieldErrors.name) setFieldErrors({ ...fieldErrors, name: undefined }); }}
                 aria-invalid={!!fieldErrors.name}
                 aria-describedby={fieldErrors.name ? "name-error" : undefined}
-                className={`${inputCls} ${fieldErrors.name ? inputBadCls : inputOkCls} ${fieldErrors.name ? "" : "mb-4"}`} />
-              {fieldErrors.name && <p id="name-error" className={`${fieldErrCls} mb-3`}>{fieldErrors.name}</p>}
+                className={ui.input({ bad: !!fieldErrors.name })} />
+              {fieldErrors.name && <p id="name-error" className={ui.fieldError}>{fieldErrors.name}</p>}
 
-              <div className={labelCls}>Tu WhatsApp</div>
-              <input value={phone} placeholder="351 234-5678" type="tel"
+              <label className={`${ui.label} mt-5`} htmlFor="b-phone">Tu WhatsApp</label>
+              <input id="b-phone" value={phone} placeholder="351 234-5678" type="tel" inputMode="tel" autoComplete="tel"
                 onChange={(e) => { setPhone(e.target.value); if (fieldErrors.phone) setFieldErrors({ ...fieldErrors, phone: undefined }); }}
                 aria-invalid={!!fieldErrors.phone}
                 aria-describedby={fieldErrors.phone ? "phone-error" : undefined}
-                className={`${inputCls} ${fieldErrors.phone ? inputBadCls : inputOkCls} ${fieldErrors.phone ? "" : EMAIL_ENABLED ? "mb-4" : "mb-2"}`} />
-              {fieldErrors.phone && <p id="phone-error" className={`${fieldErrCls} ${EMAIL_ENABLED ? "mb-3" : "mb-1"}`}>{fieldErrors.phone}</p>}
+                className={ui.input({ bad: !!fieldErrors.phone })} />
+              {fieldErrors.phone && <p id="phone-error" className={ui.fieldError}>{fieldErrors.phone}</p>}
 
               {EMAIL_ENABLED && (
                 <>
-                  <div className={labelCls}>
-                    Tu email <span className="text-faint normal-case tracking-normal">— opcional</span>
-                  </div>
-                  <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="juan@gmail.com"
-                    type="email" inputMode="email" autoComplete="email"
-                    className={`${inputCls} ${inputOkCls} mb-2`} />
-                  <p className="text-[15px] text-faint mb-1">
+                  <label className={`${ui.label} mt-5`} htmlFor="b-email">
+                    Tu email <span className="font-normal text-muted">(opcional)</span>
+                  </label>
+                  <input id="b-email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="juan@gmail.com"
+                    type="email" inputMode="email" autoComplete="email" className={ui.input()} />
+                  <p className={`${ui.ayuda} mt-2`}>
                     Si lo dejás, te mandamos la confirmación por mail. Podés saltearlo y reservar igual.
                   </p>
                 </>
               )}
-              <p className="text-[15px] text-faint mb-7">Solo usamos tus datos para tu turno. No creamos ninguna cuenta.</p>
+              <p className={`${ui.ayuda} mt-4 mb-8`}>Solo usamos tus datos para tu turno. No creamos ninguna cuenta.</p>
 
               {/* Honeypot: invisible para humanos, irresistible para bots.
                   Lo sacamos de pantalla en vez de usar display:none porque
@@ -619,26 +582,25 @@ export default function BookingClient({ slug }: { slug: string }) {
               />
 
               {error && (
-                <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-lg text-danger mb-4">{error}</motion.p>
+                <motion.p role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`${ui.errorBox} mb-4`}>
+                  {error}
+                </motion.p>
               )}
 
               {/* El botón solo se apaga mientras se está reservando. Por campos
                   incompletos NO se deshabilita: validamos al tocar y avisamos
-                  campo por campo (CP-10). Sin "scale" mientras está apagado,
-                  porque animar un botón disabled sugiere que responde. */}
-              <motion.button whileHover={saving ? undefined : { scale: 1.02 }} whileTap={saving ? undefined : { scale: 0.97 }}
-                onClick={book} disabled={saving}
-                className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity">
-                {saving ? "Reservando…" : "Confirmar turno →"}
-              </motion.button>
-              <p className="text-[13px] text-faint text-center mt-4 leading-relaxed">
+                  campo por campo (CP-10). */}
+              <button type="submit" disabled={saving} aria-busy={saving} className={`${ui.btnPrimary} w-full`}>
+                {saving ? "Reservando…" : "Confirmar turno"}
+              </button>
+              <p className="text-[13px] leading-5 text-muted text-center mt-4">
                 Al reservar aceptás los{" "}
-                <a href="/legales" target="_blank" className="underline hover:text-accent-ink transition-colors">
+                <a href="/legales" target="_blank" className="underline underline-offset-2 hover:text-ink transition-colors">
                   Términos y la Política de Privacidad
                 </a>{" "}
                 de Turnito
               </p>
-            </motion.div>
+            </motion.form>
           )}
         </AnimatePresence>
       </div>

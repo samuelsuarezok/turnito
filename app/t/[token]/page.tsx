@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { motion, AnimatePresence } from "framer-motion";
+import { IcoCheck, IcoX } from "@/components/icons";
+import * as ui from "@/lib/ui";
+import { cap, fechaLarga } from "@/lib/fechas";
 
 type Appt = {
   shop_name: string; client_name: string; service: string;
@@ -13,8 +16,6 @@ type Appt = {
 };
 
 const EASE = [0.22, 1, 0.36, 1] as const;
-const rowStagger = { show: { transition: { staggerChildren: 0.07, delayChildren: 0.15 } } };
-const rowItem = { hidden: { opacity: 0, x: -14 }, show: { opacity: 1, x: 0 } };
 
 export default function MagicLinkPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = use(params);
@@ -61,14 +62,14 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
     }
   }
 
-  if (notFound) return <Center><p className="text-muted">Este link no corresponde a ningún turno.</p></Center>;
+  if (notFound) return <Center><p className="text-[15px] text-muted">Este link no corresponde a ningún turno.</p></Center>;
   if (!appt)
     return (
       <Center>
         <div className="w-full max-w-sm animate-pulse">
           <div className="h-7 w-24 rounded bg-surface mx-auto mb-8" />
           <div className="rounded-3xl border border-line bg-surface p-6">
-            <div className="w-12 h-12 rounded-full bg-line mx-auto mb-3" />
+            <div className="w-12 h-12 rounded-full bg-surface-2 mx-auto mb-4" />
             <div className="h-5 w-32 rounded bg-line mx-auto mb-2" />
             <div className="h-3 w-24 rounded bg-surface-2 mx-auto mb-6" />
             {Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-9 rounded bg-surface-2 mb-2" />)}
@@ -82,44 +83,39 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
 
   return (
     <Center>
-      <div className="w-full max-w-sm">
+      <motion.div className="w-full max-w-sm"
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }}>
         {/* relative + absolute para que el logo quede centrado de verdad: si
             el toggle fuera su hermano en el flex, lo correría a la izquierda. */}
-        <motion.div className="relative flex justify-center mb-8"
-          initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
+        <div className="relative flex justify-center mb-8">
           <Logo size={28} />
           <ThemeToggle className="absolute right-0 top-1/2 -translate-y-1/2" />
-        </motion.div>
+        </div>
 
-        <motion.div
-          initial={{ opacity: 0, scale: 0.94, y: 16 }} animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: "spring", stiffness: 220, damping: 22 }}
-          className={`rounded-3xl border p-6 bg-surface ${cancelled ? "border-danger/40" : "border-line"}`}>
+        <div className={`${ui.card} p-6 ${cancelled ? "border-danger/40" : ""}`}>
           <div className="text-center mb-6">
-            <motion.div
-              initial={{ scale: 0 }} animate={{ scale: 1 }}
-              transition={{ type: "spring", stiffness: 300, damping: 15, delay: 0.1 }}
-              className={`w-12 h-12 rounded-full flex items-center justify-center text-[26px] font-bold mx-auto mb-3 ${
-                cancelled ? "bg-danger-soft text-danger" : "bg-highlight text-on-highlight"
-              }`}>
-              {cancelled ? "✕" : "✓"}
-            </motion.div>
-            <h1 className={`text-[22px] font-extrabold ${cancelled ? "text-danger" : "text-ink"}`}>
+            {/* Lima = turno reservado, igual que en la confirmación y en el
+                panel del local. Cancelado, rojo suave. */}
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${
+              cancelled ? "bg-danger-soft text-danger" : "bg-highlight text-on-highlight"}`}>
+              {cancelled ? <IcoX size={22} /> : <IcoCheck size={22} />}
+            </div>
+            <h1 className={`text-[22px] leading-7 font-semibold ${cancelled ? "text-danger" : "text-ink"}`}>
               {cancelled ? "Turno cancelado" : finished ? "Turno finalizado" : "Tu turno"}
             </h1>
-            <p className="text-[14px] text-faint mt-1">{appt.shop_name}</p>
+            <p className="text-[14px] leading-5 text-muted mt-1">{appt.shop_name}</p>
           </div>
 
-          <motion.div variants={rowStagger} initial="hidden" animate="show">
+          <div>
             <Row label="Cliente" value={appt.client_name} strike={cancelled} />
             <Row label="Servicio" value={appt.service} strike={cancelled} />
-            <Row label="Día" value={appt.date} strike={cancelled} />
-            <Row label="Hora" value={`${appt.time.slice(0, 5)} hs`} strike={cancelled} highlight={!cancelled} />
-          </motion.div>
+            <Row label="Día" value={cap(fechaLarga(appt.date))} strike={cancelled} />
+            <Row label="Hora" value={appt.time.slice(0, 5)} strike={cancelled} />
+          </div>
 
           {cancelError && (
-            <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className="text-[15px] text-amber-600 text-center mt-4">{cancelError}</motion.p>
+            <motion.p role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+              className={`${ui.errorBox} mt-4`}>{cancelError}</motion.p>
           )}
 
           {/* Cancelable solo si está vigente Y dentro del límite */}
@@ -129,27 +125,28 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
                 {!confirmCancel ? (
                   <motion.button key="ask"
                     initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                    whileTap={{ scale: 0.97 }}
+                    transition={{ duration: 0.15 }}
                     onClick={() => setConfirmCancel(true)}
-                    className="w-full rounded-full border-[1.5px] border-danger/40 text-danger text-lg font-bold py-3">
+                    className={`${ui.btnSecondary} w-full text-danger!`}>
                     Cancelar turno
                   </motion.button>
                 ) : (
                   <motion.div key="confirm"
-                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
-                    transition={{ ease: EASE }}>
-                    <p className="text-[15px] text-muted text-center mb-3">
+                    initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2, ease: EASE }}>
+                    <p className="text-[15px] leading-6 text-muted text-center mb-4">
                       ¿Seguro? El horario se libera para otra persona.
                     </p>
                     <div className="flex gap-2">
-                      <motion.button whileTap={{ scale: 0.96 }} onClick={() => setConfirmCancel(false)}
-                        className="flex-1 rounded-full border-[1.5px] border-line text-body text-lg font-bold py-3">
+                      <button onClick={() => setConfirmCancel(false)} className={`${ui.btnSecondary} flex-1 px-4!`}>
                         No, lo mantengo
-                      </motion.button>
-                      <motion.button whileTap={{ scale: 0.96 }} onClick={cancel} disabled={cancelling}
-                        className="flex-1 rounded-full bg-danger text-white text-lg font-bold py-3 disabled:opacity-50">
-                        {cancelling ? "…" : "Sí, cancelar"}
-                      </motion.button>
+                      </button>
+                      {/* text-surface y no text-white: en modo noche el rojo es
+                          claro y el blanco encima no se leía. */}
+                      <button onClick={cancel} disabled={cancelling} aria-busy={cancelling}
+                        className="flex-1 h-12 rounded-full bg-danger text-surface text-[16px] font-semibold transition-[opacity,transform] duration-150 active:scale-[0.98] disabled:opacity-50">
+                        {cancelling ? "Cancelando…" : "Sí, cancelar"}
+                      </button>
                     </div>
                   </motion.div>
                 )}
@@ -159,27 +156,26 @@ export default function MagicLinkPage({ params }: { params: Promise<{ token: str
 
           {/* Vigente pero fuera del límite de cancelación */}
           {!cancelled && !finished && !appt.can_cancel && (
-            <p className="text-[15px] text-faint text-center mt-6">
+            <p className="text-[15px] leading-6 text-muted text-center mt-6">
               Este turno ya no se puede cancelar online.<br />Si no llegás, avisale al local.
             </p>
           )}
-        </motion.div>
+        </div>
 
-        <motion.p initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.5 }}
-          className="text-center text-[14px] text-faint mt-4">
+        <p className="text-center text-[14px] leading-5 text-muted mt-4">
           Guardá este link: es tu comprobante del turno.
-        </motion.p>
-      </div>
+        </p>
+      </motion.div>
     </Center>
   );
 }
 
-function Row({ label, value, strike, highlight }: { label: string; value: string; strike?: boolean; highlight?: boolean }) {
+function Row({ label, value, strike }: { label: string; value: string; strike?: boolean }) {
   return (
-    <motion.div variants={rowItem} className="flex justify-between py-2.5 border-b border-line last:border-0 text-lg">
-      <span className="text-faint">{label}</span>
-      <span className={`font-bold ${strike ? "line-through text-faint" : highlight ? "text-accent-ink" : "text-ink"}`}>{value}</span>
-    </motion.div>
+    <div className="flex justify-between gap-4 py-3 border-b border-line last:border-0 text-[16px] leading-6">
+      <span className="text-muted">{label}</span>
+      <span className={`font-medium text-right tabular-nums ${strike ? "line-through text-muted" : "text-ink"}`}>{value}</span>
+    </div>
   );
 }
 

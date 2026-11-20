@@ -7,6 +7,8 @@ import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
 import { SITE_DOMAIN, slugify } from "@/lib/site";
 import { motion, AnimatePresence } from "framer-motion";
+import { IcoAtras, IcoCheck, IcoPlus, IcoSeguir, IcoX } from "@/components/icons";
+import * as ui from "@/lib/ui";
 import {
   RUBROS_LISTA,
   RUBROS,
@@ -41,18 +43,12 @@ for (let h = 6; h <= 23; h++) {
 type Service = { name: string; duration_min: number; price: number };
 type DayHours = { open: boolean; opens_at: string; closes_at: string };
 
-const inputCls = "w-full rounded-2xl bg-surface border border-line px-4 py-3.5 outline-none focus:border-accent transition-colors";
-const labelCls = "block text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
-const selectCls = "rounded-xl bg-surface border border-line px-2.5 py-1.5 text-[15px] outline-none focus:border-accent";
-
+// Los pasos se deslizan apenas (16px) en la dirección en que se avanza.
 const stepVariants = {
-  enter: (dir: number) => ({ opacity: 0, x: dir * 60 }),
-  center: { opacity: 1, x: 0, transition: { duration: 0.35, ease: EASE } },
-  exit: (dir: number) => ({ opacity: 0, x: dir * -60, transition: { duration: 0.25, ease: EASE } }),
+  enter: (dir: number) => ({ opacity: 0, x: dir * 16 }),
+  center: { opacity: 1, x: 0, transition: { duration: 0.3, ease: EASE } },
+  exit: (dir: number) => ({ opacity: 0, x: dir * -16, transition: { duration: 0.2, ease: EASE } }),
 };
-
-const listStagger = { show: { transition: { staggerChildren: 0.05 } } };
-const listItem = { hidden: { opacity: 0, y: 14 }, show: { opacity: 1, y: 0 } };
 
 const TOTAL_STEPS = 4;
 
@@ -179,54 +175,51 @@ export default function OnboardingPage() {
     }
   }
 
-  const btnPrimary = "w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity";
+  const btnPrimary = `${ui.btnPrimary} w-full`;
 
   if (checking)
-    return <main className="min-h-screen bg-canvas flex items-center justify-center"><p className="text-faint">Cargando…</p></main>;
+    return <main className="min-h-screen bg-canvas flex items-center justify-center"><p className="text-[15px] text-muted">Cargando…</p></main>;
 
   if (sessionLost)
     return (
       <main className="min-h-screen bg-canvas flex items-center justify-center p-6">
         <div className="text-center max-w-xs">
-          <p className="text-lg font-bold text-ink">Tu sesión no está activa</p>
-          <p className="text-[15px] text-muted mt-1 mb-5">Iniciá sesión de nuevo para crear tu negocio. Es un minuto.</p>
-          <button onClick={() => router.push("/login")}
-            className="rounded-full bg-accent text-on-accent font-bold text-lg px-6 py-3">
+          <p className="text-[18px] leading-6 font-semibold text-ink">Tu sesión no está activa</p>
+          <p className="text-[15px] leading-6 text-muted mt-1 mb-6">Iniciá sesión de nuevo para crear tu negocio. Es un minuto.</p>
+          <button onClick={() => router.push("/login")} className={ui.btnPrimary}>
             Ir a iniciar sesión
           </button>
         </div>
       </main>
     );
 
+  const subtitulo = "text-[16px] leading-6 text-muted mt-2 mb-8";
+
   return (
-    <main className="min-h-screen bg-canvas text-body p-6 overflow-x-hidden">
+    <main className="min-h-screen bg-canvas text-body p-4 sm:p-6 overflow-x-hidden">
       <div className="max-w-md mx-auto pt-6 pb-16">
         {/* relative + absolute para que el logo quede centrado de verdad: si
             el toggle fuera su hermano en el flex, lo correría a la izquierda. */}
-        <motion.div className="relative flex justify-center mb-8" initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ ease: EASE }}>
+        <div className="relative flex justify-center mb-8">
           <Logo size={28} />
           <ThemeToggle className="absolute right-0 top-1/2 -translate-y-1/2" />
-        </motion.div>
+        </div>
 
-        {/* progreso */}
-        <div className="flex items-center gap-2 mb-10">
+        {/* progreso. Antes los colores estaban escritos en hex adentro de la
+            animación (#014CFF, #FFFFFF) y en modo noche quedaban círculos
+            blancos sobre negro. Ahora salen de los tokens. */}
+        <div className="flex items-center gap-2 mb-10" aria-label={`Paso ${step} de ${TOTAL_STEPS}`}>
           {Array.from({ length: TOTAL_STEPS }, (_, i) => i + 1).map((n) => (
             <div key={n} className="flex items-center gap-2 flex-1 last:flex-none">
-              <motion.div
-                animate={{
-                  backgroundColor: n <= step ? "#014CFF" : "#FFFFFF",
-                  color: n <= step ? "#FFFFFF" : "#9AA0AA",
-                  scale: n === step ? 1.12 : 1,
-                }}
-                transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                className="w-8 h-8 rounded-full flex items-center justify-center text-[15px] font-bold shrink-0 border border-line"
-              >
-                {n < step ? "✓" : n}
-              </motion.div>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[14px] font-medium tabular-nums shrink-0 border transition-colors duration-200 ${
+                n <= step ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"}`}>
+                {n < step ? <IcoCheck size={14} /> : n}
+              </div>
               {n < TOTAL_STEPS && (
-                <div className="h-px flex-1 bg-line relative overflow-hidden rounded">
-                  <motion.div className="absolute inset-y-0 left-0 bg-accent"
-                    animate={{ width: n < step ? "100%" : "0%" }} transition={{ duration: 0.4, ease: EASE }} />
+                <div className="h-px flex-1 bg-line relative overflow-hidden">
+                  {/* scaleX y no width: se anima con transform, sin recalcular layout. */}
+                  <motion.div className="absolute inset-0 bg-accent origin-left"
+                    initial={false} animate={{ scaleX: n < step ? 1 : 0 }} transition={{ duration: 0.3, ease: EASE }} />
                 </div>
               )}
             </div>
@@ -234,180 +227,187 @@ export default function OnboardingPage() {
         </div>
 
         {step > 1 && (
-          <button onClick={() => goTo(step - 1)} className="text-lg text-muted mb-4 hover:text-accent-ink transition-colors">← Atrás</button>
+          <button onClick={() => goTo(step - 1)} className={`${ui.btnTexto} -ml-1 mb-4`}>
+            <IcoAtras /> Atrás
+          </button>
         )}
 
         <AnimatePresence mode="wait" custom={dir}>
           {/* PASO 1 — RUBRO */}
           {step === 1 && (
             <motion.div key="s1" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight">¿A qué te dedicás?</h1>
-              <p className="text-lg text-muted mb-8">Para dejarte los servicios típicos ya cargados</p>
+              <h1 className={ui.h1}>¿A qué te dedicás?</h1>
+              <p className={subtitulo}>Para dejarte los servicios típicos ya cargados</p>
 
-              <motion.div variants={listStagger} initial="hidden" animate="show" className="grid grid-cols-2 gap-2.5">
+              {/* Cada opción dice qué servicios se precargan: eso es lo que el
+                  dueño está eligiendo, y antes sólo se veía un emoji. */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {RUBROS_LISTA.map((r) => (
-                  <motion.button key={r.id} variants={listItem} whileTap={{ scale: 0.96 }}
-                    onClick={() => pickRubro(r.id)}
-                    className="rounded-3xl bg-surface border-[1.5px] border-line hover:border-accent p-5 text-left transition-colors">
-                    <div className="text-[26px] mb-2">{r.emoji}</div>
-                    <div className="text-lg font-bold text-ink">{r.label}</div>
-                  </motion.button>
+                  <button key={r.id} onClick={() => pickRubro(r.id)}
+                    className="group flex items-center gap-3 rounded-2xl bg-surface border border-line hover:border-accent px-4 py-4 text-left transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[16px] leading-6 font-semibold text-ink">{r.label}</div>
+                      <div className="text-[13px] leading-5 text-muted truncate">
+                        {r.servicios.length > 0 ? r.servicios.map((x) => x.name).join(", ") : "Cargás tus propios servicios"}
+                      </div>
+                    </div>
+                    <IcoSeguir className="text-faint group-hover:text-accent-ink transition-colors" />
+                  </button>
                 ))}
-              </motion.div>
+              </div>
             </motion.div>
           )}
 
           {/* PASO 2 — NEGOCIO */}
           {step === 2 && rubro && (
             <motion.div key="s2" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight">Tu {rubro.negocio}</h1>
-              <p className="text-lg text-muted mb-8">Los datos básicos del local</p>
+              <h1 className={ui.h1}>Tu {rubro.negocio}</h1>
+              <p className={subtitulo}>Los datos básicos del local</p>
 
-              <label className={labelCls}>Nombre</label>
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={rubro.ejemploNombre} className={`${inputCls} mb-4`} />
+              <label className={ui.label} htmlFor="o-nombre">Nombre</label>
+              <input id="o-nombre" value={name} onChange={(e) => setName(e.target.value)} placeholder={rubro.ejemploNombre}
+                autoComplete="organization" className={`${ui.input()} mb-5`} />
 
-              <label className={labelCls}>WhatsApp del local</label>
-              <input value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="351 234-5678" className={`${inputCls} mb-4`} />
+              <label className={ui.label} htmlFor="o-wa">WhatsApp del local</label>
+              <input id="o-wa" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} placeholder="351 234-5678"
+                type="tel" inputMode="tel" className={`${ui.input()} mb-5`} />
 
-              <label className={labelCls}>Tu link</label>
-              <div className="flex items-center rounded-2xl bg-surface border border-line mb-8 focus-within:border-accent transition-colors">
-                <span className="pl-4 text-lg text-faint font-mono">{SITE_DOMAIN}/</span>
-                <input value={effectiveSlug} onChange={(e) => { setSlugEdited(true); setSlug(slugify(e.target.value)); }}
-                  placeholder={rubro.ejemploSlug} className="flex-1 bg-transparent px-1 py-3.5 outline-none font-mono text-lg text-accent-ink font-semibold" />
+              <label className={ui.label} htmlFor="o-slug">Tu link</label>
+              <div className="flex items-center h-12 rounded-xl bg-surface border border-line mb-8 transition-[border-color,box-shadow] duration-150 focus-within:border-accent focus-within:shadow-[0_0_0_3px_var(--c-accent-soft)]">
+                <span className="pl-4 text-[15px] text-muted font-mono">{SITE_DOMAIN}/</span>
+                <input id="o-slug" value={effectiveSlug} onChange={(e) => { setSlugEdited(true); setSlug(slugify(e.target.value)); }}
+                  placeholder={rubro.ejemploSlug} autoCapitalize="none" spellCheck={false}
+                  className="flex-1 min-w-0 h-full bg-transparent pr-4 outline-none font-mono text-[15px] text-ink placeholder:text-faint" />
               </div>
 
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={() => goTo(3)}
+              <button onClick={() => goTo(3)}
                 disabled={name.trim().length < 3 || whatsapp.trim().length < 7 || !effectiveSlug}
-                className={btnPrimary}>Continuar →</motion.button>
+                className={btnPrimary}>Continuar</button>
             </motion.div>
           )}
 
           {/* PASO 3 — SERVICIOS */}
           {step === 3 && (
             <motion.div key="s3" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight">Tus servicios</h1>
-              <p className="text-lg text-muted mb-8">Con precio y duración. Podés editarlos cuando quieras.</p>
+              <h1 className={ui.h1}>Tus servicios</h1>
+              <p className={subtitulo}>Con precio y duración. Podés editarlos cuando quieras.</p>
 
-              <motion.div variants={listStagger} initial="hidden" animate="show">
-                <AnimatePresence>
-                  {services.map((svc, i) => {
-                    const aConsultar = svc.price === 0;
-                    return (
-                      <motion.div key={i} layout variants={listItem}
-                        initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} exit={{ opacity: 0, scale: 0.9, height: 0, marginBottom: 0 }}
-                        className="rounded-3xl bg-surface border border-line p-4 mb-3">
-                        <div className="flex gap-2 mb-3">
-                          <input value={svc.name}
-                            onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, name: e.target.value } : s)))}
-                            placeholder="Nombre del servicio"
-                            className="flex-1 rounded-xl bg-canvas border border-line px-3 py-2.5 text-lg outline-none focus:border-accent" />
-                          {services.length > 1 && (
-                            <button onClick={() => setServices(services.filter((_, j) => j !== i))} className="text-danger px-2">✕</button>
-                          )}
+              <AnimatePresence initial={false}>
+                {services.map((svc, i) => {
+                  const aConsultar = svc.price === 0;
+                  return (
+                    <motion.div key={i} layout
+                      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                      transition={{ duration: 0.2, ease: EASE }}
+                      className="rounded-2xl bg-surface border border-line p-4 mb-3">
+                      <div className="flex gap-2 mb-3">
+                        <input value={svc.name} aria-label="Nombre del servicio"
+                          onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, name: e.target.value } : s)))}
+                          placeholder="Nombre del servicio"
+                          className={`${ui.input({ bg: "bg-canvas" })} flex-1`} />
+                        {services.length > 1 && (
+                          <button onClick={() => setServices(services.filter((_, j) => j !== i))}
+                            className={`${ui.iconBtn} h-12! w-12! hover:text-danger`} aria-label="Quitar servicio">
+                            <IcoX />
+                          </button>
+                        )}
+                      </div>
+                      <div className="flex gap-3">
+                        <div className="flex-1">
+                          <label className="block text-[13px] leading-5 text-muted mb-1">Duración</label>
+                          <select value={svc.duration_min}
+                            onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, duration_min: Number(e.target.value) } : s)))}
+                            className={`${ui.select} w-full h-12! bg-canvas!`}>
+                            {DURACION_OPTS.map((d) => (<option key={d} value={d}>{formatDuracion(d)}</option>))}
+                          </select>
                         </div>
-                        <div className="flex gap-3">
-                          <div className="flex-1">
-                            <label className="block text-[12px] text-faint mb-1 uppercase tracking-wider font-bold">Duración</label>
-                            <select value={svc.duration_min}
-                              onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, duration_min: Number(e.target.value) } : s)))}
-                              className={`${selectCls} w-full py-2.5`}>
-                              {DURACION_OPTS.map((d) => (<option key={d} value={d}>{formatDuracion(d)}</option>))}
-                            </select>
-                          </div>
-                          <div className="flex-1">
-                            <label className="block text-[12px] text-faint mb-1 uppercase tracking-wider font-bold">Precio (ARS)</label>
-                            <input type="number" value={svc.price || ""} disabled={aConsultar}
-                              onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, price: Number(e.target.value) } : s)))}
-                              placeholder={aConsultar ? "A consultar" : "3500"}
-                              className="w-full rounded-xl bg-canvas border border-line px-3 py-2 text-lg outline-none focus:border-accent disabled:text-faint disabled:italic" />
-                          </div>
+                        <div className="flex-1">
+                          <label className="block text-[13px] leading-5 text-muted mb-1">Precio (ARS)</label>
+                          <input type="number" inputMode="numeric" value={svc.price || ""} disabled={aConsultar}
+                            onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, price: Number(e.target.value) } : s)))}
+                            placeholder={aConsultar ? "A consultar" : "3500"}
+                            className={`${ui.input({ bg: "bg-canvas" })} tabular-nums`} />
                         </div>
-                        {/* Sin precio de lista: el tatuaje se cotiza por diseño. */}
-                        <label className="flex items-center gap-2 mt-3 text-[15px] text-muted cursor-pointer select-none">
-                          <input type="checkbox" checked={aConsultar}
-                            onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, price: e.target.checked ? 0 : 1000 } : s)))}
-                            className="accent-[var(--c-accent)] w-4 h-4" />
-                          Sin precio fijo — mostrar &quot;a consultar&quot;
-                        </label>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </motion.div>
+                      </div>
+                      {/* Sin precio de lista: el tatuaje se cotiza por diseño. */}
+                      <label className="flex items-center gap-2 mt-3 text-[14px] leading-5 text-muted cursor-pointer select-none">
+                        <input type="checkbox" checked={aConsultar}
+                          onChange={(e) => setServices(services.map((s, j) => (j === i ? { ...s, price: e.target.checked ? 0 : 1000 } : s)))}
+                          className="accent-[var(--c-accent)] w-4 h-4" />
+                        Sin precio fijo: mostrar &quot;a consultar&quot;
+                      </label>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
 
-              <motion.button whileTap={{ scale: 0.97 }}
-                onClick={() => setServices([...services, { name: "", duration_min: rubro?.slotMinutes ?? 30, price: 0 }])}
-                className="w-full rounded-3xl border border-dashed border-line py-3.5 text-lg text-accent-ink font-bold mb-8 hover:border-accent transition-colors">
-                + Agregar servicio
-              </motion.button>
+              <button onClick={() => setServices([...services, { name: "", duration_min: rubro?.slotMinutes ?? 30, price: 0 }])}
+                className={`${ui.btnAgregar} mb-8`}>
+                <IcoPlus /> Agregar servicio
+              </button>
 
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={() => goTo(4)}
+              <button onClick={() => goTo(4)}
                 disabled={services.length === 0 || services.some((s) => !s.name.trim())}
-                className={btnPrimary}>Continuar →</motion.button>
+                className={btnPrimary}>Continuar</button>
             </motion.div>
           )}
 
           {/* PASO 4 — HORARIOS */}
           {step === 4 && (
             <motion.div key="s4" custom={dir} variants={stepVariants} initial="enter" animate="center" exit="exit">
-              <h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight">Tus horarios</h1>
-              <p className="text-lg text-muted mb-8">Cuándo está abierto el local</p>
+              <h1 className={ui.h1}>Tus horarios</h1>
+              <p className={subtitulo}>Cuándo está abierto el local</p>
 
-              <motion.div variants={listStagger} initial="hidden" animate="show">
+              <div className="flex flex-col gap-2">
                 {DAYS.map((d) => {
                   const h = hours[d.weekday];
                   return (
-                    <motion.div key={d.weekday} variants={listItem}
-                      animate={{ opacity: h.open ? 1 : 0.5 }}
-                      className="flex items-center gap-3 rounded-2xl bg-surface border border-line px-4 py-3 mb-2">
+                    <div key={d.weekday}
+                      className={`flex items-center gap-3 rounded-xl bg-surface border border-line px-4 h-14 transition-opacity ${h.open ? "" : "opacity-60"}`}>
                       <button onClick={() => setHours({ ...hours, [d.weekday]: { ...h, open: !h.open } })}
-                        className={`w-10 h-[22px] rounded-full relative transition-colors shrink-0 ${h.open ? "bg-accent" : "bg-line"}`}>
-                        <motion.span layout transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                          className={`absolute top-[3px] w-4 h-4 rounded-full bg-surface ${h.open ? "left-[22px]" : "left-[3px]"}`} />
+                        role="switch" aria-checked={h.open} aria-label={`${d.label} abierto`}
+                        className={`w-10 h-6 rounded-full relative transition-colors shrink-0 ${h.open ? "bg-accent" : "bg-line"}`}>
+                        {/* transform y no `left`: se mueve sin recalcular layout. */}
+                        <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-surface transition-transform duration-200 ease-out ${h.open ? "translate-x-4" : "translate-x-0"}`} />
                       </button>
-                      <span className="text-lg font-bold w-20 text-ink">{d.label}</span>
+                      <span className="text-[16px] font-medium w-24 text-ink">{d.label}</span>
                       {h.open ? (
                         <div className="flex items-center gap-1.5 ml-auto">
-                          <select value={h.opens_at} onChange={(e) => setHours({ ...hours, [d.weekday]: { ...h, opens_at: e.target.value } })} className={selectCls}>
+                          <select value={h.opens_at} aria-label={`${d.label} abre`} onChange={(e) => setHours({ ...hours, [d.weekday]: { ...h, opens_at: e.target.value } })} className={ui.select}>
                             {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
                           </select>
-                          <span className="text-[15px] text-faint">a</span>
-                          <select value={h.closes_at} onChange={(e) => setHours({ ...hours, [d.weekday]: { ...h, closes_at: e.target.value } })} className={selectCls}>
+                          <span className="text-[14px] text-muted">a</span>
+                          <select value={h.closes_at} aria-label={`${d.label} cierra`} onChange={(e) => setHours({ ...hours, [d.weekday]: { ...h, closes_at: e.target.value } })} className={ui.select}>
                             {HOUR_OPTS.map((o) => (<option key={o}>{o}</option>))}
                           </select>
                         </div>
                       ) : (
-                        <span className="ml-auto text-[15px] text-faint">Cerrado</span>
+                        <span className="ml-auto text-[14px] text-muted">Cerrado</span>
                       )}
-                    </motion.div>
+                    </div>
                   );
                 })}
-              </motion.div>
+              </div>
 
-              <label className={`${labelCls} mt-6`}>Cada cuánto arranca un turno</label>
-              <div className="flex gap-2 mb-2">
+              <div className={`${ui.label} mt-8`}>Cada cuánto arranca un turno</div>
+              <div className="grid grid-cols-4 gap-2 mb-2">
                 {[15, 30, 45, 60].map((mm) => (
-                  <motion.button key={mm} whileTap={{ scale: 0.94 }} onClick={() => setSlotMinutes(mm)}
-                    className={`flex-1 rounded-full py-2.5 text-lg font-bold border transition-colors ${
-                      slotMinutes === mm ? "bg-accent text-on-accent border-accent" : "bg-surface text-muted border-line"
-                    }`}>{mm} min</motion.button>
+                  <button key={mm} onClick={() => setSlotMinutes(mm)} aria-pressed={slotMinutes === mm}
+                    className={`${ui.chip(slotMinutes === mm)} justify-center h-10!`}>{mm} min</button>
                 ))}
               </div>
-              <p className="text-[15px] text-faint mb-8">
+              <p className={`${ui.ayuda} mb-8`}>
                 Es la grilla de horarios que ve tu cliente, no la duración del servicio: un turno de 3 h
                 sigue ocupando 3 h.
               </p>
 
               {error && (
-                <motion.p initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} className="text-lg text-danger mb-4">{error}</motion.p>
+                <motion.p role="alert" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={`${ui.errorBox} mb-4`}>{error}</motion.p>
               )}
 
-              <motion.button whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={finish} disabled={saving} className={btnPrimary}>
-                {saving ? "Guardando…" : "Crear mi cuenta →"}
-              </motion.button>
+              <button onClick={finish} disabled={saving} aria-busy={saving} className={btnPrimary}>
+                {saving ? "Guardando…" : "Crear mi negocio"}
+              </button>
             </motion.div>
           )}
         </AnimatePresence>

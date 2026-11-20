@@ -11,7 +11,8 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import Logo from "@/components/Logo";
 import ThemeToggle from "@/components/ThemeToggle";
-import { motion, stagger, fadeUp, scaleIn } from "@/components/motion";
+import { motion, EASE } from "@/components/motion";
+import * as ui from "@/lib/ui";
 
 export default function RecuperarPage() {
   const supabase = createClient();
@@ -51,78 +52,62 @@ export default function RecuperarPage() {
     setEnviado(true);
   }
 
-  const inputCls =
-    "w-full rounded-2xl bg-surface-2 border border-line px-4 py-3.5 outline-none focus:border-accent transition-colors";
-  const labelCls = "block text-[13px] font-bold uppercase tracking-widest text-faint mb-2";
-
   return (
     <main className="min-h-screen bg-canvas text-body flex items-center justify-center p-6">
-      <motion.div className="w-full max-w-sm" variants={stagger} initial="hidden" animate="show">
-        <motion.div className="relative flex justify-center mb-10" variants={fadeUp}>
-          <Logo size={30} />
+      <motion.div className="w-full max-w-sm"
+        initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: EASE }}>
+        <div className="relative flex justify-center mb-8">
+          <Logo size={28} />
           <ThemeToggle className="absolute right-0 top-1/2 -translate-y-1/2" />
-        </motion.div>
+        </div>
 
-        <motion.div className="bg-surface border border-line rounded-3xl p-7" variants={scaleIn}>
+        <div className={`${ui.card} p-8`}>
           {enviado ? (
             <>
-              <motion.h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
-                Revisá tu mail
-              </motion.h1>
-              <motion.p className="text-lg text-muted mb-2" variants={fadeUp}>
-                Si <span className="text-ink font-bold">{email.trim()}</span> tiene una cuenta, te
+              <h1 className={ui.h1}>Revisá tu mail</h1>
+              <p className="text-[16px] leading-6 text-muted mt-2">
+                Si <span className="text-ink font-medium">{email.trim()}</span> tiene una cuenta, te
                 mandamos un link para poner una contraseña nueva.
-              </motion.p>
-              <motion.p className="text-[15px] text-faint mb-6" variants={fadeUp}>
+              </p>
+              <p className="text-[14px] leading-5 text-muted mt-2 mb-8">
                 Puede tardar un minuto. Fijate también en spam.
-              </motion.p>
-              <motion.div variants={fadeUp}>
-                <Link href="/login"
-                  className="block w-full rounded-full bg-accent text-on-accent font-bold py-3.5 text-center">
-                  Volver a ingresar
-                </Link>
-              </motion.div>
+              </p>
+              <Link href="/login" className={`${ui.btnPrimary} w-full`}>
+                Volver a ingresar
+              </Link>
             </>
           ) : (
-            <>
-              <motion.h1 className="text-[26px] font-extrabold text-ink mb-1 tracking-tight" variants={fadeUp}>
-                Recuperar contraseña
-              </motion.h1>
-              <motion.p className="text-lg text-muted mb-7" variants={fadeUp}>
+            // Un <form> de verdad: Enter envía y el navegador ofrece el mail guardado.
+            <form noValidate onSubmit={(e) => { e.preventDefault(); if (!loading && email.includes("@")) enviar(); }}>
+              <h1 className={ui.h1}>Recuperar contraseña</h1>
+              <p className="text-[16px] leading-6 text-muted mt-2 mb-8">
                 Poné tu mail y te mandamos un link para crear una nueva.
-              </motion.p>
+              </p>
 
-              <motion.div variants={fadeUp}>
-                <label className={labelCls}>Email</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && email.includes("@")) enviar(); }}
-                  placeholder="tunombre@gmail.com" className={`${inputCls} mb-6`} />
-              </motion.div>
+              <label className={ui.label} htmlFor="r-email">Email</label>
+              <input id="r-email" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                autoComplete="email" autoCapitalize="none" spellCheck={false}
+                placeholder="tunombre@gmail.com" className={`${ui.input({ bg: "bg-surface-2" })} mb-6`} />
 
               {error && (
-                <motion.p className="text-lg text-danger mb-4"
-                  initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}>
+                <motion.p role="alert" className={`${ui.errorBox} mb-4`}
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
                   {error}
                 </motion.p>
               )}
 
-              <motion.button
-                variants={fadeUp}
-                whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.97 }}
-                onClick={enviar}
-                disabled={loading || !email.includes("@")}
-                className="w-full rounded-full bg-accent text-on-accent font-bold py-3.5 disabled:opacity-25 transition-opacity"
-              >
-                {loading ? "…" : "Mandame el link →"}
-              </motion.button>
-            </>
+              <button type="submit" disabled={loading || !email.includes("@")} aria-busy={loading}
+                className={`${ui.btnPrimary} w-full`}>
+                {loading ? "Enviando…" : "Mandame el link"}
+              </button>
+            </form>
           )}
-        </motion.div>
+        </div>
 
-        <motion.p className="text-lg text-muted mt-6 text-center" variants={fadeUp}>
+        <p className="text-[15px] leading-6 text-muted mt-6 text-center">
           ¿Te acordaste?{" "}
-          <Link href="/login" className="text-accent-ink font-bold">Ingresá</Link>
-        </motion.p>
+          <Link href="/login" className="font-semibold text-accent-ink hover:underline underline-offset-2">Ingresá</Link>
+        </p>
       </motion.div>
     </main>
   );

@@ -10,6 +10,12 @@ import { waLink } from "@/lib/contacto";
 import { turnosACsv, descargarCsv, type FilaTurno } from "@/lib/csv";
 import ThemeToggle from "@/components/ThemeToggle";
 import SoporteWhatsApp from "@/components/SoporteWhatsApp";
+import DiaBtn from "@/components/DiaBtn";
+import {
+  IcoCalendario, IcoCampana, IcoChart, IcoCheck, IcoCopy, IcoDescarga, IcoListo, IcoLogout,
+  IcoMensaje, IcoPlus, IcoReloj, IcoSliders, IcoX,
+} from "@/components/icons";
+import * as ui from "@/lib/ui";
 import { motion, AnimatePresence } from "framer-motion";
 import { computeSlots, normalizeClosed, fullDayClosedSet, toMin, type ClosedEntry, type OpeningRange } from "@/lib/slots";
 import { formatDuracion } from "@/lib/rubros";
@@ -877,7 +883,7 @@ export default function PanelPage() {
               className="rounded-3xl border border-line bg-surface p-8 text-center mb-4">
               {shownAppts.length === 0 ? (
                 <>
-                  <IconoVacio />
+                  <IcoCalendario className="mx-auto mb-4 text-muted" />
                   <p className="text-[18px] leading-6 font-semibold text-ink">Todavía no hay turnos este día</p>
                   <p className="text-[15px] leading-6 text-muted mt-1 mb-6">Compartí tu link para recibir el primero</p>
                   <button onClick={copyLink} className={btnPrimary + " px-6"}>
@@ -886,7 +892,7 @@ export default function PanelPage() {
                 </>
               ) : (
                 <>
-                  <IconoListo />
+                  <IcoListo className="mx-auto mb-4 text-accent-ink" />
                   <p className="text-[18px] leading-6 font-semibold text-ink">Día completado</p>
                   <p className="text-[15px] leading-6 text-muted mt-1">Atendiste todos los turnos. Bien ahí.</p>
                 </>
@@ -1208,38 +1214,15 @@ export default function PanelPage() {
 }
 
 // ── PIEZAS DE UI ─────────────────────────────────────────────────────────
-// Clases compartidas: un solo alto, un solo radio y una sola transición por
-// tipo de control, así no se van desparejando pantalla por pantalla.
+// Las clases comunes (botones, inputs, chips, horarios) viven en lib/ui.ts y
+// las comparten todas las pantallas. Acá quedan sólo las propias del panel.
 
-const btnPrimary =
-  "inline-flex items-center justify-center gap-2 h-12 rounded-full bg-accent text-on-accent text-[16px] font-semibold " +
-  "transition-[background-color,opacity,transform] duration-150 hover:bg-[var(--c-accent-hover)] active:scale-[0.98] " +
-  "disabled:opacity-40 disabled:hover:bg-accent";
-const btnTexto =
-  "block w-full h-11 text-center text-[15px] text-muted transition-colors hover:text-ink";
-const navLink =
-  "inline-flex items-center gap-2 h-9 px-2.5 rounded-lg text-[14px] font-medium text-muted transition-colors hover:text-ink hover:bg-surface";
-const iconBtn =
-  "inline-flex items-center justify-center w-9 h-9 rounded-lg text-muted transition-colors hover:text-ink hover:bg-surface-2";
+const { btnPrimary, btnTexto, navLink, iconBtn, chip, opcion, horario } = ui;
+const inputCls = ui.input({ bg: "bg-canvas" });
+const errorBox = `${ui.errorBox} mb-4`;
 const accionLima =
   "flex-1 inline-flex items-center justify-center gap-2 h-10 rounded-full text-[14px] font-medium opacity-75 " +
   "transition-[opacity,background-color] duration-150 hover:opacity-100 hover:bg-on-highlight/5";
-const inputCls =
-  "w-full h-12 rounded-xl bg-canvas border border-line px-4 text-[16px] text-ink placeholder:text-faint outline-none " +
-  "transition-[border-color,box-shadow] duration-150 focus:border-accent focus:shadow-[0_0_0_3px_var(--c-accent-soft)]";
-const errorBox = "rounded-xl bg-danger-soft text-danger text-[14px] leading-5 px-4 py-3 mb-4";
-
-const chip = (on: boolean) =>
-  "shrink-0 h-9 px-4 rounded-full border text-[14px] font-medium transition-colors " +
-  (on ? "border-accent bg-accent-soft text-accent-ink" : "border-line bg-surface text-muted hover:text-ink");
-const opcion = (on: boolean) =>
-  "rounded-xl border p-3 text-center transition-colors " +
-  (on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-faint");
-const horario = (libre: boolean, on: boolean) =>
-  "h-10 rounded-lg border text-[14px] font-medium tabular-nums transition-colors " +
-  (!libre ? "border-transparent bg-canvas text-faint line-through cursor-not-allowed"
-    : on ? "border-accent bg-accent text-on-accent"
-    : "border-line bg-surface text-ink hover:border-faint");
 
 const plural = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
@@ -1257,73 +1240,6 @@ function Stat({ label, sub, alerta = false, children }: {
   );
 }
 
-// Un día de la tira. Es el mismo botón en el panel, en "cargar un turno" y en
-// "mover turno": antes eran tres copias que ya se habían desparejado.
-function DiaBtn({ fecha, label, on, disabled = false, onClick }: {
-  fecha: Date; label: string; on: boolean; disabled?: boolean; onClick: () => void;
-}) {
-  const marcado = on && !disabled;
-  return (
-    <button type="button" disabled={disabled} onClick={onClick} aria-pressed={on}
-      className={`shrink-0 w-14 h-16 rounded-xl border flex flex-col items-center justify-center transition-[background-color,border-color,transform] duration-150 active:scale-[0.97] ${
-        disabled ? "border-line bg-surface-2 opacity-50 cursor-not-allowed"
-          : on ? "border-accent bg-accent-soft" : "border-line bg-surface hover:border-faint"}`}>
-      <span className={`text-[12px] leading-4 ${marcado ? "text-accent-ink" : "text-muted"}`}>{label}</span>
-      <span className={`text-[18px] leading-6 font-semibold tabular-nums ${marcado ? "text-accent-ink" : "text-ink"}`}>
-        {fecha.getDate()}
-      </span>
-    </button>
-  );
-}
-
 function SectionLabel({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`text-[14px] leading-5 font-medium text-muted mb-3 ${className}`}>{children}</div>;
-}
-
-// ── ÍCONOS ───────────────────────────────────────────────────────────────
-// Trazos de lucide (ISC), un solo grosor. Reemplazan a los emojis (📊 ⚙ 💬 🔔
-// 🕐): un emoji lo dibuja la fuente del sistema, cambia de forma y de color
-// entre Windows, Android e iOS, no toma los tokens del tema y un lector de
-// pantalla lo lee en voz alta. Un SVG hereda `currentColor` y va aria-hidden.
-
-function Ico({ size = 16, children }: { size?: number; children: React.ReactNode }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
-      {children}
-    </svg>
-  );
-}
-type IcoProps = { size?: number };
-const IcoChart = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M3 3v18h18" /><path d="M18 17V9" /><path d="M13 17V5" /><path d="M8 17v-3" /></Ico>;
-const IcoSliders = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M20 7h-9" /><path d="M14 17H5" /><circle cx="17" cy="17" r="3" /><circle cx="7" cy="7" r="3" /></Ico>;
-const IcoLogout = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="m16 17 5-5-5-5" /><path d="M21 12H9" /></Ico>;
-const IcoCopy = ({ size = 16 }: IcoProps) => <Ico size={size}><rect width="14" height="14" x="8" y="8" rx="2" /><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" /></Ico>;
-const IcoCheck = ({ size = 16 }: IcoProps) => <Ico size={size}><path d="M20 6 9 17l-5-5" /></Ico>;
-const IcoPlus = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M5 12h14" /><path d="M12 5v14" /></Ico>;
-const IcoCampana = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" /><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" /></Ico>;
-const IcoReloj = ({ size = 18 }: IcoProps) => <Ico size={size}><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></Ico>;
-const IcoX = ({ size = 18 }: IcoProps) => <Ico size={size}><path d="M18 6 6 18" /><path d="m6 6 12 12" /></Ico>;
-const IcoMensaje = ({ size = 16 }: IcoProps) => <Ico size={size}><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z" /></Ico>;
-const IcoDescarga = ({ size = 16 }: IcoProps) => <Ico size={size}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m7 10 5 5 5-5" /><path d="M12 15V3" /></Ico>;
-
-// Los estados vacíos usaban 📅 y 🎉 sueltos; mismo motivo que arriba.
-function IconoVacio() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mx-auto mb-4 text-muted">
-      <rect x="3" y="5" width="18" height="16" rx="3" />
-      <path d="M3 10h18M8 3v4M16 3v4" />
-    </svg>
-  );
-}
-
-function IconoListo() {
-  return (
-    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"
-      strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="mx-auto mb-4 text-accent-ink">
-      <circle cx="12" cy="12" r="9" />
-      <path d="m8.5 12.4 2.4 2.4 4.6-5" />
-    </svg>
-  );
+  return <div className={`${ui.sectionLabel} ${className}`}>{children}</div>;
 }
