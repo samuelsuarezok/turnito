@@ -41,11 +41,12 @@ export default function WhatsAppFab() {
       // Entra con un respiro para no pelearle la atención al hero.
       // Las animaciones de transform las apaga solo el MotionConfig
       // reducedMotion="user" del template: los portales conservan el contexto.
-      initial={{ opacity: 0, scale: 0.6 }}
-      animate={{ opacity: 1, scale: 1 }}
-      transition={{ delay: 0.9, type: "spring", stiffness: 260, damping: 20 }}
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
+      // Fade y 8px de subida, sin spring ni rebote: es un botón de ayuda, no
+      // tiene que llamar la atención al entrar.
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ delay: 0.9, duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+      whileTap={{ scale: 0.97 }}
       className={
         "group fixed bottom-5 right-5 sm:bottom-6 sm:right-6 z-[150] " +
         "flex items-center rounded-full p-4 text-white " +

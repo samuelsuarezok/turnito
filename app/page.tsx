@@ -1,200 +1,228 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { AnimatePresence, type Variants } from "framer-motion";
 import { LogoMark } from "@/components/Logo";
 import ContactModal from "@/components/ContactModal";
 import ThemeToggle from "@/components/ThemeToggle";
 import WhatsAppFab from "@/components/WhatsAppFab";
 import { SITE_DOMAIN } from "@/lib/site";
 import { WHATSAPP_URL } from "@/lib/contacto";
-import { AnimatePresence } from "framer-motion";
-import {
-  motion,
-  Reveal,
-  RevealGroup,
-  Item,
-  fadeUp,
-  scaleIn,
-  stagger,
-  staggerFast,
-  SplitText,
-  EASE,
-} from "@/components/motion";
+import { motion, Reveal, RevealGroup, Item, SplitText, EASE } from "@/components/motion";
+
+// ─────────────────────────────────────────────────────────────────────
+// Reglas de la landing (pasada de "unslop", ver el historial del commit):
+//
+// · El azul es la birome y el lima es el resaltador. El lima marca UNA cosa:
+//   el turno que sigue (la tarjeta "Siguiente", igual que en el panel real).
+//   No se usa para decorar nada más.
+// · El azul de fondo vive sólo en el hero y en el cierre. El resto de la
+//   página son superficies neutras: el color va al contenido, no al chrome.
+// · Todos los espacios son múltiplos de 4. Pesos 400/500/600, nada de 800.
+// · Rótulos en tipo oración, nunca en mayúsculas espaciadas.
+// · Una sola entrada al cargar: la cascada del titular. El resto aparece con
+//   un fade corto al scrollear. Nada flota ni gira en loop.
+// ─────────────────────────────────────────────────────────────────────
 
 const css = `
 .ld{box-sizing:border-box;background:var(--c-canvas);color:var(--c-body);font-family:var(--font-urbanist),sans-serif;font-size:16px;line-height:1.6}
 .ld *{box-sizing:border-box;margin:0;padding:0}
-.ld h1,.ld h2,.ld h3{color:var(--c-ink);letter-spacing:-0.035em;line-height:1.03}
+.ld h1,.ld h2,.ld h3{color:var(--c-ink)}
 .ld ::selection{background:var(--c-highlight);color:var(--c-on-highlight)}
-.ld a{text-decoration:none}
+.ld a{text-decoration:none;color:inherit}
+.ld button{font-family:inherit;cursor:pointer}
+.ld a:focus-visible,.ld button:focus-visible,.ld summary:focus-visible{outline:2px solid var(--c-accent);outline-offset:2px}
+.ld .mono{font-family:var(--font-mono),monospace;font-size:.9em;color:var(--c-ink)}
+.ld .wrap{max-width:1200px;margin:0 auto}
 
-/* punto de color después del heading — firma del sistema */
-.ld .dot::after{content:'';display:inline-block;width:.3em;height:.3em;border-radius:50%;background:var(--c-highlight);margin-left:.12em}
-.ld .dot-b::after{background:var(--c-accent)}
+/* BOTONES */
+.ld .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;height:48px;padding:0 24px;border-radius:999px;border:1px solid transparent;font-size:16px;font-weight:600;white-space:nowrap;transition:background-color .15s cubic-bezier(.22,1,.36,1),border-color .15s cubic-bezier(.22,1,.36,1),transform .15s cubic-bezier(.22,1,.36,1)}
+.ld .btn:active{transform:scale(.98)}
+.ld .btn-sm{height:36px;padding:0 16px;font-size:14px}
+.ld .btn-primary{background:var(--c-accent);color:var(--c-on-accent)}
+.ld .btn-primary:hover{background:var(--c-accent-hover)}
+.ld .btn-ghost{background:var(--c-surface);color:var(--c-ink);border-color:var(--c-line)}
+.ld .btn-ghost:hover{background:var(--c-surface-2);border-color:color-mix(in srgb,var(--c-ink) 20%,transparent)}
+.ld .btn-on-block{background:var(--c-on-block);color:var(--c-block)}
+.ld .btn-on-block:hover{background:color-mix(in srgb,var(--c-on-block) 88%,var(--c-block))}
 
 /* NAV */
-.ld nav{position:sticky;top:14px;z-index:100;padding:0 20px}
-.ld .nav-in{max-width:1200px;margin:0 auto;background:color-mix(in srgb, var(--c-surface) 88%, transparent);backdrop-filter:blur(16px);border:1px solid var(--c-line);border-radius:100px;padding:11px 11px 11px 24px;display:flex;align-items:center;justify-content:space-between}
-.ld .logo{font-weight:800;font-size:19px;letter-spacing:-0.04em;display:flex;align-items:center;gap:9px;color:var(--c-ink)}
-.ld .nav-links{display:flex;gap:30px;font-size:14.5px;font-weight:500}
+.ld nav{position:sticky;top:0;z-index:100;padding:0 24px;background:var(--c-canvas);border-bottom:1px solid var(--c-line)}
+.ld .nav-in{height:64px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.ld .logo{display:flex;align-items:center;gap:8px;font-size:18px;font-weight:700;letter-spacing:-0.02em;color:var(--c-ink)}
+.ld .nav-links{display:flex;gap:32px;font-size:14px;font-weight:500}
 .ld .nav-links a{color:var(--c-muted);transition:color .15s}
-.ld .nav-links a:hover{color:var(--c-accent)}
-.ld .pill{display:inline-flex;align-items:center;gap:8px;background:var(--c-accent);color:var(--c-on-accent);font-size:14.5px;font-weight:600;padding:12px 24px;border-radius:100px;transition:background .15s}
-.ld .pill:hover{background:var(--c-accent-hover)}
-.ld .pill.lime{background:var(--c-highlight);color:var(--c-on-highlight)}
-.ld .pill.lime:hover{background:var(--c-highlight-hover)}
-.ld .pill.ghost{background:var(--c-surface);color:var(--c-ink);border:1px solid var(--c-line)}
+.ld .nav-links a:hover{color:var(--c-ink)}
+.ld .nav-r{display:flex;align-items:center;gap:12px}
 
 /* HERO */
-.ld .hero{padding:44px 20px 0}
-.ld .hero-in{max-width:1200px;margin:0 auto}
-.ld .eyebrow{display:inline-flex;align-items:center;gap:9px;background:var(--c-surface);border:1px solid var(--c-line);border-radius:100px;padding:7px 16px 7px 8px;font-size:13px;font-weight:500;color:var(--c-muted);margin-bottom:26px}
-.ld .eyebrow b{background:var(--c-highlight);color:var(--c-on-highlight);font-weight:700;font-size:11.5px;padding:4px 11px;border-radius:100px}
-.ld .display{font-size:clamp(52px,10.5vw,148px);font-weight:800;letter-spacing:-0.05em;line-height:.92}
-.ld .display .b{color:var(--c-accent)}
-.ld .hero-sub{display:flex;justify-content:space-between;align-items:flex-end;gap:32px;flex-wrap:wrap;margin:26px 0 32px}
-.ld .hero-sub p{font-size:17.5px;color:var(--c-muted);max-width:430px}
-.ld .hero-ctas{display:flex;gap:12px;flex-wrap:wrap}
+.ld .hero{padding:48px 24px 0}
+.ld .hero-in{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:48px;align-items:center}
+.ld .display{font-size:clamp(44px,6.4vw,84px);font-weight:600;letter-spacing:-0.03em;line-height:1.02;text-wrap:balance}
+.ld .display .b{color:var(--c-accent-ink)}
+.ld .hero-sub{font-size:18px;line-height:28px;color:var(--c-muted);max-width:30rem;margin-top:24px}
+.ld .hero-ctas{display:flex;gap:12px;flex-wrap:wrap;margin-top:32px}
+.ld .hero-fine{font-size:13px;color:var(--c-muted);margin-top:16px}
 
-/* bloque azul del hero */
-.ld .stage{background:var(--c-block);border-radius:40px;padding:52px 48px 0;display:grid;grid-template-columns:1fr auto 1fr;gap:32px;align-items:end;min-height:520px;position:relative;overflow:hidden}
-.ld .stage-l{padding-bottom:52px}
-.ld .stage-r{padding-bottom:52px;display:flex;flex-direction:column;align-items:flex-end;gap:14px}
-.ld .qcard{background:var(--c-block-card);border-radius:24px;padding:22px 24px;max-width:260px}
-.ld .qcard h4{font-size:15px;font-weight:700;color:var(--c-block-card-ink);margin-bottom:6px}
-.ld .qcard p{font-size:13.5px;color:var(--c-block-card-muted);line-height:1.55}
-.ld .stat-b{color:var(--c-on-block)}
-.ld .stat-b b{display:block;font-size:44px;font-weight:800;letter-spacing:-0.04em;line-height:1}
-.ld .stat-b span{font-size:13px;color:var(--c-on-block-soft)}
+/* Escenario: el ejemplo del cliente reservando y lo que ves vos */
+.ld .stage{background:var(--c-block);border-radius:28px;padding:24px;position:relative;overflow:hidden;height:560px;display:flex;flex-direction:column}
+.ld .tabs{display:flex;gap:4px;padding:4px;border-radius:999px;background:var(--c-block-line);align-self:flex-start;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.ld .tabs::-webkit-scrollbar{display:none}
+.ld .tab{height:32px;padding:0 16px;border-radius:999px;border:none;background:transparent;color:var(--c-on-block-soft);font-size:14px;font-weight:500;white-space:nowrap;transition:background-color .15s,color .15s}
+.ld .tab:hover{color:var(--c-on-block)}
+.ld .tab[aria-pressed="true"]{background:var(--c-on-block);color:var(--c-block)}
+.ld .scene{position:relative;flex:1;margin-top:24px}
 
 /* teléfono */
-.ld .phone{width:296px;background:var(--c-block-card);border-radius:42px;padding:12px;box-shadow:0 30px 70px rgba(0,0,0,.28);position:relative;z-index:2}
-.ld .notch{width:104px;height:24px;background:#0A0A0A;border-radius:100px;margin:2px auto 10px}
-.ld .screen{background:var(--c-canvas);border-radius:32px;padding:18px 16px 22px;min-height:432px}
-.ld .scr-head{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:16px}
-.ld .scr-shop{font-weight:800;font-size:15.5px;color:var(--c-ink);letter-spacing:-0.02em}
-.ld .scr-sub{font-size:10px;color:var(--c-faint);margin-top:1px;font-family:var(--font-mono),monospace}
-.ld .scr-badge{background:var(--c-highlight);color:var(--c-on-highlight);font-size:9px;font-weight:800;padding:4px 9px;border-radius:100px;letter-spacing:.05em;white-space:nowrap}
-.ld .scr-label{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--c-faint);margin:14px 0 8px}
-.ld .chiprow{display:flex;gap:6px}
-.ld .chip{flex:1;background:var(--c-surface);border:1.5px solid var(--c-line);border-radius:15px;padding:10px 5px;text-align:center}
+.ld .phone{position:absolute;left:8%;bottom:-48px;width:280px;background:var(--c-block-card);border-radius:40px;padding:10px;box-shadow:0 24px 48px rgba(0,0,0,.18)}
+.ld .notch{width:96px;height:24px;background:#0a0a0a;border-radius:999px;margin:4px auto 8px}
+.ld .screen{background:var(--c-canvas);border-radius:30px;padding:16px 16px 24px}
+.ld .scr-shop{font-weight:600;font-size:16px;line-height:20px;color:var(--c-ink)}
+.ld .scr-sub{font-size:11px;line-height:16px;color:var(--c-muted);font-family:var(--font-mono),monospace;margin-top:2px}
+.ld .scr-label{font-size:12px;line-height:16px;font-weight:500;color:var(--c-muted);margin:16px 0 8px}
+.ld .chiprow{display:grid;grid-template-columns:repeat(3,1fr);gap:4px}
+.ld .chip{background:var(--c-surface);border:1px solid var(--c-line);border-radius:12px;padding:8px 4px;text-align:center}
 .ld .chip.on{border-color:var(--c-accent);background:var(--c-accent-soft)}
-.ld .chip b{display:block;font-size:10.5px;color:var(--c-ink);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.ld .chip span{font-size:9.5px;color:var(--c-accent);font-weight:700}
-.ld .dayrow{display:flex;gap:5px}
-.ld .day{flex:1;background:var(--c-surface);border:1.5px solid var(--c-line);border-radius:13px;padding:7px 2px;text-align:center}
+.ld .chip b{display:block;font-size:12px;line-height:16px;color:var(--c-ink);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ld .chip span{display:block;font-size:11px;line-height:16px;color:var(--c-muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+.ld .chip.on span{color:var(--c-accent-ink)}
+.ld .dayrow{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.ld .day{background:var(--c-surface);border:1px solid var(--c-line);border-radius:12px;padding:4px 0;text-align:center}
 .ld .day.on{border-color:var(--c-accent);background:var(--c-accent-soft)}
-.ld .day em{display:block;font-style:normal;font-size:8px;color:var(--c-faint);text-transform:uppercase;font-weight:600}
-.ld .day b{font-size:13px;color:var(--c-ink)}
-.ld .day.on em,.ld .day.on b{color:var(--c-accent)}
-.ld .slotgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
-.ld .slot{background:var(--c-surface);border:1.5px solid var(--c-line);border-radius:11px;padding:7px 2px;text-align:center;font-size:10px;font-weight:700;color:var(--c-body)}
+.ld .day em{display:block;font-style:normal;font-size:11px;line-height:16px;color:var(--c-muted)}
+.ld .day b{display:block;font-size:14px;line-height:20px;font-weight:600;color:var(--c-ink);font-variant-numeric:tabular-nums}
+.ld .day.on em,.ld .day.on b{color:var(--c-accent-ink)}
+.ld .slotgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:4px}
+.ld .slot{background:var(--c-surface);border:1px solid var(--c-line);border-radius:12px;height:32px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;color:var(--c-body);font-variant-numeric:tabular-nums}
 .ld .slot.on{background:var(--c-accent);border-color:var(--c-accent);color:var(--c-on-accent)}
-.ld .slot.off{opacity:.36;text-decoration:line-through;border-style:dashed}
-.ld .scr-btn{margin-top:15px;background:var(--c-accent);color:var(--c-on-accent);border-radius:100px;padding:12px;text-align:center;font-size:12px;font-weight:700}
+.ld .slot.off{opacity:.4;text-decoration:line-through}
+.ld .scr-btn{margin-top:16px;background:var(--c-accent);color:var(--c-on-accent);border-radius:999px;height:40px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:600}
 
-/* RUBROS */
-.ld .rubros{max-width:1200px;margin:0 auto;padding:22px 0 0;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
-.ld .rub{display:inline-flex;align-items:center;gap:9px;background:var(--c-surface);border:1px solid var(--c-line);border-radius:100px;padding:11px 20px;font-size:14.5px;font-weight:600;color:var(--c-ink)}
-.ld .rub span{font-size:17px;line-height:1}
+/* tarjeta "Siguiente": la misma del panel, con el turno recién reservado */
+.ld .next-wrap{position:absolute;right:4%;top:160px;width:272px;z-index:2}
+.ld .next-cap{font-size:13px;line-height:20px;color:var(--c-on-block-soft);margin-bottom:8px;text-align:right}
+.ld .next{background:var(--c-highlight);color:var(--c-on-highlight);border-radius:20px;padding:20px;box-shadow:0 24px 48px rgba(0,0,0,.16)}
+.ld .next-top{display:flex;justify-content:space-between;font-size:13px;line-height:20px;font-weight:600}
+.ld .next-top span{opacity:.6;font-weight:500}
+.ld .next-row{display:flex;align-items:center;gap:16px;margin-top:12px}
+.ld .next-time{font-size:32px;line-height:1;font-weight:600;letter-spacing:-0.02em;font-variant-numeric:tabular-nums}
+.ld .next-name{font-size:18px;line-height:24px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ld .next-svc{font-size:14px;line-height:20px;opacity:.7}
+.ld .next-btn{margin-top:16px;height:40px;border-radius:999px;background:var(--c-on-highlight);color:var(--c-highlight);display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;font-weight:600}
 
 /* SECCIONES */
-.ld section{padding:96px 20px}
-.ld .wrap{max-width:1200px;margin:0 auto}
-.ld .kicker{display:inline-flex;align-items:center;gap:9px;font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--c-muted);margin-bottom:18px}
-.ld .kicker::before{content:'';width:24px;height:2px;background:var(--c-accent);border-radius:2px}
-.ld h2{font-size:clamp(34px,4.6vw,58px);font-weight:800;max-width:640px}
-.ld .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:36px;flex-wrap:wrap;margin-bottom:44px}
-.ld .sec-head p{max-width:350px;color:var(--c-muted);font-size:15.5px}
+.ld section{padding:96px 24px 0;scroll-margin-top:64px}
+.ld .label{font-size:14px;line-height:20px;font-weight:500;color:var(--c-muted);margin-bottom:12px}
+.ld h2{font-size:clamp(32px,4vw,48px);font-weight:500;letter-spacing:-0.025em;line-height:1.08;max-width:640px;text-wrap:balance}
+.ld .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;flex-wrap:wrap;margin-bottom:40px}
+.ld .sec-head p{max-width:360px;color:var(--c-muted);font-size:16px;line-height:24px}
 
-/* bloque "sobre" — tarjeta blanca grande */
-.ld .about{background:var(--c-surface);border-radius:40px;padding:64px 56px}
-.ld .about .lead{font-size:clamp(26px,3.4vw,42px);font-weight:700;letter-spacing:-0.035em;line-height:1.16;color:var(--c-ink);max-width:900px}
-.ld .about .lead i{font-style:normal;color:var(--c-accent)}
-.ld .statrow{display:flex;gap:56px;flex-wrap:wrap;margin-top:44px;padding-top:36px;border-top:1px solid var(--c-line)}
-.ld .stat b{display:block;font-size:clamp(36px,4.4vw,52px);font-weight:800;color:var(--c-accent);letter-spacing:-0.04em;line-height:1}
-.ld .stat span{font-size:13.5px;color:var(--c-muted)}
+/* qué es */
+.ld .about{background:var(--c-surface);border-radius:24px;padding:56px}
+.ld .lead{font-size:clamp(24px,3vw,36px);font-weight:500;letter-spacing:-0.02em;line-height:1.25;color:var(--c-muted);max-width:880px}
+.ld .lead b{font-weight:500;color:var(--c-ink)}
+.ld .statrow{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px;margin-top:48px;padding-top:32px;border-top:1px solid var(--c-line)}
+.ld .stat b{display:block;font-size:40px;line-height:1;font-weight:500;letter-spacing:-0.02em;color:var(--c-ink);font-variant-numeric:tabular-nums}
+.ld .stat span{display:block;font-size:14px;line-height:20px;color:var(--c-muted);margin-top:8px}
 
-/* features — bloque azul con tarjetas numeradas */
-.ld .feat-wrap{background:var(--c-block);border-radius:40px;padding:64px 56px}
-.ld .feat-wrap h2,.ld .feat-wrap .kicker{color:var(--c-on-block)}
-.ld .feat-wrap .kicker::before{background:var(--c-highlight)}
-.ld .feat-wrap .sec-head p{color:var(--c-on-block-soft)}
-.ld .fgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
-.ld .fcard{background:var(--c-block-card);border-radius:26px;padding:26px 24px;height:100%;display:flex;flex-direction:column}
-.ld .fcard .n{font-size:46px;font-weight:800;color:var(--c-accent);letter-spacing:-0.05em;line-height:1;margin-bottom:auto;padding-bottom:26px}
-.ld .fcard h3{font-size:17px;font-weight:700;margin-bottom:8px}
-.ld .fcard p{font-size:13.5px;color:var(--c-block-card-muted);line-height:1.6}
-.ld .fcard.lime{background:var(--c-highlight)}
-.ld .fcard.lime .n{color:var(--c-on-highlight)}
-.ld .fcard.lime h3{color:var(--c-on-highlight)}
-.ld .fcard.lime p{color:rgba(0,0,0,.7)}
+/* qué incluye: un solo panel partido con hairlines, no cuatro tarjetas iguales */
+.ld .fpanel{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));background:var(--c-surface);border-radius:24px;overflow:hidden}
+.ld .fcell{padding:32px 28px;border-left:1px solid var(--c-line)}
+.ld .fcell:first-child{border-left:none}
+.ld .ficon{width:40px;height:40px;border-radius:12px;background:var(--c-surface-2);border:1px solid var(--c-line);display:flex;align-items:center;justify-content:center;color:var(--c-muted);margin-bottom:24px}
+.ld .fcell h3{font-size:18px;line-height:24px;font-weight:600;margin-bottom:8px}
+.ld .fcell p{font-size:15px;line-height:24px;color:var(--c-muted)}
 
-/* pasos */
-.ld .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
-.ld .step{background:var(--c-surface);border-radius:26px;padding:34px 30px;position:relative;height:100%}
-.ld .step .badge{display:inline-block;background:var(--c-block);color:var(--c-on-block);font-weight:800;font-size:12.5px;padding:5px 14px;border-radius:100px;margin-bottom:16px}
-.ld .step h3{font-size:18px;font-weight:700;margin-bottom:9px}
-.ld .step p{font-size:14px;color:var(--c-muted);line-height:1.65}
-.ld .step .mono{font-family:var(--font-mono),monospace;color:var(--c-accent);font-size:13px;font-weight:600}
+/* cómo funciona: una línea de tiempo, no otra grilla de tarjetas */
+.ld .steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:32px}
+.ld .step{position:relative;padding-top:56px}
+.ld .step::before{content:'';position:absolute;top:16px;left:40px;right:-32px;height:1px;background:var(--c-line)}
+.ld .step:last-child::before{display:none}
+.ld .step-n{position:absolute;top:0;left:0;width:32px;height:32px;border-radius:999px;border:1px solid var(--c-line);background:var(--c-surface);display:flex;align-items:center;justify-content:center;font-family:var(--font-mono),monospace;font-size:13px;color:var(--c-ink)}
+.ld .step h3{font-size:18px;line-height:24px;font-weight:600;margin-bottom:8px}
+.ld .step p{font-size:15px;line-height:24px;color:var(--c-muted);max-width:340px}
 
 /* faq */
-.ld .faq{max-width:790px;margin:0 auto}
-.ld details{background:var(--c-surface);border-radius:22px;margin-bottom:10px;overflow:hidden}
-.ld summary{padding:23px 27px;cursor:pointer;font-size:16.5px;font-weight:700;color:var(--c-ink);list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px}
+.ld .faq-grid{display:grid;grid-template-columns:minmax(0,4fr) minmax(0,8fr);gap:48px;align-items:start}
+.ld .faq{display:flex;flex-direction:column;gap:8px}
+.ld details{background:var(--c-surface);border-radius:16px}
+.ld summary{padding:20px 24px;cursor:pointer;font-size:16px;line-height:24px;font-weight:500;color:var(--c-ink);list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;border-radius:16px}
 .ld summary::-webkit-details-marker{display:none}
-.ld .plus{width:31px;height:31px;border-radius:50%;background:var(--c-canvas);color:var(--c-accent);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:600;flex-shrink:0;transition:transform .2s,background .2s,color .2s}
-.ld details[open] .plus{transform:rotate(45deg);background:var(--c-block);color:var(--c-on-block)}
-.ld details .ans{padding:0 27px 25px;font-size:14.5px;color:var(--c-muted);line-height:1.7;max-width:620px}
+.ld .plus{color:var(--c-muted);flex-shrink:0;transition:transform .18s cubic-bezier(.22,1,.36,1)}
+.ld details[open] .plus{transform:rotate(45deg)}
+.ld details .ans{padding:0 24px 24px;font-size:15px;line-height:24px;color:var(--c-muted);max-width:620px}
 
-/* cta final */
-.ld .final{padding:0 20px 20px}
-.ld .final-card{max-width:1200px;margin:0 auto;background:var(--c-block);border-radius:40px;padding:80px 48px 0;text-align:center;overflow:hidden}
-.ld .final-card h2{color:var(--c-on-block);max-width:680px;margin:0 auto 16px;font-size:clamp(34px,4.6vw,56px)}
-.ld .final-card>p{color:var(--c-on-block-soft);font-size:16.5px;margin-bottom:30px}
+/* cierre */
+.ld .final{padding:96px 24px 0}
+.ld .final-card{background:var(--c-block);border-radius:28px;padding:96px 48px;text-align:center}
+.ld .final-card h2{color:var(--c-on-block);max-width:640px;margin:0 auto}
+.ld .final-card p{color:var(--c-on-block-soft);font-size:18px;line-height:28px;margin:16px auto 32px;max-width:30rem}
 .ld .final-fine{font-size:13px;color:var(--c-on-block-faint);margin-top:16px}
-.ld .wordmark{font-size:clamp(64px,17vw,240px);font-weight:800;letter-spacing:-0.055em;color:var(--c-on-block);line-height:.82;margin-top:44px;user-select:none}
 
 /* footer */
 /* El padding de abajo le deja aire al botón flotante de WhatsApp (58px de alto
    + 24px del borde). Sin esto el FAB se come el final del "© 2026 Turnito". */
-.ld footer{padding:26px 20px 96px}
-.ld .foot-in{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
-.ld .foot-links{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
-.ld .foot-in span,.ld .foot-links a,.ld .foot-links button{font-size:13.5px;color:var(--c-muted)}
+.ld footer{padding:32px 24px 96px}
+.ld .foot-in{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.ld .foot-links{display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.ld .foot-in span,.ld .foot-links a,.ld .foot-links button{font-size:14px;color:var(--c-muted)}
 /* "Contacto" abre un modal, así que es un button y no un link: hay que sacarle
    el fondo y el borde que le pone el navegador para que se vea igual que los otros. */
-.ld .foot-links button{background:none;border:none;font-family:inherit;font-weight:400;cursor:pointer;line-height:inherit}
-.ld .foot-links a:hover,.ld .foot-links button:hover{color:var(--c-accent)}
-.ld .foot-links a:focus-visible,.ld .foot-links button:focus-visible{outline:2px solid var(--c-accent);outline-offset:3px;border-radius:3px}
+.ld .foot-links button{background:none;border:none;font-weight:400;line-height:inherit}
+.ld .foot-links a:hover,.ld .foot-links button:hover{color:var(--c-ink)}
 
-@media(max-width:1000px){
-  .ld .stage{grid-template-columns:1fr;padding:40px 26px 0;gap:24px}
-  .ld .stage-l,.ld .stage-r{padding-bottom:0;align-items:flex-start}
-  .ld .stage-r{padding-bottom:40px}
-  .ld .phone{margin:0 auto}
-  .ld .fgrid{grid-template-columns:repeat(2,1fr)}
-  .ld .steps{grid-template-columns:1fr}
+@media(max-width:1080px){
+  .ld .hero-in{grid-template-columns:1fr;gap:40px}
   .ld .nav-links{display:none}
-  .ld .about,.ld .feat-wrap{padding:44px 26px}
-  .ld .sec-head{flex-direction:column;align-items:flex-start}
-  .ld .statrow{gap:30px}
+  .ld .fpanel{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .ld .fcell:nth-child(3){border-left:none}
+  .ld .fcell:nth-child(n+3){border-top:1px solid var(--c-line)}
+  .ld .faq-grid{grid-template-columns:1fr;gap:32px}
 }
-@media(max-width:560px){
-  .ld .fgrid{grid-template-columns:1fr}
-  .ld section{padding:64px 20px}
+@media(max-width:720px){
+  .ld .hero{padding-top:40px}
+  .ld .stage{height:auto;padding:16px;border-radius:24px}
+  .ld .scene{display:flex;flex-direction:column;align-items:center;margin-top:16px}
+  .ld .phone{position:relative;left:auto;bottom:auto;width:264px;margin-bottom:-24px}
+  .ld .screen{height:auto}
+  .ld .next-wrap{position:relative;right:auto;top:auto;width:100%;max-width:300px;margin-top:-64px;z-index:2}
+  .ld .next-cap{display:none}
+  .ld section,.ld .final{padding:64px 16px 0}
+  .ld .hero,.ld footer{padding-left:16px;padding-right:16px}
+  .ld nav{padding:0 16px}
+  .ld .about{padding:32px 24px}
+  .ld .statrow{gap:16px;margin-top:32px;padding-top:24px}
+  .ld .stat b{font-size:28px}
+  .ld .stat span{font-size:13px;line-height:18px}
+  .ld .fpanel{grid-template-columns:1fr}
+  .ld .fcell{border-left:none;padding:24px}
+  .ld .fcell+.fcell{border-top:1px solid var(--c-line)}
+  .ld .steps{grid-template-columns:1fr;gap:32px}
+  .ld .step{padding-top:0;padding-left:48px}
+  .ld .step::before{top:40px;bottom:-32px;left:16px;right:auto;width:1px;height:auto}
+  .ld .final-card{padding:64px 24px;border-radius:24px}
+  .ld .sec-head{flex-direction:column;align-items:flex-start;gap:16px}
 }
 `;
 
-const hover = { whileHover: { scale: 1.03 }, whileTap: { scale: 0.97 } };
-const cardHover = { whileHover: { y: -6, transition: { duration: 0.2 } } };
+// Entrada al scrollear: un fade y 12px de subida, sin spring ni escala.
+const rise: Variants = {
+  hidden: { opacity: 0, y: 12 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.5, ease: EASE } },
+};
+const riseGroup: Variants = {
+  hidden: {},
+  show: { transition: { staggerChildren: 0.05 } },
+};
 
-// El mockup rota entre rubros: es el argumento más directo de que Turnito
-// dejó de ser sólo para barberías.
+// El ejemplo cambia de rubro: es el argumento más directo de que Turnito
+// dejó de ser sólo para barberías. Lo que reserva el cliente en el teléfono
+// es lo mismo que aparece en la tarjeta "Siguiente" del panel, así las dos
+// mitades del ejemplo cuentan una sola historia.
 const MOCKS = [
   {
-    tag: "UÑAS",
+    rubro: "Uñas",
     shop: "Bloom Nails",
     slug: "bloom-nails",
     svc: [
@@ -202,9 +230,11 @@ const MOCKS = [
       ["Kapping", "$12.000"],
       ["Soft gel", "$15.000"],
     ],
+    cliente: "Martina Ruiz",
+    dura: "1 h",
   },
   {
-    tag: "BARBERÍA",
+    rubro: "Barbería",
     shop: "Barbería El Toro",
     slug: "el-toro",
     svc: [
@@ -212,9 +242,11 @@ const MOCKS = [
       ["Barba", "$2.000"],
       ["Combo", "$5.000"],
     ],
+    cliente: "Lucas Ferreyra",
+    dura: "30 min",
   },
   {
-    tag: "TATUAJES",
+    rubro: "Tatuajes",
     shop: "Tinta Negra",
     slug: "tinta-negra",
     svc: [
@@ -222,9 +254,11 @@ const MOCKS = [
       ["Diseño", "$6.000"],
       ["Retoque", "$4.000"],
     ],
+    cliente: "Agustina Paz",
+    dura: "3 h",
   },
   {
-    tag: "PESTAÑAS",
+    rubro: "Pestañas",
     shop: "Estudio Mirada",
     slug: "estudio-mirada",
     svc: [
@@ -232,28 +266,127 @@ const MOCKS = [
       ["Extensiones", "$14.000"],
       ["Cejas", "$5.000"],
     ],
+    cliente: "Sofía Medina",
+    dura: "1 h",
+  },
+  {
+    rubro: "Peluquería",
+    shop: "Peluquería Rulos",
+    slug: "rulos",
+    svc: [
+      ["Corte", "$4.500"],
+      ["Color", "$12.000"],
+      ["Brushing", "$3.000"],
+    ],
+    cliente: "Valentina Gómez",
+    dura: "45 min",
   },
 ];
 
-const RUBROS_PILLS = [
-  ["💈", "Barberías"],
-  ["💅", "Uñas"],
-  ["👁️", "Pestañas y cejas"],
-  ["🖋️", "Tatuajes"],
-  ["✂️", "Peluquerías"],
+// Íconos de línea (trazos de lucide, ISC). Un solo tamaño y un solo trazo.
+function Icon({ children, size = 20 }: { children: ReactNode; size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  );
+}
+const IconLink = () => (
+  <Icon>
+    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+  </Icon>
+);
+const IconCalendarCheck = () => (
+  <Icon>
+    <path d="M8 2v4" /><path d="M16 2v4" />
+    <rect width="18" height="18" x="3" y="4" rx="2" />
+    <path d="M3 10h18" /><path d="m9 16 2 2 4-4" />
+  </Icon>
+);
+const IconTicket = () => (
+  <Icon>
+    <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+    <path d="M13 5v2" /><path d="M13 17v2" /><path d="M13 11v2" />
+  </Icon>
+);
+const IconUsers = () => (
+  <Icon>
+    <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+    <circle cx="9" cy="7" r="4" />
+    <path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
+  </Icon>
+);
+const IconPlus = () => (
+  <Icon size={18}><path d="M5 12h14" /><path d="M12 5v14" /></Icon>
+);
+const IconCheck = () => (
+  <Icon size={16}><path d="M20 6 9 17l-5-5" /></Icon>
+);
+
+const FEATURES = [
+  {
+    icon: <IconLink />,
+    h: "Tu link propio",
+    p: <><span className="mono">{SITE_DOMAIN}/tu-negocio</span>. El cliente entra, ve tus horarios libres reales y reserva en menos de un minuto. Sin registro ni contraseñas.</>,
+  },
+  {
+    icon: <IconCalendarCheck />,
+    h: "Agenda que se ordena sola",
+    p: "Cada reserva cae en su lugar y el horario ocupado se bloquea al instante para todos los demás.",
+  },
+  {
+    icon: <IconTicket />,
+    h: "Comprobante al instante",
+    p: "Apenas reserva, tu cliente recibe un link propio con los datos del turno para verlo o cancelarlo cuando quiera.",
+  },
+  {
+    icon: <IconUsers />,
+    h: "Varias agendas a la vez",
+    p: "Si son más de uno, cada persona del equipo tiene su propia agenda y su propio horario libre.",
+  },
 ];
+
+const STEPS = [
+  ["Configurá tu negocio", "Elegís a qué te dedicás y te precargamos los servicios típicos de tu rubro. Ajustás precios y horarios una sola vez."],
+  ["Compartí tu link", <>Te damos tu dirección propia: <span className="mono">{SITE_DOMAIN}/tu-negocio</span>. La ponés donde ya hablás con tus clientes.</>],
+  ["Atendé con la agenda abierta", "Tu panel te muestra quién sigue, qué pidió y a qué hora. Un botón para el siguiente y eso es todo."],
+] as const;
+
+const FAQS = [
+  ["¿Sirve si no tengo una barbería?", "Sí — Turnito es para cualquier negocio que trabaje con turnos: uñas, pestañas y cejas, tatuajes, peluquería, barbería. Al crear tu cuenta elegís a qué te dedicás y la app se acomoda: te precarga los servicios típicos de tu rubro y habla tu idioma."],
+  ["¿Mis clientes tienen que crearse una cuenta?", "No. Reservan con su nombre y su teléfono, y al confirmar reciben un link propio para ver o cancelar su turno. Cero contraseñas."],
+  ["Mis sesiones duran varias horas, ¿entra?", "Sí. Un servicio puede durar desde 15 minutos hasta 8 horas, así que una sesión larga de tatuaje ocupa el bloque completo y nadie te puede reservar encima."],
+  ["¿Y si no tengo un precio fijo?", "Podés dejar un servicio en \"a consultar\" en vez de poner un número. El cliente reserva igual y el precio lo arreglan entre ustedes."],
+  ["¿Qué pasa si un cliente cancela?", "El horario se libera automáticamente y vuelve a estar disponible para cualquier otra persona. Vos lo ves reflejado en tu agenda al instante."],
+  ["¿Sirve si trabajo sola?", "Sí, y es el caso más simple: una agenda, tus horarios, tu link. Si algún día sumás gente, cargás al equipo y cada uno pasa a tener su propia agenda sin que tengas que rehacer nada."],
+  ["¿Necesito saber de tecnología?", "Si sabés usar WhatsApp, sabés usar Turnito. La configuración son cuatro pantallas guiadas y el uso diario es una sola: la agenda del día."],
+  ["¿Cómo se paga? ¿Hay permanencia?", "Por Mercado Pago, mes a mes. Sin contrato: si un mes no lo querés pagar, se pausa y tus datos quedan guardados."],
+];
+
+const swap = {
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0 },
+  exit: { opacity: 0, y: -6 },
+  transition: { duration: 0.3, ease: EASE },
+};
 
 export default function LandingPage() {
   const [mock, setMock] = useState(0);
+  // El ejemplo rota solo hasta que el visitante elige un rubro. Desde ahí
+  // manda él: que le cambie la pantalla mientras la está mirando molesta.
+  const [rotando, setRotando] = useState(true);
   const [contactOpen, setContactOpen] = useState(false);
 
   useEffect(() => {
-    const id = setInterval(() => setMock((m) => (m + 1) % MOCKS.length), 3400);
+    if (!rotando) return;
+    const id = setInterval(() => setMock((m) => (m + 1) % MOCKS.length), 4000);
     return () => clearInterval(id);
-  }, []);
+  }, [rotando]);
 
   // Estable entre renders. El intervalo de acá arriba re-renderiza la landing
-  // cada 3,4 segundos: si esto fuera una arrow suelta, cada rotación le pasaría
+  // cada 4 segundos: si esto fuera una arrow suelta, cada rotación le pasaría
   // una función nueva al modal. ContactModal ya no se rompe por eso, pero no
   // tiene sentido hacerlo trabajar de más.
   const cerrarContacto = useCallback(() => setContactOpen(false), []);
@@ -266,102 +399,87 @@ export default function LandingPage() {
       <style dangerouslySetInnerHTML={{ __html: css }} />
 
       {/* NAV */}
-      <motion.nav
-        initial={{ y: -30, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.5, ease: EASE }}
-      >
-        <div className="nav-in">
-          <Link className="logo" href="#"><LogoMark size={26} /> turnito</Link>
+      <nav>
+        <div className="nav-in wrap">
+          <Link className="logo" href="#"><LogoMark size={24} /> turnito</Link>
           <div className="nav-links">
             <a href="#rubros">Para quién es</a>
             <a href="#features">Qué incluye</a>
             <a href="#como">Cómo funciona</a>
             <a href="#faq">Preguntas</a>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="nav-r">
             <ThemeToggle />
-            <motion.div {...hover}>
-              <Link className="pill" href="/login">Empezar gratis</Link>
-            </motion.div>
+            <Link className="btn btn-primary btn-sm" href="/login">Probar gratis</Link>
           </div>
         </div>
-      </motion.nav>
+      </nav>
 
       {/* HERO */}
       <header className="hero">
-        <div className="hero-in">
-          <motion.div variants={stagger} initial="hidden" animate="show">
-            <motion.div className="eyebrow" variants={fadeUp}>
-              <b>30 días gratis</b> Sin tarjeta, sin permanencia
-            </motion.div>
-            {/* El titular entra palabra por palabra, no de una. Es lo primero
-                que ve un visitante y es donde más rinde: el ojo sigue la
-                cascada hasta "solos.", que es la promesa entera del producto. */}
+        <div className="hero-in wrap">
+          <div>
+            {/* El titular entra palabra por palabra: es la única entrada de la
+                página al cargar. "solos" va en azul porque es la promesa
+                entera del producto. */}
             <SplitText
               as="h1"
               className="display"
-              delay={0.12}
+              delay={0.1}
               stagger={0.07}
-              highlight="solos."
+              highlight="solos"
               highlightClassName="b"
-              highlightSpin
             >
-              Tus turnos, solos.
+              Tus turnos, solos
             </SplitText>
-            <motion.div className="hero-sub" variants={fadeUp}>
-              <p>
+            <motion.div
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.5, ease: EASE, delay: 0.35 }}
+            >
+              <p className="hero-sub">
                 Barbería, uñas, pestañas, tatuajes o peluquería: tus clientes reservan
                 desde un link, sin crearse cuentas ni descargar nada. Vos abrís el panel
                 y sabés exactamente quién sigue.
               </p>
               <div className="hero-ctas">
-                <motion.div {...hover}>
-                  <Link className="pill" href="/login">Probar 30 días gratis <span>→</span></Link>
-                </motion.div>
-                <motion.div {...hover}>
-                  <a className="pill ghost" href="#como">Ver cómo funciona ↓</a>
-                </motion.div>
+                <Link className="btn btn-primary" href="/login">Probar 30 días gratis</Link>
+                <a className="btn btn-ghost" href="#como">Ver cómo funciona</a>
               </div>
+              <p className="hero-fine">Sin tarjeta y sin permanencia</p>
             </motion.div>
-          </motion.div>
+          </div>
 
-          {/* bloque azul con el teléfono */}
+          {/* Escenario: a la izquierda reserva el cliente, a la derecha lo ves vos */}
           <motion.div
+            id="rubros"
             className="stage"
-            initial={{ opacity: 0, y: 40 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.7, ease: EASE, delay: 0.15 }}
+            transition={{ duration: 0.6, ease: EASE, delay: 0.2 }}
           >
-            <div className="stage-l">
-              <div className="qcard">
-                <h4>Tu link propio</h4>
-                <p>Lo ponés en el bio de Instagram o lo mandás por WhatsApp. Eso es toda la instalación.</p>
-              </div>
+            <div className="tabs" role="group" aria-label="Ver el ejemplo de un negocio de">
+              {MOCKS.map((x, i) => (
+                <button
+                  key={x.rubro}
+                  type="button"
+                  className="tab"
+                  aria-pressed={i === mock}
+                  onClick={() => { setMock(i); setRotando(false); }}
+                >
+                  {x.rubro}
+                </button>
+              ))}
             </div>
 
-            <motion.div
-              animate={{ y: [0, -10, 0] }}
-              transition={{ duration: 4.5, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <div className="phone">
+            <div className="scene">
+              <div className="phone" aria-label={`Pantalla de reserva de ${m.shop}`} role="img">
                 <div className="notch" />
                 <div className="screen">
                   <AnimatePresence mode="wait">
-                    <motion.div
-                      key={m.shop}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -10 }}
-                      transition={{ duration: 0.32, ease: EASE }}
-                    >
-                      <div className="scr-head">
-                        <div>
-                          <div className="scr-shop">{m.shop}</div>
-                          <div className="scr-sub">{SITE_DOMAIN}/{m.slug}</div>
-                        </div>
-                        <div className="scr-badge">{m.tag}</div>
-                      </div>
+                    <motion.div key={m.shop} {...swap}>
+                      <div className="scr-shop">{m.shop}</div>
+                      <div className="scr-sub">{SITE_DOMAIN}/{m.slug}</div>
                       <div className="scr-label">Servicio</div>
                       <div className="chiprow">
                         {m.svc.map(([n, p], i) => (
@@ -388,44 +506,42 @@ export default function LandingPage() {
                     <div className="slot">12:00</div><div className="slot on">14:15</div>
                     <div className="slot">15:00</div><div className="slot">15:45</div>
                   </div>
-                  <div className="scr-btn">Confirmar turno →</div>
+                  <div className="scr-btn">Confirmar turno</div>
                 </div>
               </div>
-            </motion.div>
 
-            <div className="stage-r">
-              <div className="stat-b" style={{ textAlign: "right" }}>
-                <b>24/7</b><span>reservas abiertas</span>
-              </div>
-              <div className="qcard">
-                <h4>Se agenda solo</h4>
-                <p>El horario se bloquea al instante para todos los demás. Vos no tocás nada.</p>
+              <div className="next-wrap">
+                <p className="next-cap">En tu panel, al instante</p>
+                <div className="next" role="img" aria-label={`Tarjeta del panel: sigue ${m.cliente} a las 14:15`}>
+                  <div className="next-top">Siguiente <span>Hoy</span></div>
+                  <AnimatePresence mode="wait">
+                    <motion.div key={m.shop} className="next-row" {...swap}>
+                      <div className="next-time">14:15</div>
+                      <div style={{ minWidth: 0 }}>
+                        <div className="next-name">{m.cliente}</div>
+                        <div className="next-svc">{m.svc[0][0]} · {m.dura}</div>
+                      </div>
+                    </motion.div>
+                  </AnimatePresence>
+                  <div className="next-btn"><IconCheck /> Listo, siguiente</div>
+                </div>
               </div>
             </div>
           </motion.div>
-
-          {/* rubros */}
-          <div id="rubros">
-            <RevealGroup className="rubros" variants={staggerFast}>
-              {RUBROS_PILLS.map(([e, t]) => (
-                <Item key={t} variants={fadeUp}>
-                  <div className="rub"><span>{e}</span>{t}</div>
-                </Item>
-              ))}
-            </RevealGroup>
-          </div>
         </div>
       </header>
 
-      {/* SOBRE */}
+      {/* QUÉ ES */}
       <section>
         <div className="wrap">
-          <Reveal variants={scaleIn}>
+          {/* amount bajo: el borde de esta tarjeta asoma en el primer pantallazo
+              y tiene que estar ahí, no aparecer recién al scrollear. */}
+          <Reveal variants={rise} amount={0.1}>
             <div className="about">
-              <div className="kicker">Qué es Turnito</div>
+              <div className="label">Qué es Turnito</div>
               <p className="lead">
-                Una agenda que <i>trabaja sola</i>. Sin planillas, sin cadenas de WhatsApp
-                a las once de la noche, sin turnos <i>anotados en un papel</i> que después
+                <b>Una agenda que trabaja sola.</b> Sin planillas, sin cadenas de WhatsApp
+                a las once de la noche, sin turnos anotados en un papel que después
                 nadie encuentra.
               </p>
               <div className="statrow">
@@ -442,60 +558,43 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* FEATURES */}
-      <section id="features" style={{ paddingTop: 0 }}>
+      {/* QUÉ INCLUYE */}
+      <section id="features">
         <div className="wrap">
-          <Reveal variants={scaleIn}>
-            <div className="feat-wrap">
-              <div className="sec-head">
-                <div>
-                  <div className="kicker">Qué incluye</div>
-                  <h2 className="dot">Todo lo que necesitás. Nada que te sobre</h2>
-                </div>
-                <p>Una sola herramienta con un solo trabajo: que tu agenda se llene sola y vos sólo tengas que atender.</p>
-              </div>
-              <RevealGroup className="fgrid">
-                {[
-                  ["01.", "Tu link propio", `${SITE_DOMAIN}/tu-negocio. El cliente entra, ve tus horarios libres reales y reserva en menos de un minuto. Sin registro ni contraseñas.`, false],
-                  ["02.", "Agenda que se ordena sola", "Cada reserva cae en su lugar y el horario ocupado se bloquea al instante para todos los demás.", true],
-                  ["03.", "Comprobante al instante", "Apenas reserva, tu cliente recibe un link propio con los datos del turno para verlo o cancelarlo cuando quiera.", false],
-                  ["04.", "Varias agendas a la vez", "Si son más de uno, cada persona del equipo tiene su propia agenda y su propio horario libre.", false],
-                ].map(([n, h, p, lime]) => (
-                  <Item key={n as string} variants={scaleIn}>
-                    <motion.div className={`fcard${lime ? " lime" : ""}`} {...cardHover}>
-                      <div className="n">{n}</div>
-                      <h3>{h}</h3>
-                      <p>{p}</p>
-                    </motion.div>
-                  </Item>
-                ))}
-              </RevealGroup>
+          <Reveal variants={rise} className="sec-head">
+            <div>
+              <div className="label">Qué incluye</div>
+              <h2>Lo que hace Turnito mientras vos atendés</h2>
             </div>
+            <p>Una sola herramienta con un solo trabajo: que tu agenda se llene sola.</p>
           </Reveal>
+          <RevealGroup className="fpanel" variants={riseGroup}>
+            {FEATURES.map((f) => (
+              <Item key={f.h} variants={rise} className="fcell">
+                <div className="ficon">{f.icon}</div>
+                <h3>{f.h}</h3>
+                <p>{f.p}</p>
+              </Item>
+            ))}
+          </RevealGroup>
         </div>
       </section>
 
       {/* CÓMO FUNCIONA */}
-      <section id="como" style={{ paddingTop: 0 }}>
+      <section id="como">
         <div className="wrap">
-          <div className="sec-head">
-            <Reveal>
-              <div className="kicker">Cómo funciona</div>
-              <h2 className="dot dot-b">De cero a recibir turnos en tres pasos</h2>
-            </Reveal>
-          </div>
-          <RevealGroup className="steps">
-            {[
-              ["01", "Configurá tu negocio", <>Elegís a qué te dedicás y te precargamos los servicios típicos de tu rubro. Ajustás precios y horarios: <span className="mono">~15 minutos</span>, una sola vez.</>],
-              ["02", "Compartí tu link", <>Te damos tu dirección propia: <span className="mono">{SITE_DOMAIN}/tu-negocio</span>. La ponés donde ya hablás con tus clientes.</>],
-              ["03", "Atendé con la agenda abierta", <>Tu panel te muestra quién sigue, qué pidió y a qué hora. Un botón para el siguiente. <span className="mono">Eso es todo.</span></>],
-            ].map(([n, h, p], i) => (
-              <Item key={i as number} variants={fadeUp}>
-                <div className="step">
-                  <div className="badge">{n}</div>
-                  <h3>{h}</h3>
-                  <p>{p}</p>
-                </div>
+          <Reveal variants={rise} className="sec-head">
+            <div>
+              <div className="label">Cómo funciona</div>
+              <h2>De cero a recibir turnos en tres pasos</h2>
+            </div>
+          </Reveal>
+          <RevealGroup className="steps" variants={riseGroup}>
+            {STEPS.map(([h, p], i) => (
+              <Item key={h} variants={rise} className="step">
+                <div className="step-n">{i + 1}</div>
+                <h3>{h}</h3>
+                <p>{p}</p>
               </Item>
             ))}
           </RevealGroup>
@@ -503,57 +602,41 @@ export default function LandingPage() {
       </section>
 
       {/* FAQ */}
-      <section id="faq" style={{ paddingTop: 0 }}>
-        <div className="wrap">
-          <div className="sec-head" style={{ marginBottom: 34 }}>
-            <Reveal>
-              <div className="kicker">Preguntas</div>
-              <h2 className="dot dot-b">Antes de arrancar</h2>
-            </Reveal>
-          </div>
-          <RevealGroup className="faq">
-            {[
-              ["¿Sirve si no tengo una barbería?", "Sí — Turnito es para cualquier negocio que trabaje con turnos: uñas, pestañas y cejas, tatuajes, peluquería, barbería. Al crear tu cuenta elegís a qué te dedicás y la app se acomoda: te precarga los servicios típicos de tu rubro y habla tu idioma."],
-              ["¿Mis clientes tienen que crearse una cuenta?", "No. Reservan con su nombre y su teléfono, y al confirmar reciben un link propio para ver o cancelar su turno. Cero contraseñas."],
-              ["Mis sesiones duran varias horas, ¿entra?", "Sí. Un servicio puede durar desde 15 minutos hasta 8 horas, así que una sesión larga de tatuaje ocupa el bloque completo y nadie te puede reservar encima."],
-              ["¿Y si no tengo un precio fijo?", "Podés dejar un servicio en \"a consultar\" en vez de poner un número. El cliente reserva igual y el precio lo arreglan entre ustedes."],
-              ["¿Qué pasa si un cliente cancela?", "El horario se libera automáticamente y vuelve a estar disponible para cualquier otra persona. Vos lo ves reflejado en tu agenda al instante."],
-              ["¿Sirve si trabajo sola?", "Sí, y es el caso más simple: una agenda, tus horarios, tu link. Si algún día sumás gente, cargás al equipo y cada uno pasa a tener su propia agenda sin que tengas que rehacer nada."],
-              ["¿Necesito saber de tecnología?", "Si sabés usar WhatsApp, sabés usar Turnito. La configuración son cuatro pantallas guiadas y el uso diario es una sola: la agenda del día."],
-              ["¿Cómo se paga? ¿Hay permanencia?", "Por Mercado Pago, mes a mes. Sin contrato: si un mes no lo querés pagar, se pausa y tus datos quedan guardados."],
-            ].map(([q, a]) => (
-              <Item key={q} variants={fadeUp}>
-                <details><summary>{q} <span className="plus">+</span></summary><div className="ans">{a}</div></details>
+      <section id="faq">
+        <div className="wrap faq-grid">
+          <Reveal variants={rise}>
+            <div className="label">Preguntas</div>
+            <h2>Antes de arrancar</h2>
+          </Reveal>
+          <RevealGroup className="faq" variants={riseGroup}>
+            {FAQS.map(([q, a]) => (
+              <Item key={q} variants={rise}>
+                <details>
+                  <summary>{q} <span className="plus"><IconPlus /></span></summary>
+                  <div className="ans">{a}</div>
+                </details>
               </Item>
             ))}
           </RevealGroup>
         </div>
       </section>
 
-      {/* CTA FINAL */}
+      {/* CIERRE */}
       <div className="final">
-        <Reveal variants={scaleIn}>
+        <Reveal variants={rise} className="wrap">
           <div className="final-card">
-            {/* El otro momento del video, además del hero: acá es donde se
-                decide. La cascada se dispara al entrar en viewport, no al
-                montar, porque esta sección vive al fondo de la página. */}
-            <SplitText as="h2" onScroll stagger={0.045}>
-              Tu próximo turno se reserva solo.
-            </SplitText>
-            <p>Configurá tu negocio hoy y probalo 30 días con tus clientes reales.</p>
-            <motion.div {...hover} style={{ display: "inline-block" }}>
-              <Link className="pill lime" href="/login">Crear mi cuenta gratis <span>→</span></Link>
-            </motion.div>
-            <div className="final-fine">Sin tarjeta · Sin permanencia · Configuración en 15 minutos</div>
-            <div className="wordmark">turnito</div>
+            <h2>Tu próximo turno se reserva solo</h2>
+            <p>Configurá tu negocio hoy y probalo con tus clientes reales.</p>
+            <Link className="btn btn-on-block" href="/login">Probar 30 días gratis</Link>
+            <div className="final-fine">Sin tarjeta y sin permanencia</div>
           </div>
         </Reveal>
       </div>
 
       {/* FOOTER */}
       <footer>
-        <div className="foot-in">
-          <Link className="logo" href="#" style={{ fontSize: 16 }}><LogoMark size={22} /> turnito</Link>
+        <div className="foot-in wrap">
+          <Link className="logo" href="#" style={{ fontSize: 16 }}><LogoMark size={20} /> turnito</Link>
           <div className="foot-links">
             <button type="button" onClick={() => setContactOpen(true)}>Contacto</button>
             <a href={WHATSAPP_URL} target="_blank" rel="noopener noreferrer">WhatsApp</a>
